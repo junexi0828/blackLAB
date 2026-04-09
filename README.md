@@ -6,12 +6,12 @@
 
 ## 🏗 The 3D Metaverse Campus (Console)
 
-A high-tech, Apple-inspired 3D visualization that provides a "god-view" of your AI company in motion. Located at `http://127.0.0.1:8000/console`.
+A high-tech, **Apple-inspired** 3D visualization that provides a "god-view" of your AI company in motion. Located at `http://127.0.0.1:8000/console`.
 
-- **Architectural Diversity**: Specialized building shapes for each department (Cylinders for Design, Pyramids for Growth, Hexagons for Engineering).
-- **AgentRovers**: Autonomous low-poly bots that transport data packets between departments in real-time.
-- **Dynamic Illumination**: Internal "server rack" lighting that syncs with real-time AI processing activity.
-- **Atmospheric Visualization**: Bright, modern daylight aesthetic with smooth animations and high-performance instanced rendering.
+- **Architectural Diversity**: Specialized building shapes for each department (Cylinders for Design, Pyramids for Growth, Hexagons for Engineering, and Boxes for CEO/Finance) to give the campus a modern, silicon-valley feel.
+- **AgentRovers**: Cute autonomous low-poly bots that transport data packets between departments in real-time.
+- **Dynamic Illumination**: Internal "server rack" lighting that syncs with real-time AI processing activity, now perfectly nested within the building geometries.
+- **Atmospheric Visualization**: Bright, modern daylight aesthetic with smooth transitions, soft fog, and high-performance instanced rendering.
 
 ---
 

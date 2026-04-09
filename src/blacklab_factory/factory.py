@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+from collections import Counter
 from threading import Lock
 from typing import Callable
 import time
@@ -9,7 +10,8 @@ from pathlib import Path
 from blacklab_factory.agents import DepartmentRunHooks, build_agent
 from blacklab_factory.config import load_company_config, repo_root
 from blacklab_factory.models import CompanyConfig, DepartmentConfig, ProcessRecord, RunMode, RunSettings, RunState, StepRecord, utc_now
-from blacklab_factory.storage import RunStorage
+from blacklab_factory.resources import RuntimeResourceManager
+from blacklab_factory.storage import ProjectStorage, RunStorage
 
 
 class FactoryRunner:
@@ -17,6 +19,8 @@ class FactoryRunner:
         self.config = config or load_company_config()
         base = storage_root or (repo_root() / ".factory")
         self.storage = RunStorage(base)
+        self.projects = ProjectStorage(base)
+        self.resource_manager = RuntimeResourceManager()
 
     def start(
         self,
@@ -26,7 +30,9 @@ class FactoryRunner:
         max_parallel_departments: int | None = None,
         run_settings: RunSettings | None = None,
         on_run_created: Callable[[RunState], None] | None = None,
+        project_slug: str | None = None,
     ) -> RunState:
+        normalized_project_slug = self.projects.normalize_slug(project_slug) if project_slug else None
         selected_mode = mode or self.config.default_mode
         parallel_limit = max(1, max_parallel_departments or self.config.max_parallel_departments)
         effective_settings = (run_settings.model_copy(deep=True) if run_settings else RunSettings())
@@ -48,37 +54,79 @@ class FactoryRunner:
             steps=steps,
             settings=effective_settings,
         )
+        state.project_slug = normalized_project_slug
         state.status = "running"
         state.current_status = "Run queued and preparing the first execution wave."
         state.next_action = "The first ready departments are preparing their execution packets."
+        state.metrics["requested_parallel_departments"] = parallel_limit
         self.storage.save_state(state)
         if on_run_created is not None:
             on_run_created(state)
         self.storage.append_log(state.run_id, f"Run started in {selected_mode} mode for mission: {mission}")
+
+        # ── Project: load context + memory and ensure project exists ────────
+        project_context = ""
+        if normalized_project_slug:
+            # Auto-create the project record if it doesn't exist yet
+            if not self.projects.get_project(normalized_project_slug):
+                self.projects.create_project(
+                    slug=normalized_project_slug,
+                    name=normalized_project_slug.replace("-", " ").title(),
+                )
+            project = self.projects.get_project(normalized_project_slug)
+            if project:
+                state.project_name = project.name
+            project_context = self.projects.build_project_prompt_block(normalized_project_slug)
+            self.storage.append_log(
+                state.run_id,
+                f"Project '{normalized_project_slug}' context loaded ({len(project_context)} chars).",
+            )
 
         agent = build_agent(selected_mode)
         step_by_key = {step.department_key: step for step in state.steps}
         completed_keys: set[str] = set()
         lock = Lock()
         active_step: StepRecord | None = None
+        last_effective_parallel_limit: int | None = None
 
         try:
             with ThreadPoolExecutor(max_workers=parallel_limit) as executor:
                 futures: dict[Future, tuple[StepRecord, object]] = {}
 
                 while len(completed_keys) < len(workflow_departments):
-                    for department in workflow_departments:
+                    resource_snapshot = self.resource_manager.snapshot(
+                        requested_parallelism=parallel_limit,
+                        active_workers=len(futures),
+                    )
+                    state.metrics["effective_parallel_departments"] = resource_snapshot.effective_parallelism
+                    state.metrics["resource_cpu_count"] = resource_snapshot.cpu_count
+                    state.metrics["resource_load_ratio"] = resource_snapshot.load_ratio or 0
+                    state.metrics["resource_memory_available_mb"] = resource_snapshot.memory_available_mb or 0
+                    state.metrics["resource_memory_total_mb"] = resource_snapshot.memory_total_mb or 0
+                    state.metrics["resource_memory_available_ratio"] = resource_snapshot.memory_available_ratio or 0
+                    state.metrics["resource_governor_reason"] = resource_snapshot.reason
+                    if last_effective_parallel_limit != resource_snapshot.effective_parallelism:
+                        self.storage.append_log(
+                            state.run_id,
+                            (
+                                "Orchestrator adjusted effective parallelism to "
+                                f"{resource_snapshot.effective_parallelism}/{parallel_limit}. "
+                                f"{resource_snapshot.reason}"
+                            ),
+                        )
+                        last_effective_parallel_limit = resource_snapshot.effective_parallelism
+
+                    active_departments = [department for _, department in futures.values()]
+                    launch_wave = self._select_departments_for_launch(
+                        workflow_departments=workflow_departments,
+                        step_by_key=step_by_key,
+                        completed_keys=completed_keys,
+                        base_department_keys=base_department_keys,
+                        active_departments=active_departments,
+                        parallel_limit=resource_snapshot.effective_parallelism,
+                    )
+                    for department in launch_wave:
                         step = step_by_key[department.key]
-                        if step.status != "pending":
-                            continue
-                        if len(futures) >= parallel_limit:
-                            break
-                        if not self._department_is_runnable(
-                            department=department,
-                            completed_keys=completed_keys,
-                            base_department_keys=base_department_keys,
-                        ):
-                            continue
 
                         step.status = "running"
                         step.started_at = utc_now()
@@ -90,7 +138,21 @@ class FactoryRunner:
 
                         hooks = self._build_hooks(state=state, department_label=department.label, lock=lock)
                         snapshot = state.model_copy(deep=True)
-                        future = executor.submit(agent.run, self.config, department, snapshot, hooks)
+                        # Use project shared workspace if project_slug is set;
+                        # otherwise fall back to the run-scoped sandbox.
+                        if normalized_project_slug:
+                            workspace = self.projects.workspace_dir(normalized_project_slug)
+                        else:
+                            workspace = self.storage.workspace_dir(state.run_id)
+                        future = executor.submit(
+                            agent.run,
+                            self.config,
+                            department,
+                            snapshot,
+                            hooks,
+                            workspace,
+                            project_context,
+                        )
                         futures[future] = (step, department)
 
                     if not futures:
@@ -157,6 +219,50 @@ class FactoryRunner:
         state.next_action = "Inspect dashboard, decide whether to launch another run, or tighten the company config."
         self.storage.save_state(state)
         self.storage.append_log(state.run_id, "Run completed.")
+
+        # ── Project: seed foundation once, refresh live context every run, append memory ─
+        if normalized_project_slug:
+            board_artifact = next(
+                (a for a in state.artifacts if "board" in a.department_key.lower()),
+                None,
+            )
+            foundation_source = board_artifact or next(
+                (a for a in state.artifacts if "ceo" in a.department_key.lower()),
+                state.artifacts[-1] if state.artifacts else None,
+            )
+            existing_ctx = self.projects.read_context(normalized_project_slug)
+            if not existing_ctx.strip() and foundation_source:
+                raw = self.storage.read_artifact(foundation_source.path)
+                self.projects.write_context(normalized_project_slug, raw)
+                self.storage.append_log(
+                    state.run_id,
+                    f"Project '{normalized_project_slug}' foundation seeded from {foundation_source.title}.",
+                )
+            if foundation_source:
+                live_raw = self.storage.read_artifact(foundation_source.path)
+                self.projects.write_live_context(
+                    normalized_project_slug,
+                    run_id=state.run_id,
+                    title=foundation_source.title,
+                    content=live_raw,
+                )
+                self.storage.append_log(
+                    state.run_id,
+                    f"Project '{normalized_project_slug}' live context refreshed from {foundation_source.title}.",
+                )
+            # Always append this run's summary to memory.md
+            decisions = [s.summary for s in state.steps if s.summary][:6]
+            self.projects.append_memory(
+                slug=normalized_project_slug,
+                run_id=state.run_id,
+                mission=state.mission,
+                run_summary=state.summary or "Run completed.",
+                decisions=decisions,
+                next_run_hint=state.next_action,
+                risks=list(state.risks)[:3],
+            )
+            self.storage.append_log(state.run_id, f"Project '{normalized_project_slug}' memory updated.")
+
         return state
 
     def list_runs(self) -> list[RunState]:
@@ -235,6 +341,8 @@ class FactoryRunner:
                 output_title=self.config.final_review_output_title,
                 temperature=0.1,
                 runtime_tier="review",
+                resource_lane="review",
+                priority=40,
                 depends_on=review_keys,
                 requires_all_completed=not review_keys,
             )
@@ -254,3 +362,101 @@ class FactoryRunner:
         if self.config.parallel_strategy == "full_parallel":
             return True
         return True
+
+    def _select_departments_for_launch(
+        self,
+        workflow_departments: list[DepartmentConfig],
+        step_by_key: dict[str, StepRecord],
+        completed_keys: set[str],
+        base_department_keys: set[str],
+        active_departments: list[DepartmentConfig],
+        parallel_limit: int,
+    ) -> list[DepartmentConfig]:
+        available_slots = max(0, parallel_limit - len(active_departments))
+        if available_slots == 0:
+            return []
+
+        ready_departments = [
+            department
+            for department in workflow_departments
+            if step_by_key[department.key].status == "pending"
+            and self._department_is_runnable(
+                department=department,
+                completed_keys=completed_keys,
+                base_department_keys=base_department_keys,
+            )
+        ]
+        if not ready_departments:
+            return []
+
+        lane_limits = self._lane_limits(
+            parallel_limit=parallel_limit,
+            present_departments=ready_departments + active_departments,
+        )
+        lane_usage = Counter(department.resource_lane for department in active_departments)
+        ordered_ready = sorted(
+            ready_departments,
+            key=lambda department: (department.priority, department.label),
+        )
+
+        selected: list[DepartmentConfig] = []
+        for department in ordered_ready:
+            lane = department.resource_lane
+            if lane_usage[lane] >= lane_limits.get(lane, parallel_limit):
+                continue
+            selected.append(department)
+            lane_usage[lane] += 1
+            if len(selected) >= available_slots:
+                return selected
+
+        # If a lane budget leaves capacity unused, let the orchestrator spill
+        # remaining slots to the highest-priority ready departments.
+        for department in ordered_ready:
+            if department in selected:
+                continue
+            selected.append(department)
+            if len(selected) >= available_slots:
+                break
+
+        return selected
+
+    def _lane_limits(
+        self,
+        parallel_limit: int,
+        present_departments: list[DepartmentConfig],
+    ) -> dict[str, int]:
+        hard_caps = {
+            "strategy": 4,
+            "delivery": 3,
+            "review": 2,
+        }
+        weights = {
+            "strategy": 4,
+            "delivery": 3,
+            "review": 2,
+        }
+        present_lanes = {department.resource_lane for department in present_departments}
+        if not present_lanes:
+            return {}
+
+        limits = {lane: 0 for lane in present_lanes}
+        remaining = parallel_limit
+
+        for lane in sorted(present_lanes, key=lambda lane: -weights[lane]):
+            if remaining <= 0:
+                break
+            limits[lane] = 1
+            remaining -= 1
+
+        while remaining > 0:
+            candidates = [lane for lane in present_lanes if limits[lane] < hard_caps[lane]]
+            if not candidates:
+                break
+            lane = max(
+                candidates,
+                key=lambda candidate: (weights[candidate] - limits[candidate], weights[candidate], -limits[candidate]),
+            )
+            limits[lane] += 1
+            remaining -= 1
+
+        return limits

@@ -4,8 +4,10 @@ import { useFrame } from '@react-three/fiber'
 import { Text, Html } from '@react-three/drei'
 import * as THREE from 'three'
 import type { EventEntry } from '../types'
+import { DepartmentInterior } from './DepartmentInterior'
 
 interface CityBuildingProps {
+  buildingId: string
   position: [number, number, number]
   color: string
   isActive: boolean
@@ -15,6 +17,9 @@ interface CityBuildingProps {
   shape?: string
   event?: EventEntry | null
   onDismissEvent?: (eventId: string) => void
+  isSelected?: boolean
+  isDimmed?: boolean
+  onClick?: () => void
 }
 
 const STATUS_HEIGHT: Record<string, number> = {
@@ -49,22 +54,6 @@ function buildWindows(seed: number) {
   }
   return arr
 }
-// V2 Bright Campus Glass and Frame Materials
-const glassMaterial = new THREE.MeshPhysicalMaterial({
-  color: '#e2edf3',
-  metalness: 0.1,
-  roughness: 0.05,
-  transmission: 0.95,
-  thickness: 1.5,
-  transparent: true,
-  opacity: 1,
-})
-
-const frameMaterial = new THREE.MeshStandardMaterial({
-  color: '#ffffff',
-  metalness: 0.1,
-  roughness: 0.9,
-})
 
 function truncateMessage(value: string, limit = 140): string {
   if (value.length <= limit) {
@@ -74,6 +63,7 @@ function truncateMessage(value: string, limit = 140): string {
 }
 
 export function CityBuilding({
+  buildingId,
   position,
   color,
   isActive,
@@ -83,6 +73,9 @@ export function CityBuilding({
   shape = 'box',
   event = null,
   onDismissEvent,
+  isSelected = false,
+  isDimmed = false,
+  onClick,
 }: CityBuildingProps) {
   const bodyRef  = useRef<THREE.Mesh>(null)
   const windowsGroupRef = useRef<THREE.Group>(null)
@@ -92,6 +85,25 @@ export function CityBuilding({
   const target = STATUS_HEIGHT[status] ?? 1.4
 
   const col = useMemo(() => new THREE.Color(color), [color])
+
+  // Individual material instances for selection/dimming effects
+  const glassMat = useMemo(() => new THREE.MeshPhysicalMaterial({
+    color: '#e2edf3',
+    metalness: 0.1,
+    roughness: 0.05,
+    transmission: 0.95,
+    thickness: 1.5,
+    transparent: true,
+    opacity: 1,
+  }), [])
+
+  const frameMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#ffffff',
+    metalness: 0.1,
+    roughness: 0.9,
+    transparent: true,
+    opacity: 1,
+  }), [])
 
   // Use position hash as seed so each building is deterministic
   const seed = Math.abs(Math.floor(position[0] * 17 + position[2] * 31))
@@ -104,21 +116,30 @@ export function CityBuilding({
     bodyRef.current.scale.y = h
     bodyRef.current.position.y = h / 2
 
+    // Selection/Dimming animations
+    const targetOpacity = isSelected ? 0.08 : (isDimmed ? 0.25 : 1.0)
+    glassMat.opacity = THREE.MathUtils.lerp(glassMat.opacity, targetOpacity, delta * 3)
+    frameMat.opacity = THREE.MathUtils.lerp(frameMat.opacity, isDimmed ? 0.2 : 1.0, delta * 3)
+    
+    // Antennas and labels follow building height
     if (windowsGroupRef.current) {
       windowsGroupRef.current.scale.y = h
       windowsGroupRef.current.position.y = h / 2
+      windowsGroupRef.current.visible = !isSelected // Hide interal racks when selected to show interior
     }
 
     if (lightRef.current) {
       const t = state.clock.getElapsedTime()
-      lightRef.current.intensity = isActive ? 2.5 + Math.sin(t * 1.8) * 0.8 : 0.25
+      lightRef.current.intensity = isActive && !isDimmed ? 2.5 + Math.sin(t * 1.8) * 0.8 : 0.25
       lightRef.current.position.y = h + 1.5
     }
     if (antRef.current) {
       const t = state.clock.getElapsedTime()
       const mat = antRef.current.material as THREE.MeshStandardMaterial
-      mat.emissiveIntensity = isActive ? (Math.sin(t * 3) > 0.5 ? 3 : 0.5) : 0.1
+      mat.emissiveIntensity = isActive && !isDimmed ? (Math.sin(t * 3) > 0.5 ? 3 : 0.5) : 0.1
       antRef.current.position.y = h + 0.55
+      mat.opacity = isDimmed ? 0.2 : 1.0
+      mat.transparent = true
     }
   })
 
@@ -137,17 +158,24 @@ export function CityBuilding({
   }
 
   const popupMessage = truncateMessage(event?.message ?? summary ?? '')
-  const showBubble = Boolean(event && popupMessage)
+  const showBubble = Boolean(event && popupMessage && !isSelected && !isDimmed)
 
   return (
-    <group position={position}>
+    <group
+      position={position}
+      userData={{ buildingId }}
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick?.()
+      }}
+    >
       {/* Frame (White Silicone Base) */}
-      <mesh position={[0, 0.2, 0]} castShadow receiveShadow material={frameMaterial}>
+      <mesh position={[0, 0.2, 0]} castShadow receiveShadow material={frameMat}>
         {renderGeometry('base')}
       </mesh>
 
       {/* Main body (Bright Glass) */}
-      <mesh ref={bodyRef} position={[0, target / 2, 0]} castShadow receiveShadow material={glassMaterial}>
+      <mesh ref={bodyRef} position={[0, target / 2, 0]} castShadow receiveShadow material={glassMat}>
         {renderGeometry('glass')}
       </mesh>
       
@@ -159,27 +187,35 @@ export function CityBuilding({
             <meshStandardMaterial
               color={color}
               emissive={col}
-              emissiveIntensity={isActive && w.baseLit ? 1.8 : 0.1}
-              transparent={false}
+              emissiveIntensity={isActive && w.baseLit && !isDimmed ? 1.8 : 0.1}
+              transparent={true}
+              opacity={isDimmed ? 0.2 : (isSelected ? 0 : 1)}
               side={THREE.DoubleSide}
             />
           </mesh>
         ))}
       </group>
+
+      {/* Interior Drill-down Content */}
+      {isSelected && (
+        <group position={[0, 0, 0]}>
+          <DepartmentInterior buildingId={buildingId} color={color} />
+        </group>
+      )}
       
       {/* Internal core light for glass illumination */}
-      {isActive && (
-        <pointLight position={[0, target / 2, 0]} distance={4} intensity={2} color={color} />
+      {isActive && !isDimmed && (
+        <pointLight position={[0, target / 2, 0]} distance={4} intensity={isSelected ? 0.5 : 2} color={color} />
       )}
 
       {/* Antenna */}
       <mesh ref={antRef} position={[0, target + 0.55, 0]}>
         <cylinderGeometry args={[0.04, 0.04, 1.1, 6]} />
-        <meshStandardMaterial color={color} emissive={col} emissiveIntensity={isActive ? 2.5 : 0.1} />
+        <meshStandardMaterial color={color} emissive={col} emissiveIntensity={isActive && !isDimmed ? 2.5 : 0.1} />
       </mesh>
 
       {/* Antenna tip */}
-      {isActive && (
+      {isActive && !isDimmed && (
         <mesh position={[0, target + 1.15, 0]}>
           <sphereGeometry args={[0.08, 8, 8]} />
           <meshStandardMaterial color={color} emissive={col} emissiveIntensity={4} />
@@ -187,16 +223,18 @@ export function CityBuilding({
       )}
 
       {/* Glow light */}
-      <pointLight
-        ref={lightRef}
-        color={color}
-        intensity={isActive ? 2.5 : 0.25}
-        distance={9}
-        position={[0, target + 1.5, 0]}
-      />
+      {!isDimmed && (
+        <pointLight
+          ref={lightRef}
+          color={color}
+          intensity={isActive && !isSelected ? 2.5 : 0.25}
+          distance={9}
+          position={[0, target + 1.5, 0]}
+        />
+      )}
 
       {/* Ground halo */}
-      {isActive && (
+      {isActive && !isDimmed && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
           <ringGeometry args={[1.2, 2.2, 32]} />
           <meshBasicMaterial color={color} transparent opacity={0.08} side={THREE.FrontSide} />
@@ -204,17 +242,20 @@ export function CityBuilding({
       )}
 
       {/* Label */}
-      <Text
-        position={[0, target + 2.1, 0]}
-        fontSize={0.26}
-        color={isActive ? color : '#667788'}
-        anchorX="center"
-        anchorY="middle"
-        outlineWidth={0.015}
-        outlineColor="#ffffff"
-      >
-        {label.toUpperCase()}
-      </Text>
+      {!isDimmed && (
+        <Text
+          position={[0, target + 2.1, 0]}
+          fontSize={0.26}
+          color={isActive ? color : '#667788'}
+          anchorX="center"
+          anchorY="middle"
+          outlineWidth={0.015}
+          outlineColor="#ffffff"
+          visible={!isSelected} // Label might get in the way when zoomed in
+        >
+          {label.toUpperCase()}
+        </Text>
+      )}
 
       {/* HTML speech bubble for active or recently updated building */}
       {showBubble && (
@@ -222,7 +263,7 @@ export function CityBuilding({
           <div
             className={`city-html-popup ${event?.is_live ? 'is-live' : ''}`}
             style={{ '--bubble-accent': color } as CSSProperties}
-            onClick={() => event && onDismissEvent?.(event.event_id)}
+            onClick={(e) => { e.stopPropagation(); event && onDismissEvent?.(event.event_id); }}
             role="button"
             tabIndex={0}
             onKeyDown={(keyboardEvent) => {

@@ -5,6 +5,9 @@
     <div>
       <h1>{{ run.display_title }}</h1>
       <p class="subhead">Run ID {{ run.run_id }} · mode {{ run.mode }}</p>
+      {% if run.project_slug %}
+        <p class="hero-project">PROJECT // {{ run.project_name or run.project_slug }} · {{ run.project_slug }}</p>
+      {% endif %}
       <p class="subhead">Current department {{ run.current_department or "-" }} · next action {{ run.next_action }}</p>
       <p class="subhead">{{ run_report.headline }}</p>
       <p class="subhead">Prompt preview {{ run.mission_preview }}</p>
@@ -18,154 +21,119 @@
     </div>
   </section>
 
-  <section class="two-column">
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Operator Report</h2>
-        {% if run.autopilot_iteration %}
-          <p>autopilot iteration {{ run.autopilot_iteration }}</p>
-        {% endif %}
-      </div>
-      <ul class="list">
-        <li>
-          <strong>Situation</strong>
-          <p>{{ run_report.headline }}</p>
-        </li>
-        <li>
-          <strong>Current Status</strong>
-          <p class="scroll-block scroll-block-md">{{ run_report.current_status }}</p>
-        </li>
-        <li>
-          <strong>Next Action</strong>
-          <p>{{ run_report.next_action }}</p>
-        </li>
-        <li>
-          <strong>Coverage</strong>
-          <p>{{ run_report.completed_departments_count }} / {{ run_report.total_departments_count }} departments complete, {{ run_report.artifact_count }} artifacts, {{ run_report.risk_count }} open risks.</p>
-        </li>
-      </ul>
-    </article>
-
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Recent Department Updates</h2>
-      </div>
-      <ul class="list">
-        {% for update in run_report.updates %}
+  <section class="report-cluster">
+    <div class="report-cluster__header">
+      <p class="report-cluster__eyebrow">Executive Brief</p>
+      <h2>Operator decision and runtime state</h2>
+    </div>
+    <div class="two-column">
+      <article class="panel">
+        <div class="panel-header">
+          <h2>Operator Report</h2>
+          {% if run.autopilot_iteration %}
+            <p>autopilot iteration {{ run.autopilot_iteration }}</p>
+          {% endif %}
+        </div>
+        <ul class="list">
           <li>
-            <strong>{{ update.department }}</strong>
-            <p>{{ update.summary }}</p>
+            <strong>Situation</strong>
+            <p>{{ run_report.headline }}</p>
           </li>
-        {% else %}
-          <li>No completed department updates yet.</li>
-        {% endfor %}
-      </ul>
-    </article>
+          <li>
+            <strong>Current Status</strong>
+            <p class="scroll-block scroll-block-md">{{ run_report.current_status }}</p>
+          </li>
+          <li>
+            <strong>Next Action</strong>
+            <p>{{ run_report.next_action }}</p>
+          </li>
+          <li>
+            <strong>Coverage</strong>
+            <p>{{ run_report.completed_departments_count }} / {{ run_report.total_departments_count }} departments complete, {{ run_report.artifact_count }} artifacts, {{ run_report.risk_count }} open risks.</p>
+          </li>
+        </ul>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header">
+          <h2>Live Control Room</h2>
+        </div>
+        <ul class="list">
+          <li>
+            <strong>Worker</strong>
+            <p>{{ run.current_process.label if run.current_process else "-" }}</p>
+          </li>
+          <li>
+            <strong>PID</strong>
+            <p>{{ run.current_process.pid if run.current_process else "-" }}</p>
+          </li>
+          <li>
+            <strong>Command</strong>
+            <p class="scroll-block scroll-block-sm">{{ run.current_process.command_preview if run.current_process else "No live worker." }}</p>
+          </li>
+          <li>
+            <strong>Department Progress</strong>
+            <p>{{ run.completed_departments_count }} / {{ run.total_departments_count }} completed</p>
+          </li>
+          <li>
+            <strong>Parallel Budget</strong>
+            <p>
+              requested {{ run.metrics.get("requested_parallel_departments", run.settings.max_parallel_departments or "-") }}
+              · effective {{ run.metrics.get("effective_parallel_departments", run.settings.max_parallel_departments or "-") }}
+            </p>
+          </li>
+          <li>
+            <strong>Governor</strong>
+            <p class="scroll-block scroll-block-sm">{{ run.metrics.get("resource_governor_reason", "No resource governor note yet.") }}</p>
+          </li>
+          <li>
+            <strong>Last Completed Department</strong>
+            <p>{{ run.last_completed_department or "-" }}</p>
+          </li>
+        </ul>
+      </article>
+    </div>
   </section>
 
-  <section class="three-column">
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Live Control Room</h2>
-      </div>
-      <ul class="list">
-        <li>
-          <strong>Worker</strong>
-          <p>{{ run.current_process.label if run.current_process else "-" }}</p>
-        </li>
-        <li>
-          <strong>PID</strong>
-          <p>{{ run.current_process.pid if run.current_process else "-" }}</p>
-        </li>
-        <li>
-          <strong>Command</strong>
-          <p class="scroll-block scroll-block-sm">{{ run.current_process.command_preview if run.current_process else "No live worker." }}</p>
-        </li>
-        <li>
-          <strong>Department Progress</strong>
-          <p>{{ run.completed_departments_count }} / {{ run.total_departments_count }} completed</p>
-        </li>
-        <li>
-          <strong>Last Completed Department</strong>
-          <p>{{ run.last_completed_department or "-" }}</p>
-        </li>
-        <li>
-          <strong>Status</strong>
-          <p class="scroll-block scroll-block-lg">{{ run.current_status }}</p>
-        </li>
-      </ul>
-    </article>
-
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Department Timeline</h2>
-      </div>
-      <ul class="timeline">
-        {% for stage in run.steps %}
-          <li class="timeline-item">
-            <div class="timeline-head">
-              <strong>{{ stage.department_label }}</strong>
-              <span class="badge status-{{ stage.status }}">{{ stage.status }}</span>
+  <section class="report-cluster">
+    <div class="report-cluster__header">
+      <p class="report-cluster__eyebrow">Artifacts</p>
+      <h2>Each department artifact in one view</h2>
+    </div>
+    <div class="department-board">
+      {% for packet in department_packets %}
+        <article class="department-card">
+          <div class="department-card__head">
+            <div>
+              <strong>{{ packet.department_label }}</strong>
+              <p class="department-card__sub">{{ packet.department_key }}</p>
             </div>
-            <p>{{ stage.summary or stage.purpose }}</p>
-            <small>artifact: {{ stage.artifact_filename or "-" }}</small>
-          </li>
-        {% endfor %}
-      </ul>
-    </article>
-
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Artifacts</h2>
-      </div>
-      <ul class="list">
-        {% for artifact in run.artifacts %}
-          <li>
-            <strong>{{ artifact.department_key }}</strong>
-            <p>{{ artifact.title }}</p>
-            {% if artifact.department_key == "board_review" %}
-              <small>final operator briefing</small><br />
-            {% endif %}
-            <small><a href="/runs/{{ run.run_id }}/artifacts/{{ artifact.filename }}">open artifact</a></small><br />
-            <small>{{ artifact.preview }}</small>
-          </li>
-        {% endfor %}
-      </ul>
-    </article>
-
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Execution Notes</h2>
-      </div>
-      <ul class="list">
-        <li>
-          <strong>Next Action</strong>
-          <p>{{ run.next_action }}</p>
-        </li>
-        <li>
-          <strong>Original Prompt</strong>
-          {% if run.mission_is_long %}
-            <button
-              type="button"
-              class="ghost-button"
-              data-toggle-target="run-mission-raw"
-              data-toggle-label-open="Hide original prompt"
-              data-toggle-label-closed="Show original prompt"
-            >
-              Show original prompt
-            </button>
-            <div id="run-mission-raw" class="toggle-panel" hidden>
-              <pre class="log-view">{{ run.mission }}</pre>
+            <span class="badge status-{{ packet.status }}">{{ packet.status }}</span>
+          </div>
+          <p class="department-card__summary">{{ packet.summary }}</p>
+          {% if packet.artifact_filename %}
+            <div class="department-card__artifact">
+              <small>{{ packet.artifact_title }}</small>
+              {% if packet.is_final %}
+                <small>final operator briefing</small>
+              {% endif %}
+              <a href="/runs/{{ run.run_id }}/artifacts/{{ packet.artifact_filename }}">open artifact</a>
+              <p class="table-excerpt scroll-block scroll-block-sm">{{ packet.artifact_preview }}</p>
             </div>
           {% else %}
-            <pre class="log-view">{{ run.mission }}</pre>
+            <p class="table-muted">artifact pending</p>
           {% endif %}
-        </li>
-      </ul>
-    </article>
+        </article>
+      {% endfor %}
+    </div>
   </section>
 
-  <section class="two-column">
+  <section class="report-cluster">
+    <div class="report-cluster__header">
+      <p class="report-cluster__eyebrow">Evidence</p>
+      <h2>Primary artifact, prompt, and risk context</h2>
+    </div>
+    <div class="two-column detail-preview-grid">
     <article class="panel">
       <div class="panel-header">
         <h2>Artifact Preview</h2>
@@ -173,73 +141,133 @@
           <p>{{ selected_artifact.department_key }} · {{ selected_artifact.title }}</p>
         {% endif %}
       </div>
-      <div class="markdown-body">
+      <div class="markdown-body panel-scroll panel-scroll-xl">
         {{ preview_html | safe }}
       </div>
     </article>
 
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Risks</h2>
-      </div>
-      <ul class="list">
-        {% for risk in run.risks %}
+    <div class="stack-column">
+      <article class="panel">
+        <div class="panel-header">
+          <h2>Execution Notes</h2>
+        </div>
+        <ul class="list">
           <li>
-            <p>{{ risk }}</p>
+            <strong>Next Action</strong>
+            <p>{{ run.next_action }}</p>
           </li>
-        {% else %}
-          <li>No open risks recorded.</li>
-        {% endfor %}
-      </ul>
-    </article>
+          <li>
+            <strong>Original Prompt</strong>
+            {% if run.mission_is_long %}
+              <button
+                type="button"
+                class="ghost-button"
+                data-toggle-target="run-mission-raw"
+                data-toggle-label-open="Hide original prompt"
+                data-toggle-label-closed="Show original prompt"
+              >
+                Show original prompt
+              </button>
+              <div id="run-mission-raw" class="toggle-panel" hidden>
+                <pre class="log-view">{{ run.mission }}</pre>
+              </div>
+            {% else %}
+              <pre class="log-view">{{ run.mission }}</pre>
+            {% endif %}
+          </li>
+        </ul>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header">
+          <h2>Risks</h2>
+        </div>
+        <ul class="list panel-scroll panel-scroll-md">
+          {% for risk in run.risks %}
+            <li>
+              <p>{{ risk }}</p>
+            </li>
+          {% else %}
+            <li>No open risks recorded.</li>
+          {% endfor %}
+        </ul>
+      </article>
+    </div>
+    </div>
   </section>
 
-  <section class="two-column">
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Event Feed</h2>
-        <p>Meaningful department updates only.</p>
-      </div>
-      <ul class="timeline">
-        {% for event in event_feed %}
-          <li class="timeline-item">
-            <div class="timeline-head">
-              <strong>{{ event.title }}</strong>
-              <span class="badge status-{{ event.status }}">{{ event.status }}</span>
-            </div>
-            <p>{{ event.message }}</p>
-            <small>
-              {{ event.department_label or event.scope }} · {{ event.timestamp.isoformat() }}
-            </small>
-          </li>
-        {% else %}
-          <li>No events recorded yet.</li>
-        {% endfor %}
-      </ul>
-    </article>
+  <section class="report-cluster">
+    <div class="report-cluster__header">
+      <p class="report-cluster__eyebrow">Activity Stream</p>
+      <h2>Timeline, event feed, log, and worker history</h2>
+    </div>
+    <div class="two-column">
+      <article class="panel">
+        <div class="panel-header">
+          <h2>Department Timeline</h2>
+        </div>
+        <ul class="timeline panel-scroll panel-scroll-xl">
+          {% for stage in run.steps %}
+            <li class="timeline-item">
+              <div class="timeline-head">
+                <strong>{{ stage.department_label }}</strong>
+                <span class="badge status-{{ stage.status }}">{{ stage.status }}</span>
+              </div>
+              <p>{{ stage.summary or stage.purpose }}</p>
+              <small>artifact: {{ stage.artifact_filename or "-" }}</small>
+            </li>
+          {% endfor %}
+        </ul>
+      </article>
 
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Run Log</h2>
-        <p><a href="/runs/{{ run.run_id }}/log">open raw log</a></p>
-      </div>
-      <pre class="log-view">{{ log_tail or "No log yet." }}</pre>
-    </article>
+      <article class="panel">
+        <div class="panel-header">
+          <h2>Event Feed</h2>
+          <p>Meaningful department updates only.</p>
+        </div>
+        <ul class="timeline panel-scroll panel-scroll-xl">
+          {% for event in event_feed %}
+            <li class="timeline-item">
+              <div class="timeline-head">
+                <strong>{{ event.title }}</strong>
+                <span class="badge status-{{ event.status }}">{{ event.status }}</span>
+              </div>
+              <p>{{ event.message }}</p>
+              <small>
+                {{ event.department_label or event.scope }} · {{ event.timestamp.isoformat() }}
+              </small>
+            </li>
+          {% else %}
+            <li>No events recorded yet.</li>
+          {% endfor %}
+        </ul>
+      </article>
+    </div>
 
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Process History</h2>
-      </div>
-      <ul class="list">
-        {% for process in run.process_history | reverse %}
-          <li>
-            <strong>{{ process.label }}</strong>
-            <p>pid {{ process.pid }} · {{ process.status }} · exit {{ process.exit_code if process.exit_code is not none else "-" }}</p>
-          </li>
-        {% else %}
-          <li>No completed worker history yet.</li>
-        {% endfor %}
-      </ul>
-    </article>
+    <div class="two-column">
+      <article class="panel">
+        <div class="panel-header">
+          <h2>Run Log</h2>
+          <p><a href="/runs/{{ run.run_id }}/log">open raw log</a></p>
+        </div>
+        <pre class="log-view">{{ log_tail or "No log yet." }}</pre>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header">
+          <h2>Process History</h2>
+        </div>
+        <ul class="list panel-scroll panel-scroll-md">
+          {% for process in run.process_history | reverse %}
+            <li>
+              <strong>{{ process.label }}</strong>
+              <p>pid {{ process.pid }} · {{ process.status }} · exit {{ process.exit_code if process.exit_code is not none else "-" }}</p>
+            </li>
+          {% else %}
+            <li>No completed worker history yet.</li>
+          {% endfor %}
+        </ul>
+      </article>
+    </div>
   </section>
 {% endblock %}

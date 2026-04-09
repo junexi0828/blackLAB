@@ -63,6 +63,11 @@ def run(
         "--codex-review-autonomy",
         help="Codex autonomy for review departments: read_only, full_auto, yolo.",
     ),
+    project_slug: str | None = typer.Option(
+        None,
+        "--project-slug",
+        help="Optional persistent project slug to attach this run to.",
+    ),
     detach: bool = typer.Option(
         False,
         "--detach",
@@ -92,6 +97,7 @@ def run(
     if detach:
         launch = launch_detached_run(
             mission=mission,
+            project_slug=project_slug,
             mode=mode,
             pause_between_departments=pause_between_departments,
             max_parallel_departments=max_parallel_departments or None,
@@ -115,6 +121,7 @@ def run(
         pause_between_departments=pause_between_departments,
         max_parallel_departments=max_parallel_departments or None,
         run_settings=run_settings,
+        project_slug=project_slug,
         on_run_created=_build_run_created_callback(run_id_file),
     )
     typer.echo(f"run_id={state.run_id}")
@@ -170,6 +177,7 @@ def autopilot_start(
     codex_autonomy: str = typer.Option("full_auto", "--codex-autonomy", help="Codex autonomy for core departments: read_only, full_auto, yolo."),
     codex_review_model: str = typer.Option(DEFAULT_REVIEW_CODEX_MODEL, "--codex-review-model", help="Codex model for review departments in each cycle."),
     codex_review_autonomy: str = typer.Option(DEFAULT_REVIEW_CODEX_AUTONOMY, "--codex-review-autonomy", help="Codex autonomy for review departments: read_only, full_auto, yolo."),
+    project_slug: str | None = typer.Option(None, "--project-slug", help="Optional persistent project slug to attach this loop to."),
     detach: bool = typer.Option(False, "--detach", help="Launch the autopilot loop in the background."),
     storage_root: Path | None = typer.Option(None, "--storage-root", hidden=True),
     loop_id_file: Path | None = typer.Option(None, "--loop-id-file", hidden=True),
@@ -187,6 +195,7 @@ def autopilot_start(
     if detach:
         launch = launch_detached_loop(
             objective=objective,
+            project_slug=project_slug,
             run_mode=run_mode,
             loop_mode=loop_mode,
             interval_seconds=interval_seconds,
@@ -216,6 +225,7 @@ def autopilot_start(
         max_iterations=max_iterations if loop_mode == "full_auto" else None,
         pause_between_departments=pause_between_departments,
         max_parallel_departments=max_parallel_departments or None,
+        project_slug=project_slug,
     )
     loop_state = supervisor.start_loop(request)
     callback = _build_loop_created_callback(loop_id_file)

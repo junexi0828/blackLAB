@@ -15,9 +15,11 @@ ProcessStatus = Literal["running", "completed", "failed"]
 ParallelStrategy = Literal["dependency_graph", "full_parallel"]
 CodexAutonomyMode = Literal["read_only", "full_auto", "yolo"]
 CodexRuntimeTier = Literal["core", "review"]
+OrchestrationLane = Literal["strategy", "delivery", "review"]
 LoopMode = Literal["full_auto", "always_on"]
 LoopStatus = Literal["queued", "running", "stopping", "completed", "failed"]
 ChatRole = Literal["user", "assistant"]
+ProjectStatus = Literal["active", "paused", "archived"]
 
 DEFAULT_CORE_CODEX_MODEL = "gpt-5.4"
 DEFAULT_REVIEW_CODEX_MODEL = "gpt-5.4-mini"
@@ -84,6 +86,8 @@ class DepartmentConfig(BaseModel):
     output_title: str
     temperature: float = 0.2
     runtime_tier: CodexRuntimeTier = "core"
+    resource_lane: OrchestrationLane = "strategy"
+    priority: int = 50
     depends_on: list[str] = Field(default_factory=list)
     requires_all_completed: bool = False
 
@@ -173,6 +177,8 @@ class RunSettings(BaseModel):
 
 class RunState(BaseModel):
     run_id: str
+    project_slug: str | None = None
+    project_name: str | None = None
     mission: str
     company_name: str
     mode: RunMode
@@ -248,8 +254,22 @@ class LoopIterationRecord(BaseModel):
     completed_at: datetime | None = None
 
 
+class RecoveryIncidentRecord(BaseModel):
+    attempt: int
+    failed_run_id: str
+    failure_type: str
+    headline: str
+    task_force: str
+    rapid_response: str
+    recovery_ops: str
+    wait_seconds: int | None = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+
 class LoopState(BaseModel):
     loop_id: str
+    project_slug: str | None = None
+    project_name: str | None = None
     objective: str
     loop_mode: LoopMode
     run_mode: RunMode
@@ -266,6 +286,10 @@ class LoopState(BaseModel):
     latest_note: str = "Waiting to launch the first cycle."
     run_settings: RunSettings = Field(default_factory=RunSettings)
     runs: list[LoopIterationRecord] = Field(default_factory=list)
+    incidents: list[RecoveryIncidentRecord] = Field(default_factory=list)
+    consecutive_failures: int = 0
+    total_recovery_activations: int = 0
+    max_recovery_attempts: int = 3
 
     @property
     def display_title(self) -> str:
@@ -284,6 +308,19 @@ class LoopState(BaseModel):
         return should_collapse_text(self.objective, max_sentences=2)
 
 
+class ProjectRecord(BaseModel):
+    """Persistent project that accumulates context and memory across many Runs."""
+    slug: str
+    name: str
+    status: ProjectStatus = "active"
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+    run_count: int = 0
+    last_run_id: str | None = None
+    last_run_at: datetime | None = None
+    brief: str = ""  # first line of project.md, shown in dashboard lists
+
+
 class EventEntry(BaseModel):
     event_id: str
     scope: str
@@ -300,12 +337,14 @@ class EventEntry(BaseModel):
 
 class LaunchControlProfile(BaseModel):
     mode: RunMode = "codex"
+    project_slug: str | None = None
     pause_between_departments: float = 0
     run_settings: RunSettings = Field(default_factory=RunSettings)
 
 
 class AutopilotControlProfile(BaseModel):
     run_mode: RunMode = "codex"
+    project_slug: str | None = None
     loop_mode: LoopMode = "always_on"
     interval_seconds: int = 30
     max_iterations: int = 3

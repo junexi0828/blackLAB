@@ -19,6 +19,7 @@ KNOWN_MODELS = [
 ]
 KNOWN_AUTONOMY = ["read_only", "full_auto", "yolo"]
 LOOP_ID_PATTERN = re.compile(r"\d{8}T\d{6}Z-[a-z0-9-]+")
+PROJECT_SLUG_PATTERN = re.compile(r"(?:project(?:[_\\s-]?slug)?|프로젝트)\s*[:=]?\s*([a-z0-9][a-z0-9-]{1,63})", re.IGNORECASE)
 
 
 class OperatorCommander:
@@ -98,8 +99,10 @@ class OperatorCommander:
 
     def _launch_run(self, message: str) -> tuple[str, dict[str, object]]:
         profile = self.load_profile()
+        project_slug = self._extract_project_slug(message) or profile.launch.project_slug
+        cleaned_message = self._strip_project_directive(message)
         mission = self._extract_payload(
-            message,
+            cleaned_message,
             [
                 "launch run",
                 "start run",
@@ -115,6 +118,7 @@ class OperatorCommander:
 
         launch = launch_detached_run(
             mission=mission,
+            project_slug=project_slug,
             mode=profile.launch.mode,
             pause_between_departments=profile.launch.pause_between_departments,
             max_parallel_departments=profile.launch.run_settings.max_parallel_departments,
@@ -125,14 +129,19 @@ class OperatorCommander:
             codex_review_autonomy=profile.launch.run_settings.codex_review_autonomy,
         )
         return (
-            f"새 런 {launch.entity_id}를 시작했습니다. 미션은 '{mission}' 입니다.",
-            {"type": "run_launch", "run_id": launch.entity_id, "pid": launch.pid},
+            (
+                f"새 런 {launch.entity_id}를 시작했습니다. 미션은 '{mission}' 입니다."
+                + (f" 프로젝트는 '{project_slug}' 입니다." if project_slug else "")
+            ),
+            {"type": "run_launch", "run_id": launch.entity_id, "pid": launch.pid, "project_slug": project_slug},
         )
 
     def _launch_loop(self, message: str) -> tuple[str, dict[str, object]]:
         profile = self.load_profile()
+        project_slug = self._extract_project_slug(message) or profile.autopilot.project_slug
+        cleaned_message = self._strip_project_directive(message)
         objective = self._extract_payload(
-            message,
+            cleaned_message,
             [
                 "start loop",
                 "launch loop",
@@ -148,6 +157,7 @@ class OperatorCommander:
 
         launch = launch_detached_loop(
             objective=objective,
+            project_slug=project_slug,
             run_mode=profile.autopilot.run_mode,
             loop_mode=profile.autopilot.loop_mode,
             interval_seconds=profile.autopilot.interval_seconds,
@@ -165,8 +175,11 @@ class OperatorCommander:
             codex_review_autonomy=profile.autopilot.run_settings.codex_review_autonomy,
         )
         return (
-            f"루프 {launch.entity_id}를 시작했습니다. 목표는 '{objective}' 입니다.",
-            {"type": "loop_launch", "loop_id": launch.entity_id, "pid": launch.pid},
+            (
+                f"루프 {launch.entity_id}를 시작했습니다. 목표는 '{objective}' 입니다."
+                + (f" 프로젝트는 '{project_slug}' 입니다." if project_slug else "")
+            ),
+            {"type": "loop_launch", "loop_id": launch.entity_id, "pid": launch.pid, "project_slug": project_slug},
         )
 
     def _stop_loop(self, message: str) -> tuple[str, dict[str, object]]:
@@ -204,6 +217,7 @@ class OperatorCommander:
 
         model = self._extract_known_value(message, KNOWN_MODELS)
         autonomy = self._extract_known_value(lowered, KNOWN_AUTONOMY)
+        project_slug = self._extract_project_slug(message)
 
         if ("core model" in lowered or "핵심 모델" in lowered) and model:
             profile.launch.run_settings.codex_model = model
@@ -229,6 +243,18 @@ class OperatorCommander:
             if "full_auto" in lowered:
                 profile.autopilot.loop_mode = "full_auto"
                 changed.append("loop mode=full_auto")
+
+        if project_slug and any(token in lowered for token in ["default project", "기본 프로젝트", "launch project", "autopilot project", "런 프로젝트", "루프 프로젝트"]):
+            if "autopilot" in lowered or "루프" in lowered:
+                profile.autopilot.project_slug = project_slug
+                changed.append(f"autopilot project={project_slug}")
+            elif "launch" in lowered or "run" in lowered or "런" in lowered:
+                profile.launch.project_slug = project_slug
+                changed.append(f"launch project={project_slug}")
+            else:
+                profile.launch.project_slug = project_slug
+                profile.autopilot.project_slug = project_slug
+                changed.append(f"default project={project_slug}")
 
         if not changed:
             return None
@@ -283,6 +309,13 @@ class OperatorCommander:
             if value in lowered:
                 return value
         return None
+
+    def _extract_project_slug(self, message: str) -> str | None:
+        match = PROJECT_SLUG_PATTERN.search(message)
+        return match.group(1).lower() if match else None
+
+    def _strip_project_directive(self, message: str) -> str:
+        return PROJECT_SLUG_PATTERN.sub("", message).replace("  ", " ").strip()
 
 
 def seed_operator_profile(profile: OperatorProfile) -> OperatorProfile:

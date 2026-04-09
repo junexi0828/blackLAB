@@ -34,10 +34,10 @@ def test_codex_agent_resolves_core_profile_for_core_department() -> None:
         codex_review_autonomy="read_only",
     )
     department = DepartmentConfig(
-        key="engineering",
-        label="Engineering",
-        purpose="Ship the system.",
-        output_title="Delivery Plan",
+        key="dev_1",
+        label="Dev 1",
+        purpose="Ship the backend system.",
+        output_title="Backend Delivery Plan",
     )
 
     profile = agent._resolve_runtime_profile(department=department, settings=settings)

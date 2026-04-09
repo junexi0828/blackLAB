@@ -7,8 +7,9 @@
       <p class="subhead">One place to see the factory state before you drill into launch, autopilot, runs, or loops.</p>
     </div>
     <div class="button-row">
+      <a class="primary-button" href="/console">Open 3D Campus</a>
       <a class="primary-button" href="/operator">Open Operator Chat</a>
-      <a class="primary-button" href="/launch">Launch Run</a>
+      <a class="ghost-button" href="/launch">Launch Run</a>
       <a class="ghost-button" href="/autopilot">Open Autopilot</a>
     </div>
   </section>
@@ -45,6 +46,9 @@
               <strong><a href="/runs/{{ report.run_id }}">{{ report.title }}</a></strong>
               <span class="badge status-{{ report.status }}">{{ report.status }}</span>
             </div>
+            {% if report.project_slug %}
+              <p class="project-chip">PROJECT // {{ report.project_name or report.project_slug }}</p>
+            {% endif %}
             <p>{{ report.headline }}</p>
             <small>
               now {{ report.current_department or "-" }} · last {{ report.last_completed_department or "-" }} ·
@@ -70,6 +74,9 @@
               <strong><a href="/loops/{{ report.loop_id }}">{{ report.title }}</a></strong>
               <span class="badge status-{{ report.status }}">{{ report.status }}</span>
             </div>
+            {% if report.project_slug %}
+              <p class="project-chip">PROJECT // {{ report.project_name or report.project_slug }}</p>
+            {% endif %}
             <p>{{ report.headline }}</p>
             <small>current run {{ report.current_run_id or "-" }} · iterations {{ report.iterations_completed }}</small>
             <p class="table-excerpt scroll-block scroll-block-sm">{{ report.latest_note }}</p>

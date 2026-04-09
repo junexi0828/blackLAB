@@ -94,6 +94,72 @@ a {
   color: var(--muted);
 }
 
+.hero-project,
+.project-chip,
+.project-signboard__label,
+.project-signboard__slug,
+.project-signboard__meta {
+  letter-spacing: 0.02em;
+}
+
+.hero-project {
+  margin: 0.55rem 0 0;
+  color: #7a4705;
+  font-weight: 700;
+}
+
+.project-chip {
+  display: inline-block;
+  margin: 0.15rem 0 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(191, 106, 2, 0.12);
+  color: #6d4006;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.project-signboard {
+  align-self: end;
+  padding: 0.8rem 1rem;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(191, 106, 2, 0.2), rgba(191, 106, 2, 0.08));
+  border: 1px solid rgba(191, 106, 2, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.project-signboard p {
+  margin: 0;
+  line-height: 1.2;
+}
+
+.project-signboard strong {
+  display: block;
+  font-size: 0.95rem;
+  color: #472805;
+}
+
+.project-signboard__label {
+  margin: 0 0 0.15rem;
+  color: #6d4006;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.project-signboard__slug {
+  margin: 0.2rem 0 0;
+  color: #5d4b36;
+  font-size: 0.78rem;
+  word-break: break-word;
+}
+
+.project-signboard__meta {
+  margin: 0.35rem 0 0;
+  color: #71553c;
+  font-size: 0.74rem;
+}
+
 .layout {
   display: grid;
   gap: 1.5rem;
@@ -235,6 +301,100 @@ a {
 
 .scroll-block-lg {
   max-height: 34rem;
+}
+
+.panel-scroll {
+  overflow: auto;
+  padding-right: 0.35rem;
+}
+
+.panel-scroll-md {
+  max-height: 18rem;
+}
+
+.panel-scroll-lg {
+  max-height: 24rem;
+}
+
+.panel-scroll-xl {
+  max-height: 36rem;
+}
+
+.stack-column {
+  display: grid;
+  gap: 1rem;
+}
+
+.report-cluster {
+  display: grid;
+  gap: 1rem;
+  padding: 1.1rem 1.15rem 1.2rem;
+  border-radius: 24px;
+  border: 1px solid rgba(25, 19, 13, 0.1);
+  background: rgba(255, 248, 236, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.report-cluster__header {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.report-cluster__header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.report-cluster__eyebrow {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7a5a30;
+}
+
+.department-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.department-card {
+  display: grid;
+  gap: 0.8rem;
+  min-height: 100%;
+  padding: 1rem;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.department-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.department-card__sub {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.department-card__summary {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.department-card__artifact {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.department-card__artifact a {
+  font-weight: 600;
 }
 
 .badge {

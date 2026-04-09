@@ -8,6 +8,7 @@ from blacklab_factory.launcher import launch_detached_run
 def test_detached_launch_returns_run_id_and_completes(tmp_path: Path) -> None:
     launch = launch_detached_run(
         mission="Run a detached mock factory",
+        project_slug=None,
         mode="mock",
         pause_between_departments=0,
         max_parallel_departments=7,
@@ -37,6 +38,6 @@ def test_detached_launch_returns_run_id_and_completes(tmp_path: Path) -> None:
 
     assert state is not None
     assert state.status == "completed"
-    assert len(state.artifacts) == 11
+    assert len(state.artifacts) == 13
     assert state.settings.codex_model == "gpt-5.4"
     assert state.settings.codex_review_model == "gpt-5.4-mini"

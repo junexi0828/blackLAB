@@ -41,8 +41,8 @@
         <div class="button-row">
           <button type="submit" class="primary-button">Send To Main Operator</button>
           <button type="button" class="ghost-button" data-chat-command="상태 알려줘">Status</button>
-          <button type="button" class="ghost-button" data-chat-command="새 런 시작 Build a profitable AI workflow for Korean SMBs">Launch Run</button>
-          <button type="button" class="ghost-button" data-chat-command="24/7 루프 시작 Operate the strongest profitable wedge continuously">Start 24/7</button>
+          <button type="button" class="ghost-button" data-chat-command="새 런 시작 project: revenue-leak-auditor Build a profitable AI workflow for Korean SMBs">Launch Run</button>
+          <button type="button" class="ghost-button" data-chat-command="24/7 루프 시작 project: revenue-leak-auditor Operate the strongest profitable wedge continuously">Start 24/7</button>
         </div>
       </form>
     </article>
@@ -54,8 +54,10 @@
       </div>
       <ul class="list">
         <li><strong>Launch Mode</strong><p>{{ operator_profile.launch.mode }}</p></li>
+        <li><strong>Launch Project</strong><p>{{ operator_profile.launch.project_slug or "-" }}</p></li>
         <li><strong>Launch Runtime</strong><p>core {{ operator_profile.launch.run_settings.codex_model }}/{{ operator_profile.launch.run_settings.codex_autonomy }} · review {{ operator_profile.launch.run_settings.codex_review_model }}/{{ operator_profile.launch.run_settings.codex_review_autonomy }}</p></li>
         <li><strong>Autopilot Mode</strong><p>{{ operator_profile.autopilot.loop_mode }} · run mode {{ operator_profile.autopilot.run_mode }}</p></li>
+        <li><strong>Autopilot Project</strong><p>{{ operator_profile.autopilot.project_slug or "-" }}</p></li>
         <li><strong>Autopilot Runtime</strong><p>core {{ operator_profile.autopilot.run_settings.codex_model }}/{{ operator_profile.autopilot.run_settings.codex_autonomy }} · review {{ operator_profile.autopilot.run_settings.codex_review_model }}/{{ operator_profile.autopilot.run_settings.codex_review_autonomy }}</p></li>
       </ul>
     </article>

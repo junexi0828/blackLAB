@@ -1,6 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useRef, useEffect } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { OrbitControls, Sky, Environment } from '@react-three/drei'
+import { Sky, Environment, CameraControls } from '@react-three/drei'
 import type { EventEntry, StepRecord } from '../types'
 import { DEPT_COLORS, DEPT_POSITIONS, DEPT_SHAPES } from './cityConstants'
 import { CityBuilding } from './CityBuilding'
@@ -14,6 +14,42 @@ interface WorldCanvasProps {
   hasActiveRun: boolean
   bubbleEvents: Record<string, EventEntry>
   onDismissBubble: (eventId: string) => void
+  selectedBuilding?: string | null
+  onSelectBuilding?: (id: string | null) => void
+}
+
+function CameraRig({ selectedBuilding, positions }: { selectedBuilding?: string | null, positions: Record<string, [number, number, number]> }) {
+  const controlsRef = useRef<CameraControls>(null)
+
+  useEffect(() => {
+    if (!controlsRef.current) return
+    if (selectedBuilding && positions[selectedBuilding]) {
+      const pos = positions[selectedBuilding]
+      // Swoop in close to the building (offset slightly to look at it)
+      controlsRef.current.setLookAt(
+        pos[0] + 5, pos[1] + 4, pos[2] + 5, // camera pos
+        pos[0], pos[1] + 1, pos[2],       // target pos
+        true                              // animate
+      )
+    } else {
+      // Return to macro view
+      controlsRef.current.setLookAt(
+        18, 14, 18, // camera pos
+        0, 0, 0,    // target pos
+        true        // animate
+      )
+    }
+  }, [selectedBuilding, positions])
+
+  return (
+    <CameraControls 
+      ref={controlsRef} 
+      maxPolarAngle={Math.PI / 2.1} 
+      minDistance={2} 
+      maxDistance={40} 
+      makeDefault 
+    />
+  )
 }
 
 export function WorldCanvas({
@@ -22,6 +58,8 @@ export function WorldCanvas({
   hasActiveRun,
   bubbleEvents,
   onDismissBubble,
+  selectedBuilding,
+  onSelectBuilding,
 }: WorldCanvasProps) {
   const activeDepts = useMemo(() => {
     const tokens = new Set(
@@ -77,10 +115,13 @@ export function WorldCanvas({
         const status = hasActiveRun ? (step?.status ?? 'queued') : (event?.status ?? 'queued')
         const color = DEPT_COLORS[key] ?? '#ffffff'
         const label = step?.department_label ?? key.replace('_', ' ').toUpperCase()
+        const isSelected = selectedBuilding === key
+        const isDimmed = selectedBuilding !== null && !isSelected
 
         return (
           <CityBuilding
             key={key}
+            buildingId={key}
             position={pos}
             color={color}
             isActive={isActive}
@@ -90,18 +131,23 @@ export function WorldCanvas({
             shape={DEPT_SHAPES[key] || 'box'}
             event={event}
             onDismissEvent={onDismissBubble}
+            isSelected={isSelected}
+            isDimmed={isDimmed}
+            onClick={() => onSelectBuilding?.(key)}
           />
         )
       })}
 
       {/* Glowing data connections */}
-      <DataBeams
-        steps={steps}
-        positions={DEPT_POSITIONS}
-        colors={DEPT_COLORS}
-        activeDepts={activeDepts}
-        hasActiveRun={hasActiveRun}
-      />
+      {selectedBuilding === null && (
+        <DataBeams
+          steps={steps}
+          positions={DEPT_POSITIONS}
+          colors={DEPT_COLORS}
+          activeDepts={activeDepts}
+          hasActiveRun={hasActiveRun}
+        />
+      )}
 
       {/* Rovers move only when a run is live, otherwise they remain asleep near buildings */}
       <AgentRovers
@@ -110,10 +156,11 @@ export function WorldCanvas({
         colors={DEPT_COLORS}
         steps={steps}
         hasActiveRun={hasActiveRun}
+        selectedBuilding={selectedBuilding}
       />
 
-      {/* Interactive, auto-rotating camera orbit */}
-      <OrbitControls autoRotate autoRotateSpeed={0.5} maxPolarAngle={Math.PI / 2.1} />
+      {/* Interactive camera rig replaces OrbitControls */}
+      <CameraRig selectedBuilding={selectedBuilding} positions={DEPT_POSITIONS} />
 
       {/* Soft atmospheric white fog */}
       <fog attach="fog" args={['#f5f7fa', 20, 70]} />

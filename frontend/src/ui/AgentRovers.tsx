@@ -9,6 +9,7 @@ interface AgentRoversProps {
   colors: Record<string, string>
   steps: StepRecord[]
   hasActiveRun: boolean
+  selectedBuilding?: string | null
 }
 
 const ROVER_COUNT = 60
@@ -54,6 +55,7 @@ export function AgentRovers({
   colors,
   steps,
   hasActiveRun,
+  selectedBuilding = null,
 }: AgentRoversProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null)
   const visorRef = useRef<THREE.InstancedMesh>(null)
@@ -77,12 +79,16 @@ export function AgentRovers({
       ),
     )
 
+    const scopedRunningKeys = selectedBuilding
+      ? runningKeys.filter((key) => key === selectedBuilding)
+      : runningKeys
+
     const movingCount = hasActiveRun
-      ? Math.min(ROVER_COUNT, Math.max(0, runningKeys.length * ACTIVE_ROVERS_PER_DEPT))
+      ? Math.min(ROVER_COUNT, Math.max(0, scopedRunningKeys.length * ACTIVE_ROVERS_PER_DEPT))
       : 0
 
     for (let i = 0; i < movingCount; i++) {
-      const toKey = runningKeys[i % runningKeys.length]
+      const toKey = scopedRunningKeys[i % scopedRunningKeys.length]
       const choices = deptKeys.filter((key) => key !== toKey)
       const fromKey = choices[Math.floor(seeded(i * 4.13 + 1.9) * choices.length)] ?? toKey
       const fromBase = positions[fromKey]
@@ -118,7 +124,7 @@ export function AgentRovers({
     }
 
     return arr
-  }, [positions, activeDepts, colors, steps, hasActiveRun])
+  }, [positions, activeDepts, colors, steps, hasActiveRun, selectedBuilding])
 
   useEffect(() => {
     progressRef.current = rovers.map((rover) => rover.initialProgress)

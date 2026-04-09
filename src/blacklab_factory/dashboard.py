@@ -22,6 +22,7 @@ from .models import (
     RunSettings,
 )
 from .operator_control import OperatorCommander
+from .resources import RuntimeResourceManager
 from .storage import RunStorage
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
@@ -31,24 +32,26 @@ FRONTEND_DIST_DIR = repo_root() / "frontend" / "dist"
 
 class RunLaunchPayload(BaseModel):
     mission: str
+    project_slug: str | None = None
     mode: str = "codex"
     codex_model: str = DEFAULT_CORE_CODEX_MODEL
     codex_autonomy: str = "read_only"
     codex_review_model: str = DEFAULT_REVIEW_CODEX_MODEL
     codex_review_autonomy: str = DEFAULT_REVIEW_CODEX_AUTONOMY
-    max_parallel_departments: int = 7
+    max_parallel_departments: int = 9
     pause_between_departments: float = 0
 
 
 class LoopLaunchPayload(BaseModel):
     objective: str
+    project_slug: str | None = None
     run_mode: str = "codex"
     loop_mode: str = "full_auto"
     codex_model: str = DEFAULT_CORE_CODEX_MODEL
     codex_autonomy: str = "full_auto"
     codex_review_model: str = DEFAULT_REVIEW_CODEX_MODEL
     codex_review_autonomy: str = DEFAULT_REVIEW_CODEX_AUTONOMY
-    max_parallel_departments: int = 7
+    max_parallel_departments: int = 9
     pause_between_departments: float = 0
     interval_seconds: int = 30
     max_iterations: int = 3
@@ -83,6 +86,7 @@ def create_app(storage: RunStorage) -> FastAPI:
     loop_storage = AutopilotSupervisor(storage_root=base_root).loop_storage
     company_config = load_company_config()
     operator = OperatorCommander(base_root)
+    resource_manager = RuntimeResourceManager()
 
     def _running_message(run, department_label: str, department_purpose: str) -> str:
         current_status = (run.current_status or "").strip()
@@ -205,6 +209,8 @@ def create_app(storage: RunStorage) -> FastAPI:
 
         return {
             "run_id": run.run_id,
+            "project_slug": getattr(run, "project_slug", None),
+            "project_name": getattr(run, "project_name", None),
             "title": run.display_title,
             "status": run.status,
             "headline": headline,
@@ -232,6 +238,8 @@ def create_app(storage: RunStorage) -> FastAPI:
 
         return {
             "loop_id": loop_state.loop_id,
+            "project_slug": getattr(loop_state, "project_slug", None),
+            "project_name": getattr(loop_state, "project_name", None),
             "title": loop_state.display_title,
             "status": loop_state.status,
             "headline": headline,
@@ -242,11 +250,31 @@ def create_app(storage: RunStorage) -> FastAPI:
             "events": build_loop_events(loop_state),
         }
 
+    def build_department_packets(run) -> list[dict]:
+        artifacts_by_key = {artifact.department_key: artifact for artifact in run.artifacts}
+        packets: list[dict] = []
+        for step in run.steps:
+            artifact = artifacts_by_key.get(step.department_key)
+            packets.append(
+                {
+                    "department_key": step.department_key,
+                    "department_label": step.department_label,
+                    "status": step.status,
+                    "summary": step.summary or step.purpose,
+                    "artifact_title": artifact.title if artifact else None,
+                    "artifact_filename": artifact.filename if artifact else None,
+                    "artifact_preview": artifact.preview if artifact else None,
+                    "is_final": step.department_key == "board_review",
+                }
+            )
+        return packets
+
     def build_overview_context() -> dict:
         runs = storage.list_runs()
         loops = loop_storage.list_loops()
         operator_profile = operator.load_profile()
         operator_feed = build_operator_feed(runs, loops)
+        resource_snapshot = resource_manager.snapshot(company_config.max_parallel_departments)
         active_runs = [run for run in runs if run.status == "running"]
         blocked_runs = [run for run in runs if run.status in {"failed", "stale"}]
         completed_runs = [run for run in runs if run.status == "completed"]
@@ -262,6 +290,7 @@ def create_app(storage: RunStorage) -> FastAPI:
             for run in runs
             for risk in run.risks
         ][-8:]
+        current_project = build_current_project(runs, loops, operator_profile)
         return {
             "runs": runs,
             "loops": loops,
@@ -278,7 +307,60 @@ def create_app(storage: RunStorage) -> FastAPI:
             "stale_runs": [run for run in runs if run.status == "stale"],
             "default_settings": RunSettings(),
             "operator_profile": operator_profile,
+            "resource_snapshot": resource_snapshot,
+            "current_project": current_project,
         }
+
+    def build_current_project(runs, loops, operator_profile) -> dict | None:
+        for run in runs:
+            if run.status == "running" and run.project_slug:
+                return {
+                    "slug": run.project_slug,
+                    "name": run.project_name or run.project_slug,
+                    "source": "active run",
+                    "entity_id": run.run_id,
+                }
+        for loop_state in loops:
+            if loop_state.status in {"running", "stopping"} and loop_state.project_slug:
+                return {
+                    "slug": loop_state.project_slug,
+                    "name": loop_state.project_name or loop_state.project_slug,
+                    "source": "active loop",
+                    "entity_id": loop_state.loop_id,
+                }
+        for run in runs:
+            if run.project_slug:
+                return {
+                    "slug": run.project_slug,
+                    "name": run.project_name or run.project_slug,
+                    "source": "recent run",
+                    "entity_id": run.run_id,
+                }
+        for loop_state in loops:
+            if loop_state.project_slug:
+                return {
+                    "slug": loop_state.project_slug,
+                    "name": loop_state.project_name or loop_state.project_slug,
+                    "source": "recent loop",
+                    "entity_id": loop_state.loop_id,
+                }
+        if operator_profile.launch.project_slug:
+            slug = operator_profile.launch.project_slug
+            return {
+                "slug": slug,
+                "name": slug.replace("-", " ").title(),
+                "source": "launch default",
+                "entity_id": None,
+            }
+        if operator_profile.autopilot.project_slug:
+            slug = operator_profile.autopilot.project_slug
+            return {
+                "slug": slug,
+                "name": slug.replace("-", " ").title(),
+                "source": "autopilot default",
+                "entity_id": None,
+            }
+        return None
 
     def frontend_index_response() -> HTMLResponse:
         index_path = FRONTEND_DIST_DIR / "index.html"
@@ -312,6 +394,7 @@ def create_app(storage: RunStorage) -> FastAPI:
     def launch_page(request: Request):
         context = build_overview_context()
         context["recent_runs"] = context["runs"][:10]
+        context["company_config"] = company_config
         return templates.TemplateResponse(
             name="launch.html",
             request=request,
@@ -321,6 +404,7 @@ def create_app(storage: RunStorage) -> FastAPI:
     @app.get("/autopilot")
     def autopilot_page(request: Request):
         context = build_overview_context()
+        context["company_config"] = company_config
         return templates.TemplateResponse(
             name="autopilot.html",
             request=request,
@@ -371,6 +455,16 @@ def create_app(storage: RunStorage) -> FastAPI:
                 "log_tail": loop_storage.read_log_tail(loop_id),
                 "loop_report": build_loop_report(loop_state),
                 "event_feed": build_operator_feed(storage.list_runs(), loop_storage.list_loops()),
+                "current_project": (
+                    {
+                        "slug": loop_state.project_slug,
+                        "name": loop_state.project_name or loop_state.project_slug,
+                        "source": "current loop",
+                        "entity_id": loop_state.loop_id,
+                    }
+                    if loop_state.project_slug
+                    else build_overview_context().get("current_project")
+                ),
             },
         )
 
@@ -439,9 +533,20 @@ def create_app(storage: RunStorage) -> FastAPI:
                 "run": run,
                 "run_report": build_run_report(run),
                 "selected_artifact": selected_artifact,
+                "department_packets": build_department_packets(run),
                 "preview_html": preview_html,
                 "log_tail": storage.read_log_tail(run_id),
                 "event_feed": build_run_events(run)[:12],
+                "current_project": (
+                    {
+                        "slug": run.project_slug,
+                        "name": run.project_name or run.project_slug,
+                        "source": "current run",
+                        "entity_id": run.run_id,
+                    }
+                    if run.project_slug
+                    else build_overview_context().get("current_project")
+                ),
             },
         )
 
@@ -515,6 +620,7 @@ def create_app(storage: RunStorage) -> FastAPI:
                 **company_config.model_dump(mode="json"),
                 "default_run_settings": RunSettings().model_dump(mode="json"),
                 "operator_profile": operator.load_profile().model_dump(mode="json"),
+                "resource_snapshot": resource_manager.snapshot(company_config.max_parallel_departments).model_dump(mode="json"),
             }
         )
 
@@ -548,6 +654,7 @@ def create_app(storage: RunStorage) -> FastAPI:
     def launch_run_api(payload: RunLaunchPayload = Body(...)):
         launch = launch_detached_run(
             mission=payload.mission,
+            project_slug=payload.project_slug,
             mode=payload.mode,
             pause_between_departments=payload.pause_between_departments,
             max_parallel_departments=payload.max_parallel_departments,
@@ -570,6 +677,7 @@ def create_app(storage: RunStorage) -> FastAPI:
     def launch_loop_api(payload: LoopLaunchPayload = Body(...)):
         launch = launch_detached_loop(
             objective=payload.objective,
+            project_slug=payload.project_slug,
             run_mode=payload.run_mode,
             loop_mode=payload.loop_mode,
             interval_seconds=payload.interval_seconds,

@@ -21,6 +21,7 @@
       <thead>
         <tr>
           <th>Run</th>
+          <th>Project</th>
           <th>Status</th>
           <th>Department Progress</th>
           <th>Current / Last</th>
@@ -37,6 +38,14 @@
               {% if run.autopilot_iteration %}
                 <br />
                 <small>autopilot iteration {{ run.autopilot_iteration }}</small>
+              {% endif %}
+            </td>
+            <td>
+              {% if run.project_slug %}
+                <p class="project-chip">PROJECT // {{ run.project_name or run.project_slug }}</p>
+                <small>{{ run.project_slug }}</small>
+              {% else %}
+                <span class="table-muted">-</span>
               {% endif %}
             </td>
             <td><span class="badge status-{{ run.status }}">{{ run.status }}</span></td>
@@ -88,7 +97,7 @@
           </tr>
         {% else %}
           <tr>
-            <td colspan="7">No runs recorded yet.</td>
+            <td colspan="8">No runs recorded yet.</td>
           </tr>
         {% endfor %}
       </tbody>

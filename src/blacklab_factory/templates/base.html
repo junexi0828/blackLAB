@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% block title %}BlackLAB Factory{% endblock %}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/css/tabler.min.css" />
-    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="stylesheet" href="/static/style.css?v=4" />
     <script defer src="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/js/tabler.min.js"></script>
     <script defer src="/static/app.js"></script>
   </head>
@@ -18,18 +18,28 @@
         </div>
         <nav class="shell-nav">
           <a class="nav-link {% if request.url.path == '/' %}is-active{% endif %}" href="/">Overview</a>
+          <a class="nav-link {% if request.url.path.startswith('/console') %}is-active{% endif %}" href="/console">3D Campus (Console)</a>
           <a class="nav-link {% if request.url.path == '/launch' %}is-active{% endif %}" href="/launch">Launch</a>
           <a class="nav-link {% if request.url.path == '/autopilot' %}is-active{% endif %}" href="/autopilot">Autopilot</a>
           <a class="nav-link {% if request.url.path == '/operator' %}is-active{% endif %}" href="/operator">Operator Chat</a>
           <a class="nav-link {% if request.url.path == '/runs' %}is-active{% endif %}" href="/runs">Runs</a>
           <a class="nav-link {% if request.url.path == '/loops' %}is-active{% endif %}" href="/loops">Loops</a>
-          <a class="nav-link {% if request.url.path.startswith('/console') %}is-active{% endif %}" href="/console">3D Campus (Console)</a>
           <a class="nav-link {% if request.url.path == '/settings' %}is-active{% endif %}" href="/settings">Settings</a>
         </nav>
-        <div class="sidebar-note">
-          <strong>Surface Reference</strong>
-          <p>Tabler-inspired multipage operator shell over the existing blackLAB engine.</p>
-        </div>
+        {% if current_project %}
+          <div class="project-signboard">
+            <p class="project-signboard__label">Current Project</p>
+            <strong>{{ current_project.name }}</strong>
+            <p class="project-signboard__slug">{{ current_project.slug }}</p>
+            <p class="project-signboard__meta">
+              {{ current_project.source }}
+              {% if current_project.entity_id %}
+                · {{ current_project.entity_id }}
+              {% endif %}
+            </p>
+          </div>
+        {% endif %}
+
       </aside>
       <main class="layout">
         {% block content %}{% endblock %}

@@ -32,7 +32,7 @@ function bindRunLaunchForm() {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const payload = Object.fromEntries(new FormData(form).entries());
-    payload.max_parallel_departments = Number(payload.max_parallel_departments || 7);
+    payload.max_parallel_departments = Number(payload.max_parallel_departments || 9);
     payload.pause_between_departments = Number(payload.pause_between_departments || 0);
     try {
       setFeedback("Launching detached run...");
@@ -53,7 +53,7 @@ function bindLoopLaunchForm() {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const payload = Object.fromEntries(new FormData(form).entries());
-    payload.max_parallel_departments = Number(payload.max_parallel_departments || 7);
+    payload.max_parallel_departments = Number(payload.max_parallel_departments || 9);
     payload.pause_between_departments = Number(payload.pause_between_departments || 0);
     payload.interval_seconds = Number(payload.interval_seconds || 30);
     payload.max_iterations = Number(payload.max_iterations || 3);
@@ -189,18 +189,20 @@ function bindOperatorSettingsForm() {
     const payload = {
       launch: {
         mode: raw.launch_mode,
+        project_slug: raw.launch_project_slug || null,
         pause_between_departments: Number(raw.launch_pause_between_departments || 0),
         run_settings: {
           codex_model: raw.launch_codex_model,
           codex_autonomy: raw.launch_codex_autonomy,
           codex_review_model: raw.launch_codex_review_model,
           codex_review_autonomy: raw.launch_codex_review_autonomy,
-          max_parallel_departments: Number(raw.launch_max_parallel_departments || 7),
+          max_parallel_departments: Number(raw.launch_max_parallel_departments || 9),
           detached: false,
         },
       },
       autopilot: {
         run_mode: raw.autopilot_run_mode,
+        project_slug: raw.autopilot_project_slug || null,
         loop_mode: raw.autopilot_loop_mode,
         interval_seconds: Number(raw.autopilot_interval_seconds || 30),
         max_iterations: Number(raw.autopilot_max_iterations || 3),
@@ -210,7 +212,7 @@ function bindOperatorSettingsForm() {
           codex_autonomy: raw.autopilot_codex_autonomy,
           codex_review_model: raw.autopilot_codex_review_model,
           codex_review_autonomy: raw.autopilot_codex_review_autonomy,
-          max_parallel_departments: Number(raw.autopilot_max_parallel_departments || 7),
+          max_parallel_departments: Number(raw.autopilot_max_parallel_departments || 9),
           detached: false,
         },
       },

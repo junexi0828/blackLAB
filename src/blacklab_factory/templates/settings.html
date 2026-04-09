@@ -28,6 +28,20 @@
 
     <article class="panel">
       <div class="panel-header">
+        <h2>Resource Governor</h2>
+      </div>
+      <ul class="list">
+        <li><strong>CPU Cores</strong><p>{{ resource_snapshot.cpu_count }}</p></li>
+        <li><strong>Load 1m</strong><p>{{ resource_snapshot.load_1m if resource_snapshot.load_1m is not none else "-" }} · ratio {{ resource_snapshot.load_ratio if resource_snapshot.load_ratio is not none else "-" }}</p></li>
+        <li><strong>Available Memory</strong><p>{{ resource_snapshot.memory_available_mb if resource_snapshot.memory_available_mb is not none else "-" }} MB / {{ resource_snapshot.memory_total_mb if resource_snapshot.memory_total_mb is not none else "-" }} MB</p></li>
+        <li><strong>Requested Parallelism</strong><p>{{ resource_snapshot.requested_parallelism }}</p></li>
+        <li><strong>Effective Parallelism</strong><p>{{ resource_snapshot.effective_parallelism }}</p></li>
+        <li><strong>Governor Reason</strong><p>{{ resource_snapshot.reason }}</p></li>
+      </ul>
+    </article>
+
+    <article class="panel">
+      <div class="panel-header">
         <h2>Runtime Profiles</h2>
       </div>
       <ul class="list">
@@ -59,6 +73,10 @@
             <option value="mock" {% if operator_profile.launch.mode == "mock" %}selected{% endif %}>mock</option>
             <option value="openai" {% if operator_profile.launch.mode == "openai" %}selected{% endif %}>openai</option>
           </select>
+        </label>
+        <label>
+          <span>Launch Project Slug</span>
+          <input type="text" name="launch_project_slug" value="{{ operator_profile.launch.project_slug or '' }}" placeholder="e.g. revenue-leak-auditor" />
         </label>
         <label>
           <span>Core Model</span>
@@ -94,7 +112,7 @@
         </label>
         <label>
           <span>Parallel Teams</span>
-          <input type="number" name="launch_max_parallel_departments" min="1" max="16" value="{{ operator_profile.launch.run_settings.max_parallel_departments or 7 }}" />
+          <input type="number" name="launch_max_parallel_departments" min="1" max="16" value="{{ operator_profile.launch.run_settings.max_parallel_departments or company_config.max_parallel_departments }}" />
         </label>
         <label>
           <span>Pause Between Waves</span>
@@ -111,6 +129,10 @@
             <option value="mock" {% if operator_profile.autopilot.run_mode == "mock" %}selected{% endif %}>mock</option>
             <option value="openai" {% if operator_profile.autopilot.run_mode == "openai" %}selected{% endif %}>openai</option>
           </select>
+        </label>
+        <label>
+          <span>Autopilot Project Slug</span>
+          <input type="text" name="autopilot_project_slug" value="{{ operator_profile.autopilot.project_slug or '' }}" placeholder="e.g. revenue-leak-auditor" />
         </label>
         <label>
           <span>Loop Mode</span>
@@ -153,7 +175,7 @@
         </label>
         <label>
           <span>Parallel Teams</span>
-          <input type="number" name="autopilot_max_parallel_departments" min="1" max="16" value="{{ operator_profile.autopilot.run_settings.max_parallel_departments or 7 }}" />
+          <input type="number" name="autopilot_max_parallel_departments" min="1" max="16" value="{{ operator_profile.autopilot.run_settings.max_parallel_departments or company_config.max_parallel_departments }}" />
         </label>
         <label>
           <span>Interval Seconds</span>
@@ -187,6 +209,8 @@
           <th>Label</th>
           <th>Purpose</th>
           <th>Output</th>
+          <th>Lane</th>
+          <th>Priority</th>
           <th>Runtime Tier</th>
         </tr>
       </thead>
@@ -197,6 +221,8 @@
             <td>{{ department.label }}</td>
             <td>{{ department.purpose }}</td>
             <td>{{ department.output_title }}</td>
+            <td>{{ department.resource_lane }}</td>
+            <td>{{ department.priority }}</td>
             <td>{{ department.runtime_tier }}</td>
           </tr>
         {% endfor %}
@@ -206,6 +232,8 @@
             <td>{{ department.label }}</td>
             <td>{{ department.purpose }}</td>
             <td>{{ department.output_title }}</td>
+            <td>{{ department.resource_lane }}</td>
+            <td>{{ department.priority }}</td>
             <td>{{ department.runtime_tier }}</td>
           </tr>
         {% endfor %}
@@ -215,6 +243,8 @@
             <td>{{ company_config.final_review_label }}</td>
             <td>Synthesize all department outputs into one operator briefing.</td>
             <td>{{ company_config.final_review_output_title }}</td>
+            <td>review</td>
+            <td>40</td>
             <td>review</td>
           </tr>
         {% endif %}

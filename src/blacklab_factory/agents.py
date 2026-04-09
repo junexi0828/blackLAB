@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from blacklab_factory.config import repo_root
 from blacklab_factory.models import (
     CodexAutonomyMode,
     CodexRuntimeTier,
@@ -50,6 +49,8 @@ class DepartmentAgent:
         department: DepartmentConfig,
         state: RunState,
         hooks: DepartmentRunHooks | None = None,
+        workspace_path: Path | None = None,
+        project_context: str = "",
     ) -> DepartmentResult:
         raise NotImplementedError
 
@@ -61,11 +62,23 @@ class MockDepartmentAgent(DepartmentAgent):
         department: DepartmentConfig,
         state: RunState,
         hooks: DepartmentRunHooks | None = None,
+        workspace_path: Path | None = None,
+        project_context: str = "",
     ) -> DepartmentResult:
         if hooks and hooks.on_log:
             hooks.on_log(f"{department.label}: generating deterministic mock artifact.")
         completed = [step.department_label for step in state.steps if step.status == "completed"]
         context_line = ", ".join(completed) if completed else "none"
+        project_snapshot = project_context.strip()
+        project_lines = (
+            [
+                "## Project Context Snapshot",
+                project_snapshot,
+                "",
+            ]
+            if project_snapshot
+            else []
+        )
         if department.key == "board_review":
             summary = f"{department.label} consolidated the company plan for: {state.mission}"
             body = "\n".join(
@@ -75,6 +88,7 @@ class MockDepartmentAgent(DepartmentAgent):
                     "## Mission",
                     state.mission,
                     "",
+                    *project_lines,
                     "## Company Thesis",
                     "- Build the narrowest profitable wedge first, then expand only after proving retention.",
                     "",
@@ -83,7 +97,7 @@ class MockDepartmentAgent(DepartmentAgent):
                     "- Keep pricing, scope, distribution, and delivery tied to one measurable customer outcome.",
                     "",
                     "## Contradictions To Resolve",
-                    "- Validate whether distribution assumptions match the delivery capacity in the engineering plan.",
+                    "- Validate whether distribution assumptions match the delivery capacity across the dev team plans.",
                     "- Tighten the handoff between product scope and pricing before launch.",
                     "",
                     "## Quality Gates",
@@ -112,6 +126,7 @@ class MockDepartmentAgent(DepartmentAgent):
                     "## Mission",
                     state.mission,
                     "",
+                    *project_lines,
                     "## Review Lens",
                     department.purpose,
                     "",
@@ -120,7 +135,7 @@ class MockDepartmentAgent(DepartmentAgent):
                     "- Revenue logic is present, but proof quality still depends on live customer signals.",
                     "",
                     "## Contradictions",
-                    "- Validate that launch scope matches the actual engineering and support capacity.",
+                    "- Validate that launch scope matches the actual development and support capacity.",
                     "- Confirm that pricing and rollout promises can be executed within the first customer cohort.",
                     "",
                     "## Quality Gates",
@@ -147,6 +162,7 @@ class MockDepartmentAgent(DepartmentAgent):
                 "## Mission",
                 state.mission,
                 "",
+                *project_lines,
                 "## Department Goal",
                 department.purpose,
                 "",
@@ -191,14 +207,23 @@ class OpenAIDepartmentAgent(DepartmentAgent):
         department: DepartmentConfig,
         state: RunState,
         hooks: DepartmentRunHooks | None = None,
+        workspace_path: Path | None = None,
+        project_context: str = "",
     ) -> DepartmentResult:
         prior_summaries = "\n".join(
             f"- {step.department_label}: {step.summary}"
             for step in state.steps
             if step.summary
         ) or "- No prior summaries yet."
+        workspace_note = (
+            f"Workspace boundary: Use only {workspace_path} for any files or outputs."
+            if workspace_path
+            else ""
+        )
+        project_block = project_context.strip() + "\n\n" if project_context.strip() else ""
         prompt = "\n".join(
             [
+                project_block.rstrip(),
                 f"You are the {department.label} inside {company.company_name}.",
                 f"Mission style: {company.mission_style}.",
                 f"Department purpose: {department.purpose}",
@@ -206,6 +231,8 @@ class OpenAIDepartmentAgent(DepartmentAgent):
                 "",
                 "Prior department summaries:",
                 prior_summaries,
+                "",
+                workspace_note,
                 "",
                 "Return plain markdown with these sections:",
                 "1. Executive Summary",
@@ -245,6 +272,8 @@ class CodexDepartmentAgent(DepartmentAgent):
         department: DepartmentConfig,
         state: RunState,
         hooks: DepartmentRunHooks | None = None,
+        workspace_path: Path | None = None,
+        project_context: str = "",
     ) -> DepartmentResult:
         schema = {
             "type": "object",
@@ -258,7 +287,18 @@ class CodexDepartmentAgent(DepartmentAgent):
             "additionalProperties": False,
         }
 
-        prompt = self._build_prompt(company=company, department=department, state=state)
+        # Each run gets its own isolated workspace so AI-generated files
+        # never pollute the main blackLAB source tree.
+        effective_workspace = workspace_path or Path(tempfile.mkdtemp(prefix="blacklab-ws-"))
+        effective_workspace.mkdir(parents=True, exist_ok=True)
+
+        prompt = self._build_prompt(
+            company=company,
+            department=department,
+            state=state,
+            workspace_path=effective_workspace,
+            project_context=project_context,
+        )
         runtime_profile = self._resolve_runtime_profile(department=department, settings=state.settings)
         max_attempts = max(1, company.codex_retry_attempts + 1)
         payload: dict | None = None
@@ -268,7 +308,8 @@ class CodexDepartmentAgent(DepartmentAgent):
             if hooks and hooks.on_log:
                 hooks.on_log(
                     f"{department.label}: codex attempt {attempt}/{max_attempts} "
-                    f"using {runtime_profile.tier} profile."
+                    f"using {runtime_profile.tier} profile. "
+                    f"workspace={effective_workspace}"
                 )
             try:
                 payload = self._run_codex(
@@ -278,6 +319,7 @@ class CodexDepartmentAgent(DepartmentAgent):
                     runtime_profile=runtime_profile,
                     timeout_seconds=company.codex_worker_timeout_seconds,
                     hooks=hooks,
+                    workspace_path=effective_workspace,
                 )
                 break
             except RuntimeError as exc:
@@ -309,6 +351,7 @@ class CodexDepartmentAgent(DepartmentAgent):
         runtime_profile: CodexRuntimeProfile,
         timeout_seconds: int,
         hooks: DepartmentRunHooks | None = None,
+        workspace_path: Path | None = None,
     ) -> dict:
         with tempfile.TemporaryDirectory(prefix="blacklab-codex-") as temp_dir:
             temp_path = Path(temp_dir)
@@ -318,11 +361,17 @@ class CodexDepartmentAgent(DepartmentAgent):
             stderr_path = temp_path / "stderr.log"
             schema_path.write_text(json.dumps(schema), encoding="utf-8")
 
+            # Use the run-scoped workspace as the codex working directory.
+            # This ensures every file the AI agent creates or modifies stays
+            # inside .factory/runs/<run_id>/workspace/ and never touches the
+            # main blackLAB source tree (src/, frontend/, etc.).
+            effective_cwd = str(workspace_path) if workspace_path else tempfile.mkdtemp(prefix="blacklab-cwd-")
+
             command = [
                 self.codex_bin,
                 "exec",
                 "-C",
-                str(repo_root()),
+                effective_cwd,
             ]
             if runtime_profile.model:
                 command.extend(["--model", runtime_profile.model])
@@ -402,7 +451,14 @@ class CodexDepartmentAgent(DepartmentAgent):
                 raise RuntimeError("Codex department execution completed without a final output file.")
             return json.loads(output_path.read_text(encoding="utf-8"))
 
-    def _build_prompt(self, company: CompanyConfig, department: DepartmentConfig, state: RunState) -> str:
+    def _build_prompt(
+        self,
+        company: CompanyConfig,
+        department: DepartmentConfig,
+        state: RunState,
+        workspace_path: Path | None = None,
+        project_context: str = "",
+    ) -> str:
         runtime_profile = self._resolve_runtime_profile(department=department, settings=state.settings)
         prior_summaries = "\n".join(
             f"- {step.department_label}: {step.summary}"
@@ -416,8 +472,21 @@ class CodexDepartmentAgent(DepartmentAgent):
             ]
         ) or "No artifact previews yet."
 
+        workspace_note = (
+            f"WORKSPACE BOUNDARY: You may only create or modify files inside: {workspace_path}\n"
+            "The blackLAB source tree (src/, frontend/, config/, tests/) is off-limits. "
+            "Never read, write, or execute anything outside the workspace directory above."
+            if workspace_path
+            else ""
+        )
+
+        # Project context block — injected at the very top of every prompt.
+        # This gives the AI instant awareness of the project and run history
+        # without any manual setup by the operator.
+        project_block = project_context.strip() + "\n\n" if project_context.strip() else ""
+
         if department.key == "board_review":
-            return "\n".join(
+            return project_block + "\n".join(
                 [
                     f"You are the {department.label} inside {company.company_name}.",
                     "Your job is to act as the final executive editor and quality gate for the entire company run.",
@@ -430,6 +499,7 @@ class CodexDepartmentAgent(DepartmentAgent):
                     "Artifact previews:",
                     artifact_previews,
                     "",
+                    workspace_note,
                     "Return JSON only and match the provided schema exactly.",
                     self._operation_boundary(runtime_profile.autonomy),
                     "",
@@ -452,7 +522,7 @@ class CodexDepartmentAgent(DepartmentAgent):
             )
 
         if department.runtime_tier == "review":
-            return "\n".join(
+            return project_block + "\n".join(
                 [
                     f"You are the {department.label} department inside {company.company_name}.",
                     "You are part of the lightweight review lane that tests and validates the company packet.",
@@ -466,6 +536,7 @@ class CodexDepartmentAgent(DepartmentAgent):
                     "Artifact previews from other departments:",
                     artifact_previews,
                     "",
+                    workspace_note,
                     "Return JSON only and match the provided schema exactly.",
                     self._operation_boundary(runtime_profile.autonomy),
                     "",
@@ -485,7 +556,7 @@ class CodexDepartmentAgent(DepartmentAgent):
                 ]
             )
 
-        return "\n".join(
+        return project_block + "\n".join(
             [
                 f"You are the {department.label} department inside {company.company_name}.",
                 f"Mission style: {company.mission_style}.",
@@ -498,6 +569,7 @@ class CodexDepartmentAgent(DepartmentAgent):
                 "Artifact previews from other departments:",
                 artifact_previews,
                 "",
+                workspace_note,
                 "Return JSON only and match the provided schema exactly.",
                 self._operation_boundary(runtime_profile.autonomy),
                 "",

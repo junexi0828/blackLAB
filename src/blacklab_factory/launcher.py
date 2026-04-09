@@ -19,6 +19,7 @@ class DetachedLaunch:
 
 def launch_detached_run(
     mission: str,
+    project_slug: str | None,
     mode: str,
     pause_between_departments: float,
     max_parallel_departments: int | None,
@@ -61,6 +62,8 @@ def launch_detached_run(
         command.extend(["--pause-between-departments", str(pause_between_departments)])
     if max_parallel_departments:
         command.extend(["--max-parallel-departments", str(max_parallel_departments)])
+    if project_slug:
+        command.extend(["--project-slug", project_slug])
 
     process = _spawn(command=command, log_path=log_path)
     return DetachedLaunch(
@@ -72,6 +75,7 @@ def launch_detached_run(
 
 def launch_detached_loop(
     objective: str,
+    project_slug: str | None,
     run_mode: str,
     loop_mode: str,
     interval_seconds: int,
@@ -124,6 +128,8 @@ def launch_detached_loop(
         command.extend(["--pause-between-departments", str(pause_between_departments)])
     if max_parallel_departments:
         command.extend(["--max-parallel-departments", str(max_parallel_departments)])
+    if project_slug:
+        command.extend(["--project-slug", project_slug])
 
     process = _spawn(command=command, log_path=log_path)
     return DetachedLaunch(

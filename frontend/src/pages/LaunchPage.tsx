@@ -59,6 +59,13 @@ export function LaunchPage() {
               <span>Mission</span>
               <textarea name="mission" rows={5} required placeholder="Build a profitable AI operator for Korean SMBs" />
             </label>
+            <label>
+              <span>Project Slug (Memory Space)</span>
+              <input type="text" name="project_slug" placeholder="e.g. revenue-leak-auditor" />
+              <div style={{ fontSize: '12px', color: 'var(--subtext)', marginTop: '4px' }}>
+                Leave empty for a Stateless Run (No Persistent Memory).
+              </div>
+            </label>
             <div className="form-grid">
               <label>
                 <span>Mode</span>

@@ -12,6 +12,7 @@ from blacklab_factory.models import (
     OperatorChatMessage,
     OperatorChatState,
     OperatorProfile,
+    ProjectRecord,
     RunSettings,
     RunState,
     StepRecord,
@@ -62,6 +63,7 @@ class RunStorage:
         )
         self.run_dir(run_id).mkdir(parents=True, exist_ok=True)
         self.artifacts_dir(run_id).mkdir(parents=True, exist_ok=True)
+        self.workspace_dir(run_id)  # ensure run-isolated sandbox exists from the start
         self.save_state(state)
         return state
 
@@ -73,6 +75,17 @@ class RunStorage:
 
     def artifacts_dir(self, run_id: str) -> Path:
         return self.run_dir(run_id) / "artifacts"
+
+    def workspace_dir(self, run_id: str) -> Path:
+        """Isolated sandbox directory for AI-generated files within this run.
+
+        All code, configs, and deliverables produced by the AI agents MUST be
+        written inside this folder only.  The main blackLAB source tree
+        (``src/``, ``frontend/``, etc.) is never touched by agent workers.
+        """
+        path = self.run_dir(run_id) / "workspace"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
 
     def log_path(self, run_id: str) -> Path:
         return self.run_dir(run_id) / "run.log"
@@ -293,3 +306,214 @@ class OperatorStorage:
         )
         chat_state.messages = chat_state.messages[-limit:]
         return self.save_chat(chat_state)
+
+
+class ProjectStorage:
+    """Manages persistent projects: foundation context + live context + memory."""
+
+    MEMORY_ENTRY_LIMIT = 20  # maximum entries kept in memory.md
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.projects_dir = self.root / "projects"
+        self.projects_dir.mkdir(parents=True, exist_ok=True)
+
+    def normalize_slug(self, slug: str) -> str:
+        return slugify(slug)
+
+    # ── paths ────────────────────────────────────────────────────────────────
+
+    def project_dir(self, slug: str) -> Path:
+        normalized = self.normalize_slug(slug)
+        direct = self.projects_dir / normalized
+        if direct.exists():
+            return direct
+        for candidate in self.projects_dir.iterdir():
+            if candidate.is_dir() and candidate.name.lower() == normalized.lower():
+                return candidate
+        return direct
+
+    def meta_path(self, slug: str) -> Path:
+        return self.project_dir(slug) / "project_meta.json"
+
+    def context_path(self, slug: str) -> Path:
+        """project.md — stable project foundation, seeded once then preserved."""
+        return self.project_dir(slug) / "project.md"
+
+    def live_context_path(self, slug: str) -> Path:
+        """current.md — latest authoritative context refreshed after successful runs."""
+        return self.project_dir(slug) / "current.md"
+
+    def context_versions_dir(self, slug: str) -> Path:
+        path = self.project_dir(slug) / "context_versions"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def memory_path(self, slug: str) -> Path:
+        """memory.md — auto-accumulated run summaries."""
+        return self.project_dir(slug) / "memory.md"
+
+    def workspace_dir(self, slug: str) -> Path:
+        """Shared workspace across all Runs in this project."""
+        path = self.project_dir(slug) / "workspace"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    # ── lifecycle ────────────────────────────────────────────────────────────
+
+    def create_project(self, slug: str, name: str, brief: str = "") -> ProjectRecord:
+        normalized = self.normalize_slug(slug)
+        project_dir = self.project_dir(normalized)
+        project_dir.mkdir(parents=True, exist_ok=True)
+        record = ProjectRecord(slug=normalized, name=name, brief=brief)
+        self._save_meta(record)
+        # Initialise empty files so they always exist
+        if not self.context_path(normalized).exists():
+            self.context_path(normalized).write_text("", encoding="utf-8")
+        if not self.live_context_path(normalized).exists():
+            self.live_context_path(normalized).write_text("", encoding="utf-8")
+        if not self.memory_path(normalized).exists():
+            self.memory_path(normalized).write_text("", encoding="utf-8")
+        self.context_versions_dir(normalized)
+        return record
+
+    def get_project(self, slug: str) -> ProjectRecord | None:
+        path = self.meta_path(self.normalize_slug(slug))
+        if not path.exists():
+            return None
+        try:
+            return ProjectRecord.model_validate_json(path.read_text(encoding="utf-8"))
+        except Exception:
+            return None
+
+    def list_projects(self) -> list[ProjectRecord]:
+        records: list[ProjectRecord] = []
+        for meta in sorted(self.projects_dir.glob("*/project_meta.json"), reverse=True):
+            try:
+                records.append(ProjectRecord.model_validate_json(meta.read_text(encoding="utf-8")))
+            except Exception:
+                continue
+        return records
+
+    def _save_meta(self, record: ProjectRecord) -> None:
+        record.updated_at = utc_now()
+        self.meta_path(record.slug).write_text(record.model_dump_json(indent=2), encoding="utf-8")
+
+    # ── context: project.md ──────────────────────────────────────────────────
+
+    def write_context(self, slug: str, content: str) -> None:
+        """Overwrite the stable project foundation context."""
+        normalized = self.normalize_slug(slug)
+        self.context_path(normalized).write_text(content.strip() + "\n", encoding="utf-8")
+        # Update brief from first non-empty line
+        record = self.get_project(normalized)
+        if record:
+            for line in content.splitlines():
+                stripped = line.strip().lstrip("#").strip()
+                if stripped:
+                    record.brief = stripped[:200]
+                    break
+            self._save_meta(record)
+
+    def read_context(self, slug: str) -> str:
+        path = self.context_path(self.normalize_slug(slug))
+        return path.read_text(encoding="utf-8").strip() if path.exists() else ""
+
+    def write_live_context(self, slug: str, run_id: str, title: str, content: str) -> None:
+        """Refresh the latest authoritative context after a successful run."""
+        normalized = self.normalize_slug(slug)
+        cleaned = content.strip() + "\n"
+        self.live_context_path(normalized).write_text(cleaned, encoding="utf-8")
+        version_name = f"{run_id}-{slugify(title)[:40]}.md"
+        (self.context_versions_dir(normalized) / version_name).write_text(cleaned, encoding="utf-8")
+
+    def read_live_context(self, slug: str) -> str:
+        path = self.live_context_path(self.normalize_slug(slug))
+        return path.read_text(encoding="utf-8").strip() if path.exists() else ""
+
+    # ── memory: memory.md ────────────────────────────────────────────────────
+
+    def append_memory(self, slug: str, run_id: str, mission: str, run_summary: str, decisions: list[str], next_run_hint: str, risks: list[str]) -> None:
+        """Called automatically when a Run completes. Appends a structured entry to memory.md."""
+        normalized = self.normalize_slug(slug)
+        now = utc_now()
+        date_str = now.strftime("%Y-%m-%d %H:%M UTC")
+        decision_bullets = "\n".join(f"  - {d}" for d in decisions[:6]) or "  - (none recorded)"
+        risk_bullets = "\n".join(f"  - {r}" for r in risks[:3]) or "  - (none)"
+        entry = (
+            f"\n## Run: {date_str} — {mission[:120]}\n"
+            f"**Run ID**: `{run_id}`\n\n"
+            f"**Summary**: {run_summary[:300]}\n\n"
+            f"**Key Decisions**:\n{decision_bullets}\n\n"
+            f"**Open Risks**:\n{risk_bullets}\n\n"
+            f"**Next Run Hint**: {next_run_hint[:300]}\n\n"
+            f"---"
+        )
+        path = self.memory_path(normalized)
+        existing = path.read_text(encoding="utf-8") if path.exists() else ""
+        path.write_text(existing + entry + "\n", encoding="utf-8")
+        # trim to last MEMORY_ENTRY_LIMIT entries
+        self._trim_memory(normalized)
+        # update meta
+        record = self.get_project(normalized)
+        if record:
+            record.run_count += 1
+            record.last_run_id = run_id
+            record.last_run_at = now
+            self._save_meta(record)
+
+    def read_memory(self, slug: str, last_n: int = 5) -> str:
+        """Return the last N memory entries."""
+        path = self.memory_path(self.normalize_slug(slug))
+        if not path.exists():
+            return ""
+        text = path.read_text(encoding="utf-8").strip()
+        if not text:
+            return ""
+        # Split on hr separator
+        entries = [e.strip() for e in text.split("---") if e.strip()]
+        recent = entries[-last_n:]
+        return "\n\n---\n\n".join(recent)
+
+    def _trim_memory(self, slug: str) -> None:
+        path = self.memory_path(self.normalize_slug(slug))
+        if not path.exists():
+            return
+        text = path.read_text(encoding="utf-8").strip()
+        entries = [e.strip() for e in text.split("---") if e.strip()]
+        if len(entries) > self.MEMORY_ENTRY_LIMIT:
+            kept = entries[-self.MEMORY_ENTRY_LIMIT:]
+            path.write_text("\n\n---\n\n".join(kept) + "\n\n---\n", encoding="utf-8")
+
+    # ── combined prompt payload ──────────────────────────────────────────────
+
+    def build_project_prompt_block(self, slug: str) -> str:
+        """Returns the full text block injected at the top of every AI prompt."""
+        foundation = self.read_context(slug)
+        live_context = self.read_live_context(slug)
+        memory = self.read_memory(slug, last_n=5)
+        parts: list[str] = []
+        if foundation:
+            parts.append(
+                "══════════════════════════════════════════════════\n"
+                "PROJECT FOUNDATION  (stable project identity and baseline)\n"
+                "══════════════════════════════════════════════════\n"
+                + foundation
+            )
+        if live_context and live_context != foundation:
+            parts.append(
+                "══════════════════════════════════════════════════\n"
+                "PROJECT LIVE CONTEXT  (latest authoritative state from the most recent successful run)\n"
+                "══════════════════════════════════════════════════\n"
+                + live_context
+            )
+        if memory:
+            parts.append(
+                "══════════════════════════════════════════════════\n"
+                "PROJECT MEMORY  (what happened in previous runs — do not repeat finished work)\n"
+                "══════════════════════════════════════════════════\n"
+                + memory
+            )
+        if not parts:
+            return ""
+        return "\n\n".join(parts) + "\n\n"

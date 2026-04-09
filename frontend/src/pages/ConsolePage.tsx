@@ -57,6 +57,8 @@ export function ConsolePage() {
     [feedEvents, dismissedFeedIds],
   )
 
+  const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null)
+
   function dismissBubble(eventId: string) {
     setDismissedBubbleIds((current) => (current.includes(eventId) ? current : [...current, eventId]))
   }
@@ -71,12 +73,26 @@ export function ConsolePage() {
 
   return (
     <div className="console-world">
+      {selectedBuilding && (
+        <div style={{ position: 'absolute', top: '1rem', left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
+          <button 
+            type="button"
+            className="base-button primary-button"
+            style={{ padding: '0.5rem 1rem', borderRadius: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+            onClick={() => setSelectedBuilding(null)}
+          >
+            ← Back to Campus overview
+          </button>
+        </div>
+      )}
       <WorldCanvas
         steps={activeRun?.steps ?? []}
         currentDepartment={activeRun?.current_department ?? null}
         hasActiveRun={Boolean(activeRun)}
         bubbleEvents={bubbleEvents}
         onDismissBubble={dismissBubble}
+        selectedBuilding={selectedBuilding}
+        onSelectBuilding={setSelectedBuilding}
       />
       <ConsoleHUD
         mission={activeRun?.mission ?? activeLoop?.objective ?? latestRun?.mission ?? null}

@@ -41,6 +41,8 @@ export interface ProcessRecord {
 
 export interface RunState {
   run_id: string
+  project_slug: string | null
+  project_name: string | null
   mission: string
   company_name: string
   mode: string
@@ -71,6 +73,8 @@ export interface LoopIterationRecord {
 
 export interface LoopState {
   loop_id: string
+  project_slug: string | null
+  project_name: string | null
   objective: string
   loop_mode: string
   run_mode: string

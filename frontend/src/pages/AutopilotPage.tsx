@@ -77,6 +77,13 @@ export function AutopilotPage() {
                 placeholder="Create a 24/7 AI company that keeps improving a profitable product"
               />
             </label>
+            <label>
+              <span>Project Slug (Memory Space)</span>
+              <input type="text" name="project_slug" placeholder="e.g. revenue-leak-auditor" />
+              <div style={{ fontSize: '12px', color: 'var(--subtext)', marginTop: '4px' }}>
+                Leave empty for a Stateless Run (No Persistent Memory).
+              </div>
+            </label>
             <div className="form-grid">
               <label>
                 <span>Loop Mode</span>

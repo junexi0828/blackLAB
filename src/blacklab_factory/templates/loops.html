@@ -21,6 +21,7 @@
       <thead>
         <tr>
           <th>Loop</th>
+          <th>Project</th>
           <th>Status</th>
           <th>Mode</th>
           <th>Objective</th>
@@ -34,6 +35,14 @@
         {% for loop_state in loops %}
           <tr>
             <td><a href="/loops/{{ loop_state.loop_id }}">{{ loop_state.loop_id }}</a></td>
+            <td>
+              {% if loop_state.project_slug %}
+                <p class="project-chip">PROJECT // {{ loop_state.project_name or loop_state.project_slug }}</p>
+                <small>{{ loop_state.project_slug }}</small>
+              {% else %}
+                <span class="table-muted">-</span>
+              {% endif %}
+            </td>
             <td><span class="badge status-{{ loop_state.status }}">{{ loop_state.status }}</span></td>
             <td>{{ loop_state.loop_mode }}</td>
             <td>
@@ -66,7 +75,7 @@
           </tr>
         {% else %}
           <tr>
-            <td colspan="8">No loops recorded yet.</td>
+            <td colspan="9">No loops recorded yet.</td>
           </tr>
         {% endfor %}
       </tbody>

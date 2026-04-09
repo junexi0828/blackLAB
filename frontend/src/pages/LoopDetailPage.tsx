@@ -47,6 +47,19 @@ export function LoopDetailPage() {
 
   return (
     <>
+      {loop.project_slug && (
+        <div style={{
+          padding: '16px 24px',
+          marginBottom: '24px',
+          background: 'linear-gradient(90deg, rgba(30,58,138,0.2) 0%, rgba(17,24,39,0) 100%)',
+          borderLeft: '4px solid var(--highlight)',
+          borderRadius: '4px',
+        }}>
+          <h2 style={{ margin: 0, fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '2px', color: 'var(--highlight)' }}>
+            PROJECT // {loop.project_name || loop.project_slug}
+          </h2>
+        </div>
+      )}
       <PageHeader
         title={loop.objective}
         description={

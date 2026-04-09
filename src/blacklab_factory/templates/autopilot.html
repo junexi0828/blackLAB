@@ -23,6 +23,10 @@
           <span>Objective</span>
           <textarea name="objective" rows="5" placeholder="Create a 24/7 AI company that keeps improving a profitable product" required></textarea>
         </label>
+        <label>
+          <span>Project Slug</span>
+          <input type="text" name="project_slug" placeholder="e.g. revenue-leak-auditor" value="{{ operator_profile.autopilot.project_slug or '' }}" />
+        </label>
         <div class="form-grid">
           <label>
             <span>Loop Mode</span>
@@ -73,7 +77,7 @@
           </label>
           <label>
             <span>Parallel Teams</span>
-            <input type="number" name="max_parallel_departments" min="1" max="16" value="{{ operator_profile.autopilot.run_settings.max_parallel_departments or 7 }}" />
+            <input type="number" name="max_parallel_departments" min="1" max="16" value="{{ operator_profile.autopilot.run_settings.max_parallel_departments or company_config.max_parallel_departments }}" />
           </label>
           <label>
             <span>Full Auto Cycles</span>

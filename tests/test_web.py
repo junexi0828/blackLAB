@@ -8,7 +8,11 @@ from blacklab_factory.web import create_app
 
 def test_dashboard_routes_render(tmp_path: Path) -> None:
     runner = FactoryRunner(storage_root=tmp_path)
-    state = runner.start("Launch a niche AI service for finance teams", mode="mock")
+    state = runner.start(
+        "Launch a niche AI service for finance teams",
+        mode="mock",
+        project_slug="revenue-leak-auditor",
+    )
     client = TestClient(create_app(storage_root=tmp_path))
 
     index_response = client.get("/")
@@ -20,14 +24,17 @@ def test_dashboard_routes_render(tmp_path: Path) -> None:
     launch_page = client.get("/launch")
     assert launch_page.status_code == 200
     assert "Mission Control" in launch_page.text
+    assert "Project Slug" in launch_page.text
 
     autopilot_page = client.get("/autopilot")
     assert autopilot_page.status_code == 200
     assert "Autopilot Control Room" in autopilot_page.text
+    assert "Project Slug" in autopilot_page.text
 
     runs_page = client.get("/runs")
     assert runs_page.status_code == 200
     assert "Run Ledger" in runs_page.text
+    assert "PROJECT // Revenue Leak Auditor" in runs_page.text
 
     loops_page = client.get("/loops")
     assert loops_page.status_code == 200
@@ -40,6 +47,7 @@ def test_dashboard_routes_render(tmp_path: Path) -> None:
     detail_response = client.get(f"/runs/{state.run_id}")
     assert detail_response.status_code == 200
     assert "Operator Report" in detail_response.text
+    assert "PROJECT // Revenue Leak Auditor" in detail_response.text
 
     console_response = client.get("/console")
     assert console_response.status_code == 200

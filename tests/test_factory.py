@@ -3,7 +3,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from blacklab_factory.factory import FactoryRunner
-from blacklab_factory.models import CompanyConfig, DepartmentConfig, utc_now
+from blacklab_factory.models import CompanyConfig, DepartmentConfig, StepRecord, utc_now
 
 
 def test_mock_run_creates_state_and_artifacts(tmp_path: Path) -> None:
@@ -11,9 +11,9 @@ def test_mock_run_creates_state_and_artifacts(tmp_path: Path) -> None:
     state = runner.start("Build an AI product for logistics teams", mode="mock")
 
     assert state.status == "completed"
-    assert len(state.steps) == 11
-    assert state.metrics["departments_completed"] == 11
-    assert len(state.artifacts) == 11
+    assert len(state.steps) == 13
+    assert state.metrics["departments_completed"] == 13
+    assert len(state.artifacts) == 13
     assert state.steps[-1].department_key == "board_review"
     assert (tmp_path / "runs" / state.run_id / "state.json").exists()
     assert (tmp_path / "runs" / state.run_id / "run.log").exists()
@@ -102,3 +102,75 @@ def test_review_departments_wait_for_core_wave_before_board_review(tmp_path: Pat
 
     assert {"validation", "test_lab", "quality_gate", "board_review"}.issubset(review_keys)
     assert board_review.depends_on == ["validation", "test_lab", "quality_gate"]
+
+
+def test_orchestrator_balances_strategy_and_delivery_lanes(tmp_path: Path) -> None:
+    runner = FactoryRunner(storage_root=tmp_path)
+    workflow_departments = runner._build_workflow_departments()
+    step_by_key = {
+        department.key: StepRecord(
+            department_key=department.key,
+            department_label=department.label,
+            purpose=department.purpose,
+        )
+        for department in workflow_departments
+    }
+    base_department_keys = {department.key for department in runner.config.departments}
+
+    selected = runner._select_departments_for_launch(
+        workflow_departments=workflow_departments,
+        step_by_key=step_by_key,
+        completed_keys=set(),
+        base_department_keys=base_department_keys,
+        active_departments=[],
+        parallel_limit=4,
+    )
+
+    selected_keys = {department.key for department in selected}
+
+    assert len(selected) == 4
+    assert {"ceo", "research", "dev_1"}.issubset(selected_keys)
+
+
+def test_project_memory_persists_across_runs(tmp_path: Path) -> None:
+    runner = FactoryRunner(storage_root=tmp_path)
+    project_slug = "REVENUE-LEAK-AUDITOR"
+
+    first = runner.start("Run project memory seed", mode="mock", project_slug=project_slug)
+    project_dir = tmp_path / "projects" / "revenue-leak-auditor"
+    context_path = project_dir / "project.md"
+    live_context_path = project_dir / "current.md"
+    memory_path = project_dir / "memory.md"
+    shared_workspace = project_dir / "workspace"
+
+    assert first.project_slug == "revenue-leak-auditor"
+    assert context_path.exists()
+    assert live_context_path.exists()
+    assert memory_path.exists()
+    assert context_path.read_text(encoding="utf-8").strip()
+    assert live_context_path.read_text(encoding="utf-8").strip()
+    assert first.run_id in memory_path.read_text(encoding="utf-8")
+    first_foundation = context_path.read_text(encoding="utf-8")
+    first_live = live_context_path.read_text(encoding="utf-8")
+
+    retained_file = shared_workspace / "shared-note.txt"
+    retained_file.write_text("keep me across runs", encoding="utf-8")
+
+    second = runner.start("Run project memory follow-up", mode="mock", project_slug=project_slug)
+
+    memory_text = memory_path.read_text(encoding="utf-8")
+    second_foundation = context_path.read_text(encoding="utf-8")
+    second_live = live_context_path.read_text(encoding="utf-8")
+
+    assert second.project_slug == "revenue-leak-auditor"
+    assert retained_file.exists()
+    assert first.run_id in memory_text
+    assert second.run_id in memory_text
+    assert first_foundation == second_foundation
+    assert "Run project memory follow-up" in second_live
+    assert first_live != second_live
+
+    prompt_block = runner.projects.build_project_prompt_block(project_slug)
+    assert "PROJECT FOUNDATION" in prompt_block
+    assert "PROJECT LIVE CONTEXT" in prompt_block
+    assert "PROJECT MEMORY" in prompt_block

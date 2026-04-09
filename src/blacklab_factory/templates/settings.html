@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+  <section class="hero">
+    <div>
+      <h1>Runtime Settings</h1>
+      <p class="subhead">Current engine defaults, company wiring, and staged Codex runtime profiles.</p>
+    </div>
+  </section>
+
+  <section class="two-column">
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Company Config</h2>
+      </div>
+      <ul class="list">
+        <li><strong>Company</strong><p>{{ company_config.company_name }}</p></li>
+        <li><strong>Default Mode</strong><p>{{ company_config.default_mode }}</p></li>
+        <li><strong>Parallel Strategy</strong><p>{{ company_config.parallel_strategy }}</p></li>
+        <li><strong>Max Parallel Departments</strong><p>{{ company_config.max_parallel_departments }}</p></li>
+        <li><strong>Final Review</strong><p>{{ company_config.enable_final_review }} · {{ company_config.final_review_label }}</p></li>
+        <li><strong>Codex Timeout</strong><p>{{ company_config.codex_worker_timeout_seconds }}s</p></li>
+        <li><strong>Retry Attempts</strong><p>{{ company_config.codex_retry_attempts }}</p></li>
+        <li><strong>Core Runtime</strong><p>{{ default_settings.codex_model }} · {{ default_settings.codex_autonomy }}</p></li>
+        <li><strong>Review Runtime</strong><p>{{ default_settings.codex_review_model }} · {{ default_settings.codex_review_autonomy }}</p></li>
+      </ul>
+    </article>
+
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Runtime Profiles</h2>
+      </div>
+      <ul class="list">
+        {% for profile in runtime_profiles %}
+          <li>
+            <strong>{{ profile.label }}</strong>
+            <p>{{ profile.description }}</p>
+            <small>{{ profile.value }} · {{ profile.codex_flag }}</small>
+          </li>
+        {% endfor %}
+      </ul>
+    </article>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <div>
+        <h2>Web Control Defaults</h2>
+        <p id="action-feedback">Save the defaults that every page and the Operator Chat should use.</p>
+      </div>
+    </div>
+    <form id="operator-settings-form" class="control-form">
+      <div class="form-section-title">Launch Defaults</div>
+      <div class="form-grid">
+        <label>
+          <span>Launch Mode</span>
+          <select name="launch_mode">
+            <option value="codex" {% if operator_profile.launch.mode == "codex" %}selected{% endif %}>codex</option>
+            <option value="mock" {% if operator_profile.launch.mode == "mock" %}selected{% endif %}>mock</option>
+            <option value="openai" {% if operator_profile.launch.mode == "openai" %}selected{% endif %}>openai</option>
+          </select>
+        </label>
+        <label>
+          <span>Core Model</span>
+          <select name="launch_codex_model">
+            <option value="gpt-5.4" {% if operator_profile.launch.run_settings.codex_model == "gpt-5.4" %}selected{% endif %}>gpt-5.4</option>
+            <option value="gpt-5.3-codex" {% if operator_profile.launch.run_settings.codex_model == "gpt-5.3-codex" %}selected{% endif %}>gpt-5.3-codex</option>
+            <option value="gpt-5.4-mini" {% if operator_profile.launch.run_settings.codex_model == "gpt-5.4-mini" %}selected{% endif %}>gpt-5.4-mini</option>
+          </select>
+        </label>
+        <label>
+          <span>Core Autonomy</span>
+          <select name="launch_codex_autonomy">
+            <option value="read_only" {% if operator_profile.launch.run_settings.codex_autonomy == "read_only" %}selected{% endif %}>read_only</option>
+            <option value="full_auto" {% if operator_profile.launch.run_settings.codex_autonomy == "full_auto" %}selected{% endif %}>full_auto</option>
+            <option value="yolo" {% if operator_profile.launch.run_settings.codex_autonomy == "yolo" %}selected{% endif %}>yolo</option>
+          </select>
+        </label>
+        <label>
+          <span>Review Model</span>
+          <select name="launch_codex_review_model">
+            <option value="gpt-5.4-mini" {% if operator_profile.launch.run_settings.codex_review_model == "gpt-5.4-mini" %}selected{% endif %}>gpt-5.4-mini</option>
+            <option value="gpt-5.4" {% if operator_profile.launch.run_settings.codex_review_model == "gpt-5.4" %}selected{% endif %}>gpt-5.4</option>
+            <option value="gpt-5.3-codex" {% if operator_profile.launch.run_settings.codex_review_model == "gpt-5.3-codex" %}selected{% endif %}>gpt-5.3-codex</option>
+          </select>
+        </label>
+        <label>
+          <span>Review Autonomy</span>
+          <select name="launch_codex_review_autonomy">
+            <option value="read_only" {% if operator_profile.launch.run_settings.codex_review_autonomy == "read_only" %}selected{% endif %}>read_only</option>
+            <option value="full_auto" {% if operator_profile.launch.run_settings.codex_review_autonomy == "full_auto" %}selected{% endif %}>full_auto</option>
+            <option value="yolo" {% if operator_profile.launch.run_settings.codex_review_autonomy == "yolo" %}selected{% endif %}>yolo</option>
+          </select>
+        </label>
+        <label>
+          <span>Parallel Teams</span>
+          <input type="number" name="launch_max_parallel_departments" min="1" max="16" value="{{ operator_profile.launch.run_settings.max_parallel_departments or 7 }}" />
+        </label>
+        <label>
+          <span>Pause Between Waves</span>
+          <input type="number" step="0.5" min="0" name="launch_pause_between_departments" value="{{ operator_profile.launch.pause_between_departments }}" />
+        </label>
+      </div>
+
+      <div class="form-section-title">Autopilot Defaults</div>
+      <div class="form-grid">
+        <label>
+          <span>Run Mode</span>
+          <select name="autopilot_run_mode">
+            <option value="codex" {% if operator_profile.autopilot.run_mode == "codex" %}selected{% endif %}>codex</option>
+            <option value="mock" {% if operator_profile.autopilot.run_mode == "mock" %}selected{% endif %}>mock</option>
+            <option value="openai" {% if operator_profile.autopilot.run_mode == "openai" %}selected{% endif %}>openai</option>
+          </select>
+        </label>
+        <label>
+          <span>Loop Mode</span>
+          <select name="autopilot_loop_mode">
+            <option value="always_on" {% if operator_profile.autopilot.loop_mode == "always_on" %}selected{% endif %}>always_on</option>
+            <option value="full_auto" {% if operator_profile.autopilot.loop_mode == "full_auto" %}selected{% endif %}>full_auto</option>
+          </select>
+        </label>
+        <label>
+          <span>Core Model</span>
+          <select name="autopilot_codex_model">
+            <option value="gpt-5.4" {% if operator_profile.autopilot.run_settings.codex_model == "gpt-5.4" %}selected{% endif %}>gpt-5.4</option>
+            <option value="gpt-5.3-codex" {% if operator_profile.autopilot.run_settings.codex_model == "gpt-5.3-codex" %}selected{% endif %}>gpt-5.3-codex</option>
+            <option value="gpt-5.4-mini" {% if operator_profile.autopilot.run_settings.codex_model == "gpt-5.4-mini" %}selected{% endif %}>gpt-5.4-mini</option>
+          </select>
+        </label>
+        <label>
+          <span>Core Autonomy</span>
+          <select name="autopilot_codex_autonomy">
+            <option value="read_only" {% if operator_profile.autopilot.run_settings.codex_autonomy == "read_only" %}selected{% endif %}>read_only</option>
+            <option value="full_auto" {% if operator_profile.autopilot.run_settings.codex_autonomy == "full_auto" %}selected{% endif %}>full_auto</option>
+            <option value="yolo" {% if operator_profile.autopilot.run_settings.codex_autonomy == "yolo" %}selected{% endif %}>yolo</option>
+          </select>
+        </label>
+        <label>
+          <span>Review Model</span>
+          <select name="autopilot_codex_review_model">
+            <option value="gpt-5.4-mini" {% if operator_profile.autopilot.run_settings.codex_review_model == "gpt-5.4-mini" %}selected{% endif %}>gpt-5.4-mini</option>
+            <option value="gpt-5.4" {% if operator_profile.autopilot.run_settings.codex_review_model == "gpt-5.4" %}selected{% endif %}>gpt-5.4</option>
+            <option value="gpt-5.3-codex" {% if operator_profile.autopilot.run_settings.codex_review_model == "gpt-5.3-codex" %}selected{% endif %}>gpt-5.3-codex</option>
+          </select>
+        </label>
+        <label>
+          <span>Review Autonomy</span>
+          <select name="autopilot_codex_review_autonomy">
+            <option value="read_only" {% if operator_profile.autopilot.run_settings.codex_review_autonomy == "read_only" %}selected{% endif %}>read_only</option>
+            <option value="full_auto" {% if operator_profile.autopilot.run_settings.codex_review_autonomy == "full_auto" %}selected{% endif %}>full_auto</option>
+            <option value="yolo" {% if operator_profile.autopilot.run_settings.codex_review_autonomy == "yolo" %}selected{% endif %}>yolo</option>
+          </select>
+        </label>
+        <label>
+          <span>Parallel Teams</span>
+          <input type="number" name="autopilot_max_parallel_departments" min="1" max="16" value="{{ operator_profile.autopilot.run_settings.max_parallel_departments or 7 }}" />
+        </label>
+        <label>
+          <span>Interval Seconds</span>
+          <input type="number" name="autopilot_interval_seconds" min="0" max="86400" value="{{ operator_profile.autopilot.interval_seconds }}" />
+        </label>
+        <label>
+          <span>Max Iterations</span>
+          <input type="number" name="autopilot_max_iterations" min="1" max="1000" value="{{ operator_profile.autopilot.max_iterations }}" />
+        </label>
+        <label>
+          <span>Pause Between Waves</span>
+          <input type="number" step="0.5" min="0" name="autopilot_pause_between_departments" value="{{ operator_profile.autopilot.pause_between_departments }}" />
+        </label>
+      </div>
+      <div class="button-row">
+        <button type="submit" class="primary-button">Save Web Defaults</button>
+        <a class="ghost-button" href="/operator">Open Operator Chat</a>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <h2>Departments</h2>
+      <p>The final review sits after the department wave and produces the operator briefing.</p>
+    </div>
+    <table class="run-table">
+      <thead>
+        <tr>
+          <th>Key</th>
+          <th>Label</th>
+          <th>Purpose</th>
+          <th>Output</th>
+          <th>Runtime Tier</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for department in company_config.departments %}
+          <tr>
+            <td>{{ department.key }}</td>
+            <td>{{ department.label }}</td>
+            <td>{{ department.purpose }}</td>
+            <td>{{ department.output_title }}</td>
+            <td>{{ department.runtime_tier }}</td>
+          </tr>
+        {% endfor %}
+        {% for department in company_config.review_departments %}
+          <tr>
+            <td>{{ department.key }}</td>
+            <td>{{ department.label }}</td>
+            <td>{{ department.purpose }}</td>
+            <td>{{ department.output_title }}</td>
+            <td>{{ department.runtime_tier }}</td>
+          </tr>
+        {% endfor %}
+        {% if company_config.enable_final_review %}
+          <tr>
+            <td>board_review</td>
+            <td>{{ company_config.final_review_label }}</td>
+            <td>Synthesize all department outputs into one operator briefing.</td>
+            <td>{{ company_config.final_review_output_title }}</td>
+            <td>review</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

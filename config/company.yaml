@@ -1,0 +1,68 @@
+company_name: blackLAB
+default_mode: codex
+mission_style: profit-first operator
+parallel_strategy: full_parallel
+max_parallel_departments: 7
+enable_final_review: true
+final_review_label: Board Review
+final_review_output_title: Operator Briefing
+codex_worker_timeout_seconds: 420
+codex_retry_attempts: 1
+departments:
+  - key: ceo
+    label: CEO
+    purpose: Set direction, ambition, and the current winning narrative.
+    output_title: Company Brief
+    temperature: 0.2
+  - key: research
+    label: Research
+    purpose: Map demand, customer pain, market timing, and competitor gaps.
+    output_title: Market Research Memo
+    temperature: 0.2
+  - key: product
+    label: Product
+    purpose: Turn research into a product wedge, roadmap, and scope.
+    output_title: Product Strategy
+    temperature: 0.3
+  - key: design
+    label: Design
+    purpose: Define user journey, interaction approach, and launch experience.
+    output_title: Design Spec
+    temperature: 0.4
+  - key: engineering
+    label: Engineering
+    purpose: Define system shape, delivery milestones, and production constraints.
+    output_title: Delivery Plan
+    temperature: 0.1
+  - key: growth
+    label: Growth
+    purpose: Produce distribution bets, positioning, and go-to-market actions.
+    output_title: Growth Plan
+    temperature: 0.3
+  - key: finance
+    label: Finance
+    purpose: Translate the plan into pricing, costs, and near-term economics.
+    output_title: Unit Economics Snapshot
+    temperature: 0.1
+review_departments:
+  - key: validation
+    label: Validation
+    purpose: Check whether the company thesis is executable, measurable, and tied to real proof points.
+    output_title: Validation Memo
+    temperature: 0.1
+    runtime_tier: review
+    depends_on: [ceo, research, product, design, engineering, growth, finance]
+  - key: test_lab
+    label: Test Lab
+    purpose: Stress-test the plan against failure modes, rollout risks, and operational edge cases.
+    output_title: Test Matrix
+    temperature: 0.1
+    runtime_tier: review
+    depends_on: [ceo, research, product, design, engineering, growth, finance]
+  - key: quality_gate
+    label: Quality Gate
+    purpose: Score the package for coherence, launch readiness, and missing handoff details before board review.
+    output_title: Quality Gate Report
+    temperature: 0.1
+    runtime_tier: review
+    depends_on: [ceo, research, product, design, engineering, growth, finance]

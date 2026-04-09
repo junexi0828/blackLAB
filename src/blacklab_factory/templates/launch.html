@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Launch{% endblock %}
+{% block content %}
+  <section class="hero">
+    <div>
+      <h1>Launch Detached Run</h1>
+      <p class="subhead">Start one AI company cycle with separate core and review runtimes.</p>
+    </div>
+  </section>
+
+  <section class="two-column">
+    <article class="panel launch-panel">
+        <div class="panel-header">
+          <h2>Mission Control</h2>
+          <p id="action-feedback">Submit a mission and the factory will launch it in the background.</p>
+        </div>
+      <form id="run-launch-form" class="control-form">
+        <label>
+          <span>Mission</span>
+          <textarea name="mission" rows="5" placeholder="Build a profitable AI operator for Korean SMBs" required></textarea>
+        </label>
+        <div class="form-grid">
+          <label>
+            <span>Mode</span>
+            <select name="mode">
+              <option value="codex" {% if operator_profile.launch.mode == "codex" %}selected{% endif %}>codex</option>
+              <option value="mock" {% if operator_profile.launch.mode == "mock" %}selected{% endif %}>mock</option>
+              <option value="openai" {% if operator_profile.launch.mode == "openai" %}selected{% endif %}>openai</option>
+            </select>
+          </label>
+          <label>
+            <span>Core Model</span>
+            <select name="codex_model">
+              <option value="gpt-5.4" {% if operator_profile.launch.run_settings.codex_model == "gpt-5.4" %}selected{% endif %}>gpt-5.4</option>
+              <option value="gpt-5.3-codex" {% if operator_profile.launch.run_settings.codex_model == "gpt-5.3-codex" %}selected{% endif %}>gpt-5.3-codex</option>
+              <option value="gpt-5.4-mini" {% if operator_profile.launch.run_settings.codex_model == "gpt-5.4-mini" %}selected{% endif %}>gpt-5.4-mini</option>
+            </select>
+          </label>
+          <label>
+            <span>Core Autonomy</span>
+            <select name="codex_autonomy">
+              <option value="read_only" {% if operator_profile.launch.run_settings.codex_autonomy == "read_only" %}selected{% endif %}>read_only</option>
+              <option value="full_auto" {% if operator_profile.launch.run_settings.codex_autonomy == "full_auto" %}selected{% endif %}>full_auto</option>
+              <option value="yolo" {% if operator_profile.launch.run_settings.codex_autonomy == "yolo" %}selected{% endif %}>yolo</option>
+            </select>
+          </label>
+          <label>
+            <span>Review Model</span>
+            <select name="codex_review_model">
+              <option value="gpt-5.4-mini" {% if operator_profile.launch.run_settings.codex_review_model == "gpt-5.4-mini" %}selected{% endif %}>gpt-5.4-mini</option>
+              <option value="gpt-5.4" {% if operator_profile.launch.run_settings.codex_review_model == "gpt-5.4" %}selected{% endif %}>gpt-5.4</option>
+              <option value="gpt-5.3-codex" {% if operator_profile.launch.run_settings.codex_review_model == "gpt-5.3-codex" %}selected{% endif %}>gpt-5.3-codex</option>
+            </select>
+          </label>
+          <label>
+            <span>Review Autonomy</span>
+            <select name="codex_review_autonomy">
+              <option value="read_only" {% if operator_profile.launch.run_settings.codex_review_autonomy == "read_only" %}selected{% endif %}>read_only</option>
+              <option value="full_auto" {% if operator_profile.launch.run_settings.codex_review_autonomy == "full_auto" %}selected{% endif %}>full_auto</option>
+              <option value="yolo" {% if operator_profile.launch.run_settings.codex_review_autonomy == "yolo" %}selected{% endif %}>yolo</option>
+            </select>
+          </label>
+          <label>
+            <span>Parallel Teams</span>
+            <input type="number" name="max_parallel_departments" min="1" max="16" value="{{ operator_profile.launch.run_settings.max_parallel_departments or 7 }}" />
+          </label>
+        </div>
+        <label>
+          <span>Pause Between Waves</span>
+          <input type="number" step="0.5" min="0" name="pause_between_departments" value="{{ operator_profile.launch.pause_between_departments }}" />
+        </label>
+        <div class="button-row">
+          <button type="submit" class="primary-button">Launch Detached Run</button>
+          <a class="ghost-button" href="/runs">Open Run Ledger</a>
+        </div>
+      </form>
+    </article>
+
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Recent Runs</h2>
+        <a href="/runs">view all</a>
+      </div>
+      <ul class="list">
+        {% for run in recent_runs %}
+          <li>
+            <strong><a href="/runs/{{ run.run_id }}">{{ run.run_id }}</a></strong>
+            <p>{{ run.mission }}</p>
+            <small>
+              {{ run.status }} · core {{ run.settings.codex_model }}/{{ run.settings.codex_autonomy }}
+              · review {{ run.settings.codex_review_model }}/{{ run.settings.codex_review_autonomy }}
+            </small>
+          </li>
+        {% else %}
+          <li>No runs have been launched yet.</li>
+        {% endfor %}
+      </ul>
+    </article>
+  </section>
+{% endblock %}

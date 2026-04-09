@@ -1,0 +1,74 @@
+company:
+  name: BlackLAB Factory
+  mission: Build profitable AI ventures with autonomous specialist agents.
+
+departments:
+  - name: CEO
+    role: Chief executive officer
+    goal: Turn the mission into a narrow commercial direction and a concrete win condition.
+    artifact_name: ceo-brief.md
+    required_sections:
+      - Mission
+      - Market Thesis
+      - Success Criteria
+      - Constraints
+
+  - name: Research
+    role: Market and user researcher
+    goal: Validate demand, surface competitors, and identify the sharpest wedge.
+    artifact_name: research-report.md
+    required_sections:
+      - Target User
+      - Core Pain
+      - Competitive Snapshot
+      - Evidence
+
+  - name: Product
+    role: Product strategist
+    goal: Convert the validated wedge into a roadmap, pricing angle, and delivery scope.
+    artifact_name: product-plan.md
+    required_sections:
+      - Product Shape
+      - Roadmap
+      - Pricing
+      - Execution Scope
+
+  - name: Design
+    role: Product designer
+    goal: Define the user experience, trust surfaces, and brand direction.
+    artifact_name: design-spec.md
+    required_sections:
+      - User Journey
+      - Interface Direction
+      - Brand Notes
+      - Risks
+
+  - name: Engineering
+    role: Lead engineer
+    goal: Specify the technical build, automation surfaces, and operational architecture.
+    artifact_name: engineering-plan.md
+    required_sections:
+      - System Architecture
+      - Delivery Plan
+      - Automation Hooks
+      - Technical Risks
+
+  - name: Growth
+    role: Growth lead
+    goal: Design the launch motion, acquisition loop, and feedback collection system.
+    artifact_name: growth-plan.md
+    required_sections:
+      - Launch Channel
+      - Acquisition Loop
+      - Content Plan
+      - Measurement
+
+  - name: Finance
+    role: Finance operator
+    goal: Pressure-test monetization, unit economics, and runway assumptions.
+    artifact_name: finance-model.md
+    required_sections:
+      - Revenue Model
+      - Cost Structure
+      - Break-even Logic
+      - Capital Risks

@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Overview{% endblock %}
+{% block content %}
+  <section class="hero">
+    <div>
+      <h1>Operator Overview</h1>
+      <p class="subhead">One place to see the factory state before you drill into launch, autopilot, runs, or loops.</p>
+    </div>
+    <div class="button-row">
+      <a class="primary-button" href="/operator">Open Operator Chat</a>
+      <a class="primary-button" href="/launch">Launch Run</a>
+      <a class="ghost-button" href="/autopilot">Open Autopilot</a>
+    </div>
+  </section>
+
+  <section class="card-grid">
+    <article class="card">
+      <h2>Active Runs</h2>
+      <p class="metric">{{ active_runs|length }}</p>
+    </article>
+    <article class="card">
+      <h2>Active Loops</h2>
+      <p class="metric">{{ active_loops|length }}</p>
+    </article>
+    <article class="card">
+      <h2>Completed Runs</h2>
+      <p class="metric">{{ completed_runs|length }}</p>
+    </article>
+    <article class="card">
+      <h2>Blocked Runs</h2>
+      <p class="metric">{{ blocked_runs|length }}</p>
+    </article>
+  </section>
+
+  <section class="two-column">
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Current Run Reports</h2>
+        <a href="/runs">open runs</a>
+      </div>
+      <ul class="list">
+        {% for report in recent_run_reports %}
+          <li>
+            <div class="timeline-head">
+              <strong><a href="/runs/{{ report.run_id }}">{{ report.title }}</a></strong>
+              <span class="badge status-{{ report.status }}">{{ report.status }}</span>
+            </div>
+            <p>{{ report.headline }}</p>
+            <small>
+              now {{ report.current_department or "-" }} · last {{ report.last_completed_department or "-" }} ·
+              {{ report.completed_departments_count }}/{{ report.total_departments_count }} departments
+            </small>
+            <p class="table-excerpt scroll-block scroll-block-sm">{{ report.current_status }}</p>
+          </li>
+        {% else %}
+          <li>No runs recorded yet.</li>
+        {% endfor %}
+      </ul>
+    </article>
+
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Current Loop Reports</h2>
+        <a href="/loops">open loops</a>
+      </div>
+      <ul class="list">
+        {% for report in recent_loop_reports %}
+          <li>
+            <div class="timeline-head">
+              <strong><a href="/loops/{{ report.loop_id }}">{{ report.title }}</a></strong>
+              <span class="badge status-{{ report.status }}">{{ report.status }}</span>
+            </div>
+            <p>{{ report.headline }}</p>
+            <small>current run {{ report.current_run_id or "-" }} · iterations {{ report.iterations_completed }}</small>
+            <p class="table-excerpt scroll-block scroll-block-sm">{{ report.latest_note }}</p>
+          </li>
+        {% else %}
+          <li>No loops recorded yet.</li>
+        {% endfor %}
+      </ul>
+    </article>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <h2>Operator Event Feed</h2>
+      <p>Recent run, department, and loop events.</p>
+    </div>
+    <ul class="timeline">
+      {% for event in operator_feed %}
+        <li class="timeline-item">
+          <div class="timeline-head">
+            <strong>{{ event.title }}</strong>
+            <span class="badge status-{{ event.status }}">{{ event.status }}</span>
+          </div>
+          <p>{{ event.message }}</p>
+          <small>{{ event.department_label or event.scope }} · {{ event.timestamp.isoformat() }}</small>
+        </li>
+      {% else %}
+        <li>No recent events.</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="two-column">
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Latest Department Updates</h2>
+        <a href="/runs">open runs</a>
+      </div>
+      <ul class="list">
+        {% for decision in latest_decisions %}
+          <li>
+            <strong>{{ decision.department }}</strong>
+            <p>{{ decision.summary }}</p>
+          </li>
+        {% else %}
+          <li>No completed decisions yet.</li>
+        {% endfor %}
+      </ul>
+    </article>
+
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Open Risk Feed</h2>
+        <a href="/runs">open runs</a>
+      </div>
+      <ul class="list">
+        {% for risk in top_risks %}
+          <li>
+            <span class="badge severity-{{ risk.severity }}">{{ risk.severity }}</span>
+            <p>{{ risk.summary }}</p>
+          </li>
+        {% else %}
+          <li>No risks recorded yet.</li>
+        {% endfor %}
+      </ul>
+    </article>
+  </section>
+{% endblock %}

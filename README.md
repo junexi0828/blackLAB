@@ -35,27 +35,48 @@ The factory maintains a fixed set of high-performance departments that coordinat
 ### 1. Synchronize & Launch
 ```bash
 uv sync --group dev
-# Start the autonomous executive loop
-uv run blacklab run "Build an AI-powered SaaS for solo developers" --mode codex
+chmod +x ./blacklab.sh
+./blacklab.sh start
 ```
 
 ### 2. Enter the Control Plane
 ```bash
-# Start the unified dashboard and 3D console
-uv run blacklab dashboard --host 127.0.0.1 --port 8000
+./blacklab.sh open
 ```
 
-Open [http://127.0.0.1:8000](http://127.0.0.1:8000) to access the Multi-page Dashboard, or jump directly into the **3D Metaverse Campus** at [http://127.0.0.1:8000/console](http://127.0.0.1:8000/console).
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000) to access the control plane, or jump directly into the **3D Metaverse Campus** at [http://127.0.0.1:8000/console](http://127.0.0.1:8000/console).
+
+### 3. Stop It When You Are Done
+```bash
+# In the terminal where the server is running
+Ctrl+C
+```
+
+Optional background mode:
+```bash
+./blacklab.sh start-bg
+./blacklab.sh stop
+```
+
+The web app now handles normal operation:
+
+- `/launch`: launch a single company run
+- `/autopilot`: start or stop the 24/7 loop
+- `/settings`: save default models and autonomy
+- `/operator`: control the system through the built-in operator chat
+- `/console`: visual-only metaverse view
 
 ---
 
 ## 🛠 Features
 
 - **Multi-Agent Orchestration**: Massive parallelization of department logic.
+- **Tiered Runtime Profiles**: Core planning and implementation can run on a premium model while review and validation stay lightweight.
 - **Real-time Inspection**: Watch the "AgentRovers" move as the AI processes each step.
 - **Persistence**: Every decision, artifact, and risk is logged under `.factory/runs/`.
 - **Codex Integration**: Native support for your local CLI subscriptions (No extra API keys required in `codex` mode).
-- **macOS Native**: Optional `launchd` integration for 24/7 autonomous operations.
+- **Local-first Runtime**: A single `./blacklab.sh start` command is the recommended way to bring the company online.
+- **macOS Native**: Optional `launchd` integration still exists, but it is no longer the default local workflow.
 
 ---
 

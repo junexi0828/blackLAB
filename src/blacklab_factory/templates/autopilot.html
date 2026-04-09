@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Autopilot{% endblock %}
+{% block content %}
+  <section class="hero">
+    <div>
+      <h1>Autopilot Control Room</h1>
+      <p class="subhead">Run plan -> design -> validate -> improve loops with separate core and review runtimes.</p>
+    </div>
+    <div class="button-row">
+      <button type="button" class="ghost-button" data-refresh-page>Refresh Now</button>
+      <button type="button" class="ghost-button" data-toggle-refresh data-active="true">Auto Refresh On</button>
+    </div>
+  </section>
+
+  <section class="two-column">
+    <article class="panel launch-panel">
+        <div class="panel-header">
+          <h2>Start Autopilot</h2>
+          <p id="action-feedback">Launch a background improvement loop from this page.</p>
+        </div>
+      <form id="loop-launch-form" class="control-form">
+        <label>
+          <span>Objective</span>
+          <textarea name="objective" rows="5" placeholder="Create a 24/7 AI company that keeps improving a profitable product" required></textarea>
+        </label>
+        <div class="form-grid">
+          <label>
+            <span>Loop Mode</span>
+            <select name="loop_mode">
+              <option value="full_auto" {% if operator_profile.autopilot.loop_mode == "full_auto" %}selected{% endif %}>full_auto</option>
+              <option value="always_on" {% if operator_profile.autopilot.loop_mode == "always_on" %}selected{% endif %}>24/7</option>
+            </select>
+          </label>
+          <label>
+            <span>Run Mode</span>
+            <select name="run_mode">
+              <option value="codex" {% if operator_profile.autopilot.run_mode == "codex" %}selected{% endif %}>codex</option>
+              <option value="mock" {% if operator_profile.autopilot.run_mode == "mock" %}selected{% endif %}>mock</option>
+              <option value="openai" {% if operator_profile.autopilot.run_mode == "openai" %}selected{% endif %}>openai</option>
+            </select>
+          </label>
+          <label>
+            <span>Core Model</span>
+            <select name="codex_model">
+              <option value="gpt-5.4" {% if operator_profile.autopilot.run_settings.codex_model == "gpt-5.4" %}selected{% endif %}>gpt-5.4</option>
+              <option value="gpt-5.3-codex" {% if operator_profile.autopilot.run_settings.codex_model == "gpt-5.3-codex" %}selected{% endif %}>gpt-5.3-codex</option>
+              <option value="gpt-5.4-mini" {% if operator_profile.autopilot.run_settings.codex_model == "gpt-5.4-mini" %}selected{% endif %}>gpt-5.4-mini</option>
+            </select>
+          </label>
+          <label>
+            <span>Core Autonomy</span>
+            <select name="codex_autonomy">
+              <option value="full_auto" {% if operator_profile.autopilot.run_settings.codex_autonomy == "full_auto" %}selected{% endif %}>full_auto</option>
+              <option value="yolo" {% if operator_profile.autopilot.run_settings.codex_autonomy == "yolo" %}selected{% endif %}>yolo</option>
+              <option value="read_only" {% if operator_profile.autopilot.run_settings.codex_autonomy == "read_only" %}selected{% endif %}>read_only</option>
+            </select>
+          </label>
+          <label>
+            <span>Review Model</span>
+            <select name="codex_review_model">
+              <option value="gpt-5.4-mini" {% if operator_profile.autopilot.run_settings.codex_review_model == "gpt-5.4-mini" %}selected{% endif %}>gpt-5.4-mini</option>
+              <option value="gpt-5.4" {% if operator_profile.autopilot.run_settings.codex_review_model == "gpt-5.4" %}selected{% endif %}>gpt-5.4</option>
+              <option value="gpt-5.3-codex" {% if operator_profile.autopilot.run_settings.codex_review_model == "gpt-5.3-codex" %}selected{% endif %}>gpt-5.3-codex</option>
+            </select>
+          </label>
+          <label>
+            <span>Review Autonomy</span>
+            <select name="codex_review_autonomy">
+              <option value="read_only" {% if operator_profile.autopilot.run_settings.codex_review_autonomy == "read_only" %}selected{% endif %}>read_only</option>
+              <option value="full_auto" {% if operator_profile.autopilot.run_settings.codex_review_autonomy == "full_auto" %}selected{% endif %}>full_auto</option>
+              <option value="yolo" {% if operator_profile.autopilot.run_settings.codex_review_autonomy == "yolo" %}selected{% endif %}>yolo</option>
+            </select>
+          </label>
+          <label>
+            <span>Parallel Teams</span>
+            <input type="number" name="max_parallel_departments" min="1" max="16" value="{{ operator_profile.autopilot.run_settings.max_parallel_departments or 7 }}" />
+          </label>
+          <label>
+            <span>Full Auto Cycles</span>
+            <input type="number" name="max_iterations" min="1" max="100" value="{{ operator_profile.autopilot.max_iterations }}" />
+          </label>
+          <label>
+            <span>Loop Delay Seconds</span>
+            <input type="number" name="interval_seconds" min="0" max="86400" value="{{ operator_profile.autopilot.interval_seconds }}" />
+          </label>
+          <label>
+            <span>Pause In Run</span>
+            <input type="number" step="0.5" min="0" name="pause_between_departments" value="{{ operator_profile.autopilot.pause_between_departments }}" />
+          </label>
+        </div>
+        <div class="button-row">
+          <button type="submit" class="primary-button">Start Full Auto / 24-7</button>
+          <a class="ghost-button" href="/loops">Open Loop Ledger</a>
+        </div>
+      </form>
+    </article>
+
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Active Loops</h2>
+        <a href="/loops">view all</a>
+      </div>
+      <ul class="list">
+        {% for loop_state in active_loops %}
+          <li>
+            <strong>{{ loop_state.loop_id }}</strong>
+            <p>{{ loop_state.objective }}</p>
+            <small>{{ loop_state.status }} · {{ loop_state.loop_mode }} · current run {{ loop_state.current_run_id or "-" }}</small>
+          </li>
+        {% else %}
+          <li>No loop is actively running.</li>
+        {% endfor %}
+      </ul>
+    </article>
+  </section>
+{% endblock %}

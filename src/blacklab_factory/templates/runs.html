@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Runs{% endblock %}
+{% block content %}
+  <section class="hero">
+    <div>
+      <h1>Run Ledger</h1>
+      <p class="subhead">Mission history, live worker state, and drill-down links for every company run.</p>
+    </div>
+    <div class="button-row">
+      <a class="primary-button" href="/launch">New Run</a>
+      <button type="button" class="ghost-button" data-refresh-page>Refresh</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <h2>All Runs</h2>
+      <p>Use the run id to open the full operator briefing and department timeline.</p>
+    </div>
+    <table class="run-table">
+      <thead>
+        <tr>
+          <th>Run</th>
+          <th>Status</th>
+          <th>Department Progress</th>
+          <th>Current / Last</th>
+          <th>Profile</th>
+          <th>Live Worker</th>
+          <th>Mission</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for run in runs %}
+          <tr>
+            <td>
+              <a href="/runs/{{ run.run_id }}">{{ run.run_id }}</a>
+              {% if run.autopilot_iteration %}
+                <br />
+                <small>autopilot iteration {{ run.autopilot_iteration }}</small>
+              {% endif %}
+            </td>
+            <td><span class="badge status-{{ run.status }}">{{ run.status }}</span></td>
+            <td>
+              <strong>{{ run.completed_departments_count }} / {{ run.total_departments_count }}</strong>
+              <br />
+              <small>{{ run.metrics.progress_percent }}% complete</small>
+            </td>
+            <td>
+              <strong>now</strong> {{ run.current_department or "-" }}
+              <br />
+              <small>last {{ run.last_completed_department or "-" }}</small>
+            </td>
+            <td>
+              core {{ run.settings.codex_model }}/{{ run.settings.codex_autonomy }}
+              <br />
+              review {{ run.settings.codex_review_model }}/{{ run.settings.codex_review_autonomy }}
+            </td>
+            <td>
+              {% if run.current_process %}
+                <strong>{{ run.current_process.label }}</strong>
+                <br />
+                <small>live pid {{ run.current_process.pid }}</small>
+              {% elif run.last_process %}
+                <strong>{{ run.last_process.label }}</strong>
+                <br />
+                <small>{{ run.last_process.status }} · pid {{ run.last_process.pid }}</small>
+              {% else %}
+                <span class="table-muted">idle</span>
+              {% endif %}
+            </td>
+            <td>
+              <p class="table-excerpt">{{ run.mission_preview }}</p>
+              {% if run.mission_is_long %}
+                <button
+                  type="button"
+                  class="ghost-button"
+                  data-toggle-target="run-ledger-mission-{{ loop.index }}"
+                  data-toggle-label-open="Hide original mission"
+                  data-toggle-label-closed="Show original mission"
+                >
+                  Show original mission
+                </button>
+                <div id="run-ledger-mission-{{ loop.index }}" class="toggle-panel" hidden>
+                  <pre class="log-view">{{ run.mission }}</pre>
+                </div>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="7">No runs recorded yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}Run {{ run.run_id }}{% endblock %}
+{% block content %}
+  <section class="hero">
+    <div>
+      <h1>{{ run.display_title }}</h1>
+      <p class="subhead">Run ID {{ run.run_id }} · mode {{ run.mode }}</p>
+      <p class="subhead">Current department {{ run.current_department or "-" }} · next action {{ run.next_action }}</p>
+      <p class="subhead">{{ run_report.headline }}</p>
+      <p class="subhead">Prompt preview {{ run.mission_preview }}</p>
+    </div>
+    <div class="hero-metrics">
+      <span class="badge status-{{ run.status }}">{{ run.status }}</span>
+      <span>{{ run.metrics.progress_percent }}% complete</span>
+      <span>{{ run.metrics.artifact_count }} artifacts</span>
+      <span>{{ run.metrics.open_risk_count }} open risks</span>
+      <span>{{ run.completed_departments_count }} / {{ run.total_departments_count }} departments</span>
+    </div>
+  </section>
+
+  <section class="two-column">
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Operator Report</h2>
+        {% if run.autopilot_iteration %}
+          <p>autopilot iteration {{ run.autopilot_iteration }}</p>
+        {% endif %}
+      </div>
+      <ul class="list">
+        <li>
+          <strong>Situation</strong>
+          <p>{{ run_report.headline }}</p>
+        </li>
+        <li>
+          <strong>Current Status</strong>
+          <p class="scroll-block scroll-block-md">{{ run_report.current_status }}</p>
+        </li>
+        <li>
+          <strong>Next Action</strong>
+          <p>{{ run_report.next_action }}</p>
+        </li>
+        <li>
+          <strong>Coverage</strong>
+          <p>{{ run_report.completed_departments_count }} / {{ run_report.total_departments_count }} departments complete, {{ run_report.artifact_count }} artifacts, {{ run_report.risk_count }} open risks.</p>
+        </li>
+      </ul>
+    </article>
+
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Recent Department Updates</h2>
+      </div>
+      <ul class="list">
+        {% for update in run_report.updates %}
+          <li>
+            <strong>{{ update.department }}</strong>
+            <p>{{ update.summary }}</p>
+          </li>
+        {% else %}
+          <li>No completed department updates yet.</li>
+        {% endfor %}
+      </ul>
+    </article>
+  </section>
+
+  <section class="three-column">
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Live Control Room</h2>
+      </div>
+      <ul class="list">
+        <li>
+          <strong>Worker</strong>
+          <p>{{ run.current_process.label if run.current_process else "-" }}</p>
+        </li>
+        <li>
+          <strong>PID</strong>
+          <p>{{ run.current_process.pid if run.current_process else "-" }}</p>
+        </li>
+        <li>
+          <strong>Command</strong>
+          <p class="scroll-block scroll-block-sm">{{ run.current_process.command_preview if run.current_process else "No live worker." }}</p>
+        </li>
+        <li>
+          <strong>Department Progress</strong>
+          <p>{{ run.completed_departments_count }} / {{ run.total_departments_count }} completed</p>
+        </li>
+        <li>
+          <strong>Last Completed Department</strong>
+          <p>{{ run.last_completed_department or "-" }}</p>
+        </li>
+        <li>
+          <strong>Status</strong>
+          <p class="scroll-block scroll-block-lg">{{ run.current_status }}</p>
+        </li>
+      </ul>
+    </article>
+
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Department Timeline</h2>
+      </div>
+      <ul class="timeline">
+        {% for stage in run.steps %}
+          <li class="timeline-item">
+            <div class="timeline-head">
+              <strong>{{ stage.department_label }}</strong>
+              <span class="badge status-{{ stage.status }}">{{ stage.status }}</span>
+            </div>
+            <p>{{ stage.summary or stage.purpose }}</p>
+            <small>artifact: {{ stage.artifact_filename or "-" }}</small>
+          </li>
+        {% endfor %}
+      </ul>
+    </article>
+
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Artifacts</h2>
+      </div>
+      <ul class="list">
+        {% for artifact in run.artifacts %}
+          <li>
+            <strong>{{ artifact.department_key }}</strong>
+            <p>{{ artifact.title }}</p>
+            {% if artifact.department_key == "board_review" %}
+              <small>final operator briefing</small><br />
+            {% endif %}
+            <small><a href="/runs/{{ run.run_id }}/artifacts/{{ artifact.filename }}">open artifact</a></small><br />
+            <small>{{ artifact.preview }}</small>
+          </li>
+        {% endfor %}
+      </ul>
+    </article>
+
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Execution Notes</h2>
+      </div>
+      <ul class="list">
+        <li>
+          <strong>Next Action</strong>
+          <p>{{ run.next_action }}</p>
+        </li>
+        <li>
+          <strong>Original Prompt</strong>
+          {% if run.mission_is_long %}
+            <button
+              type="button"
+              class="ghost-button"
+              data-toggle-target="run-mission-raw"
+              data-toggle-label-open="Hide original prompt"
+              data-toggle-label-closed="Show original prompt"
+            >
+              Show original prompt
+            </button>
+            <div id="run-mission-raw" class="toggle-panel" hidden>
+              <pre class="log-view">{{ run.mission }}</pre>
+            </div>
+          {% else %}
+            <pre class="log-view">{{ run.mission }}</pre>
+          {% endif %}
+        </li>
+      </ul>
+    </article>
+  </section>
+
+  <section class="two-column">
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Artifact Preview</h2>
+        {% if selected_artifact %}
+          <p>{{ selected_artifact.department_key }} · {{ selected_artifact.title }}</p>
+        {% endif %}
+      </div>
+      <div class="markdown-body">
+        {{ preview_html | safe }}
+      </div>
+    </article>
+
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Risks</h2>
+      </div>
+      <ul class="list">
+        {% for risk in run.risks %}
+          <li>
+            <p>{{ risk }}</p>
+          </li>
+        {% else %}
+          <li>No open risks recorded.</li>
+        {% endfor %}
+      </ul>
+    </article>
+  </section>
+
+  <section class="two-column">
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Event Feed</h2>
+        <p>Meaningful department updates only.</p>
+      </div>
+      <ul class="timeline">
+        {% for event in event_feed %}
+          <li class="timeline-item">
+            <div class="timeline-head">
+              <strong>{{ event.title }}</strong>
+              <span class="badge status-{{ event.status }}">{{ event.status }}</span>
+            </div>
+            <p>{{ event.message }}</p>
+            <small>
+              {{ event.department_label or event.scope }} · {{ event.timestamp.isoformat() }}
+            </small>
+          </li>
+        {% else %}
+          <li>No events recorded yet.</li>
+        {% endfor %}
+      </ul>
+    </article>
+
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Run Log</h2>
+        <p><a href="/runs/{{ run.run_id }}/log">open raw log</a></p>
+      </div>
+      <pre class="log-view">{{ log_tail or "No log yet." }}</pre>
+    </article>
+
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Process History</h2>
+      </div>
+      <ul class="list">
+        {% for process in run.process_history | reverse %}
+          <li>
+            <strong>{{ process.label }}</strong>
+            <p>pid {{ process.pid }} · {{ process.status }} · exit {{ process.exit_code if process.exit_code is not none else "-" }}</p>
+          </li>
+        {% else %}
+          <li>No completed worker history yet.</li>
+        {% endfor %}
+      </ul>
+    </article>
+  </section>
+{% endblock %}

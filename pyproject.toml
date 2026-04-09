@@ -1,0 +1,44 @@
+[project]
+name = "blacklab-factory"
+version = "0.1.0"
+description = "Autonomous multi-agent venture factory with a local audit dashboard."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.116.0",
+  "jinja2>=3.1.6",
+  "markdown>=3.8",
+  "openai-agents",
+  "pydantic>=2.11.0",
+  "python-dotenv>=1.1.0",
+  "pyyaml>=6.0.2",
+  "typer>=0.16.0",
+  "uvicorn>=0.35.0",
+]
+
+[dependency-groups]
+dev = [
+  "httpx>=0.28.0",
+  "pytest>=8.4.0",
+]
+
+[project.scripts]
+blacklab = "blacklab_factory.cli:app"
+
+[build-system]
+requires = ["setuptools>=80.0.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+blacklab_factory = ["templates/*.html", "static/*.css", "static/*.js"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

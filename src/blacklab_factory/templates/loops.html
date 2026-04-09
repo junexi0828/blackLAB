@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Loops{% endblock %}
+{% block content %}
+  <section class="hero">
+    <div>
+      <h1>Loop Ledger</h1>
+      <p class="subhead">Track every full-auto and 24/7 improvement loop, its current run, and stop controls.</p>
+    </div>
+    <div class="button-row">
+      <a class="primary-button" href="/autopilot">Start Loop</a>
+      <button type="button" class="ghost-button" data-refresh-page>Refresh</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <h2>All Loops</h2>
+      <p>Stop buttons request termination after the current cycle finishes.</p>
+    </div>
+    <table class="run-table">
+      <thead>
+        <tr>
+          <th>Loop</th>
+          <th>Status</th>
+          <th>Mode</th>
+          <th>Objective</th>
+          <th>Current Run</th>
+          <th>Iterations</th>
+          <th>Latest Note</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for loop_state in loops %}
+          <tr>
+            <td><a href="/loops/{{ loop_state.loop_id }}">{{ loop_state.loop_id }}</a></td>
+            <td><span class="badge status-{{ loop_state.status }}">{{ loop_state.status }}</span></td>
+            <td>{{ loop_state.loop_mode }}</td>
+            <td>
+              <p class="table-excerpt">{{ loop_state.objective_preview }}</p>
+              {% if loop_state.objective_is_long %}
+                <button
+                  type="button"
+                  class="ghost-button"
+                  data-toggle-target="loop-ledger-objective-{{ loop.index }}"
+                  data-toggle-label-open="Hide original objective"
+                  data-toggle-label-closed="Show original objective"
+                >
+                  Show original objective
+                </button>
+                <div id="loop-ledger-objective-{{ loop.index }}" class="toggle-panel" hidden>
+                  <pre class="log-view">{{ loop_state.objective }}</pre>
+                </div>
+              {% endif %}
+            </td>
+            <td>{{ loop_state.current_run_id or "-" }}</td>
+            <td>{{ loop_state.iterations_completed }}{% if loop_state.max_iterations %} / {{ loop_state.max_iterations }}{% endif %}</td>
+            <td><div class="scroll-block scroll-block-sm">{{ loop_state.latest_note }}</div></td>
+            <td>
+              {% if loop_state.status in ["running", "stopping"] %}
+                <button type="button" class="danger-button" data-stop-loop="{{ loop_state.loop_id }}">Stop</button>
+              {% else %}
+                <a href="/loops/{{ loop_state.loop_id }}/log">log</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="8">No loops recorded yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

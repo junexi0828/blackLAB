@@ -11,6 +11,7 @@ interface DataBeamsProps {
   colors: Record<string, string>
   activeDepts: Set<string>
   hasActiveRun: boolean
+  timeTheme?: 'day' | 'night'
 }
 
 function seeded(seed: number) {
@@ -67,7 +68,15 @@ function AnimatedBeam({
   )
 }
 
-export function DataBeams({ steps, positions, colors, activeDepts, hasActiveRun }: DataBeamsProps) {
+export function DataBeams({
+  steps,
+  positions,
+  colors,
+  activeDepts,
+  hasActiveRun,
+  timeTheme = 'day',
+}: DataBeamsProps) {
+  const isNight = timeTheme === 'night'
   const beams = useMemo(() => {
     const result: {
       key: string
@@ -107,7 +116,7 @@ export function DataBeams({ steps, positions, colors, activeDepts, hasActiveRun 
             new THREE.Vector3(p1[0], 2.5, p1[2]),
           ],
           color: new THREE.Color(colors[act.department_key] ?? '#ffffff'),
-          opacity: 0.8,
+          opacity: isNight ? 0.95 : 0.8,
           isDashed: true, // Animates!
         })
       }
@@ -130,15 +139,15 @@ export function DataBeams({ steps, positions, colors, activeDepts, hasActiveRun 
             new THREE.Vector3(a[0], midY, a[2]),
             new THREE.Vector3(b[0], midY, b[2]),
           ],
-          color: new THREE.Color('#94a3b8'), // Light slate gray for bright background
-          opacity: 0.25,
+          color: new THREE.Color(isNight ? '#5d7fa6' : '#94a3b8'),
+          opacity: isNight ? 0.34 : 0.25,
           isDashed: false,
         })
       }
     }
 
     return result
-  }, [steps, positions, colors, activeDepts, hasActiveRun])
+  }, [steps, positions, colors, activeDepts, hasActiveRun, isNight])
 
   return (
     <>

@@ -56,15 +56,17 @@ function LowPolyTrees() {
   )
 }
 
-export function GroundGrid() {
+export function GroundGrid({ timeTheme = 'day' }: { timeTheme?: 'day' | 'night' }) {
+  const isNight = timeTheme === 'night'
+
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, -0.01, 0]}>
         <planeGeometry args={[100, 100]} />
-        <meshStandardMaterial color="#f8fafc" roughness={0.1} metalness={0.1} />
+        <meshStandardMaterial color={isNight ? '#0d1825' : '#f8fafc'} roughness={0.1} metalness={0.1} />
       </mesh>
       
-      <gridHelper args={[100, 50, '#e2e8f0', '#f1f5f9']} position={[0, 0, 0]} />
+      <gridHelper args={[100, 50, isNight ? '#223245' : '#e2e8f0', isNight ? '#152231' : '#f1f5f9']} position={[0, 0, 0]} />
 
       <LowPolyTrees />
     </group>

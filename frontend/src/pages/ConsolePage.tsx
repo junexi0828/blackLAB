@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { getFeed, listLoops, listRuns } from '../api'
 import { useJsonResource } from '../hooks/useJsonResource'
 import { useLiveRefresh } from '../hooks/useLiveRefresh'
+import { useSolarTheme } from '../hooks/useSolarTheme'
 import { ConsoleHUD } from '../ui/ConsoleHUD'
 import { EventFeedOverlay } from '../ui/EventFeedOverlay'
 import { WorldCanvas } from '../ui/WorldCanvas'
@@ -58,6 +59,17 @@ export function ConsolePage() {
   )
 
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null)
+  const localDate = useMemo(() => new Date(clockNow), [clockNow])
+  const { timeTheme, themeSource } = useSolarTheme(clockNow)
+  const localClockLabel = useMemo(
+    () =>
+      localDate.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }),
+    [localDate],
+  )
 
   function dismissBubble(eventId: string) {
     setDismissedBubbleIds((current) => (current.includes(eventId) ? current : [...current, eventId]))
@@ -72,7 +84,7 @@ export function ConsolePage() {
   }
 
   return (
-    <div className="console-world">
+    <div className={`console-world console-world--${timeTheme}`}>
       {selectedBuilding && (
         <div style={{ position: 'absolute', top: '1rem', left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
           <button 
@@ -93,6 +105,7 @@ export function ConsolePage() {
         onDismissBubble={dismissBubble}
         selectedBuilding={selectedBuilding}
         onSelectBuilding={setSelectedBuilding}
+        timeTheme={timeTheme}
       />
       <ConsoleHUD
         mission={activeRun?.mission ?? activeLoop?.objective ?? latestRun?.mission ?? null}
@@ -101,6 +114,9 @@ export function ConsolePage() {
         loopStatus={activeLoop?.status ?? null}
         activeRunCount={activeRunCount}
         loopNote={activeLoop?.latest_note ?? null}
+        timeTheme={timeTheme}
+        localClockLabel={localClockLabel}
+        themeSource={themeSource}
       />
       <EventFeedOverlay
         events={visibleFeedEvents}

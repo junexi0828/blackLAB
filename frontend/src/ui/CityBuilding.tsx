@@ -20,6 +20,7 @@ interface CityBuildingProps {
   isSelected?: boolean
   isDimmed?: boolean
   onClick?: () => void
+  timeTheme?: 'day' | 'night'
 }
 
 const STATUS_HEIGHT: Record<string, number> = {
@@ -76,7 +77,9 @@ export function CityBuilding({
   isSelected = false,
   isDimmed = false,
   onClick,
+  timeTheme = 'day',
 }: CityBuildingProps) {
+  const isNight = timeTheme === 'night'
   const bodyRef  = useRef<THREE.Mesh>(null)
   const windowsGroupRef = useRef<THREE.Group>(null)
   const lightRef = useRef<THREE.PointLight>(null)
@@ -130,13 +133,13 @@ export function CityBuilding({
 
     if (lightRef.current) {
       const t = state.clock.getElapsedTime()
-      lightRef.current.intensity = isActive && !isDimmed ? 2.5 + Math.sin(t * 1.8) * 0.8 : 0.25
+      lightRef.current.intensity = isActive && !isDimmed ? (isNight ? 3.4 : 2.5) + Math.sin(t * 1.8) * 0.8 : 0.25
       lightRef.current.position.y = h + 1.5
     }
     if (antRef.current) {
       const t = state.clock.getElapsedTime()
       const mat = antRef.current.material as THREE.MeshStandardMaterial
-      mat.emissiveIntensity = isActive && !isDimmed ? (Math.sin(t * 3) > 0.5 ? 3 : 0.5) : 0.1
+      mat.emissiveIntensity = isActive && !isDimmed ? (Math.sin(t * 3) > 0.5 ? (isNight ? 4.2 : 3) : (isNight ? 0.9 : 0.5)) : 0.1
       antRef.current.position.y = h + 0.55
       mat.opacity = isDimmed ? 0.2 : 1.0
       mat.transparent = true
@@ -187,7 +190,7 @@ export function CityBuilding({
             <meshStandardMaterial
               color={color}
               emissive={col}
-              emissiveIntensity={isActive && w.baseLit && !isDimmed ? 1.8 : 0.1}
+              emissiveIntensity={isActive && w.baseLit && !isDimmed ? (isNight ? 2.5 : 1.8) : 0.1}
               transparent={true}
               opacity={isDimmed ? 0.2 : (isSelected ? 0 : 1)}
               side={THREE.DoubleSide}
@@ -205,7 +208,7 @@ export function CityBuilding({
       
       {/* Internal core light for glass illumination */}
       {isActive && !isDimmed && (
-        <pointLight position={[0, target / 2, 0]} distance={4} intensity={isSelected ? 0.5 : 2} color={color} />
+        <pointLight position={[0, target / 2, 0]} distance={4} intensity={isSelected ? 0.5 : isNight ? 2.6 : 2} color={color} />
       )}
 
       {/* Antenna */}
@@ -246,11 +249,11 @@ export function CityBuilding({
         <Text
           position={[0, target + 2.1, 0]}
           fontSize={0.26}
-          color={isActive ? color : '#667788'}
+          color={isActive ? color : isNight ? '#d5dde8' : '#667788'}
           anchorX="center"
           anchorY="middle"
           outlineWidth={0.015}
-          outlineColor="#ffffff"
+          outlineColor={isNight ? '#06111d' : '#ffffff'}
           visible={!isSelected} // Label might get in the way when zoomed in
         >
           {label.toUpperCase()}

@@ -1152,6 +1152,14 @@ textarea {
   background: #030712;
 }
 
+.console-world--day {
+  background: #f5f7fa;
+}
+
+.console-world--night {
+  background: #06111d;
+}
+
 .console-world canvas {
   display: block;
   width: 100% !important;
@@ -1168,6 +1176,14 @@ textarea {
   z-index: 10;
 }
 
+.console-world--day .console-hud {
+  color: rgba(15, 23, 42, 0.72);
+}
+
+.console-world--night .console-hud {
+  color: rgba(255, 255, 255, 0.55);
+}
+
 /* ── Top-left brand ── */
 .hud-brand {
   position: absolute;
@@ -1176,6 +1192,12 @@ textarea {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.hud-phase-icon {
+  font-size: 16px;
+  line-height: 1;
+  opacity: 0.9;
 }
 
 .hud-dot {
@@ -1216,6 +1238,40 @@ textarea {
   color: rgba(0, 255, 136, 0.5);
 }
 
+.hud-phase-label {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.34);
+}
+
+.hud-phase-source {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.console-world--day .hud-brand-name {
+  color: rgba(15, 23, 42, 0.52);
+}
+
+.console-world--day .hud-brand-sep {
+  color: rgba(15, 23, 42, 0.16);
+}
+
+.console-world--day .hud-brand-status {
+  color: rgba(5, 150, 105, 0.72);
+}
+
+.console-world--day .hud-phase-label {
+  color: rgba(71, 85, 105, 0.82);
+}
+
+.console-world--day .hud-phase-source {
+  color: rgba(100, 116, 139, 0.72);
+}
+
 /* ── Top-right iteration counter ── */
 .hud-iter-block {
   position: absolute;
@@ -1235,6 +1291,10 @@ textarea {
   margin-bottom: 2px;
 }
 
+.console-world--day .hud-iter-label {
+  color: rgba(71, 85, 105, 0.42);
+}
+
 .hud-iter-num {
   font-size: 72px;
   font-weight: 800;
@@ -1242,6 +1302,10 @@ textarea {
   color: rgba(255, 255, 255, 0.06);
   letter-spacing: -0.04em;
   /* Large ghost number — intentionally low contrast */
+}
+
+.console-world--day .hud-iter-num {
+  color: rgba(15, 23, 42, 0.08);
 }
 
 /* ── Bottom ribbon ── */
@@ -1269,6 +1333,10 @@ textarea {
   flex-shrink: 0;
 }
 
+.console-world--day .hud-small-tag {
+  color: rgba(71, 85, 105, 0.45);
+}
+
 .hud-ribbon-text {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.5);
@@ -1277,6 +1345,10 @@ textarea {
   text-overflow: ellipsis;
   max-width: 680px;
   animation: hud-fadein 1s ease;
+}
+
+.console-world--day .hud-ribbon-text {
+  color: rgba(15, 23, 42, 0.72);
 }
 
 @keyframes hud-fadein {
@@ -1292,10 +1364,18 @@ textarea {
   color: rgba(255, 255, 255, 0.15);
 }
 
+.console-world--day .hud-ribbon-meta {
+  color: rgba(71, 85, 105, 0.62);
+}
+
 .hud-sep {
   width: 1px;
   height: 10px;
   background: rgba(255, 255, 255, 0.12);
+}
+
+.console-world--day .hud-sep {
+  background: rgba(148, 163, 184, 0.46);
 }
 
 .hud-clock {

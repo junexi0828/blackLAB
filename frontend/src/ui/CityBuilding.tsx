@@ -112,6 +112,10 @@ export function CityBuilding({
   const seed = Math.abs(Math.floor(position[0] * 17 + position[2] * 31))
   const windows = useMemo(() => buildWindows(seed), [seed])
 
+  const idleWindowIntensity = isNight ? 0.45 : 0.16
+  const idleWindowDimIntensity = isNight ? 0.14 : 0.05
+  const idleCoreLightIntensity = isNight ? 0.18 : 0.06
+
   useFrame((state, delta) => {
     if (!bodyRef.current) return
     heightRef.current = THREE.MathUtils.lerp(heightRef.current, target, delta * 1.8)
@@ -133,13 +137,13 @@ export function CityBuilding({
 
     if (lightRef.current) {
       const t = state.clock.getElapsedTime()
-      lightRef.current.intensity = isActive && !isDimmed ? (isNight ? 3.4 : 2.5) + Math.sin(t * 1.8) * 0.8 : 0.25
+      lightRef.current.intensity = isActive && !isDimmed ? (isNight ? 3.4 : 2.5) + Math.sin(t * 1.8) * 0.8 : idleCoreLightIntensity
       lightRef.current.position.y = h + 1.5
     }
     if (antRef.current) {
       const t = state.clock.getElapsedTime()
       const mat = antRef.current.material as THREE.MeshStandardMaterial
-      mat.emissiveIntensity = isActive && !isDimmed ? (Math.sin(t * 3) > 0.5 ? (isNight ? 4.2 : 3) : (isNight ? 0.9 : 0.5)) : 0.1
+      mat.emissiveIntensity = isActive && !isDimmed ? (Math.sin(t * 3) > 0.5 ? (isNight ? 4.2 : 3) : (isNight ? 0.9 : 0.5)) : (isNight ? 0.35 : 0.16)
       antRef.current.position.y = h + 0.55
       mat.opacity = isDimmed ? 0.2 : 1.0
       mat.transparent = true
@@ -190,7 +194,15 @@ export function CityBuilding({
             <meshStandardMaterial
               color={color}
               emissive={col}
-              emissiveIntensity={isActive && w.baseLit && !isDimmed ? (isNight ? 2.5 : 1.8) : 0.1}
+              emissiveIntensity={
+                isDimmed
+                  ? idleWindowDimIntensity
+                  : isActive && w.baseLit
+                    ? (isNight ? 2.5 : 1.8)
+                    : w.baseLit
+                      ? idleWindowIntensity
+                      : idleWindowDimIntensity
+              }
               transparent={true}
               opacity={isDimmed ? 0.2 : (isSelected ? 0 : 1)}
               side={THREE.DoubleSide}
@@ -207,8 +219,13 @@ export function CityBuilding({
       )}
       
       {/* Internal core light for glass illumination */}
-      {isActive && !isDimmed && (
-        <pointLight position={[0, target / 2, 0]} distance={4} intensity={isSelected ? 0.5 : isNight ? 2.6 : 2} color={color} />
+      {!isDimmed && (
+        <pointLight
+          position={[0, target / 2, 0]}
+          distance={4}
+          intensity={isSelected ? 0.5 : isActive ? (isNight ? 2.6 : 2) : idleCoreLightIntensity}
+          color={color}
+        />
       )}
 
       {/* Antenna */}
@@ -230,7 +247,7 @@ export function CityBuilding({
         <pointLight
           ref={lightRef}
           color={color}
-          intensity={isActive && !isSelected ? 2.5 : 0.25}
+          intensity={isActive && !isSelected ? 2.5 : idleCoreLightIntensity}
           distance={9}
           position={[0, target + 1.5, 0]}
         />

@@ -4,10 +4,12 @@ import re
 from pathlib import Path
 
 from blacklab_factory.autopilot import AutopilotSupervisor
+from blacklab_factory.config import load_company_config
 from blacklab_factory.launcher import launch_detached_loop, launch_detached_run
 from blacklab_factory.models import (
     DEFAULT_CORE_CODEX_MODEL,
     DEFAULT_REVIEW_CODEX_MODEL,
+    CompanyConfig,
     OperatorProfile,
 )
 from blacklab_factory.storage import OperatorStorage, RunStorage
@@ -25,15 +27,16 @@ PROJECT_SLUG_PATTERN = re.compile(r"(?:project(?:[_\\s-]?slug)?|프로젝트)\s*
 class OperatorCommander:
     def __init__(self, storage_root: Path) -> None:
         self.storage_root = storage_root
+        self.config = load_company_config()
         self.run_storage = RunStorage(storage_root)
         self.loop_supervisor = AutopilotSupervisor(storage_root=storage_root)
         self.operator_storage = OperatorStorage(storage_root)
 
     def load_profile(self) -> OperatorProfile:
-        return self.operator_storage.load_profile()
+        return seed_operator_profile(self.operator_storage.load_profile(), self.config)
 
     def save_profile(self, profile: OperatorProfile) -> OperatorProfile:
-        return self.operator_storage.save_profile(profile)
+        return self.operator_storage.save_profile(seed_operator_profile(profile, self.config))
 
     def load_chat_history(self):
         return self.operator_storage.load_chat().messages
@@ -71,8 +74,12 @@ class OperatorCommander:
         if self._looks_like_run_launch(lowered):
             return self._launch_run(message)
 
+        directive = self._send_live_directive(message)
+        if directive is not None:
+            return directive
+
         return (
-            "이 채팅은 메인 제어면입니다. 가능한 작업은 현재 상태 요약, 새 런 시작, 24/7 루프 시작, 루프 중지, core/review 모델과 자율도 변경입니다.",
+            "이 채팅은 메인 제어면이자 live directive 채널입니다. 활성 run/loop가 있으면 기본적으로 그 인스턴스에 지시를 전달합니다. 가능한 작업은 현재 상태 요약, 새 런 시작, 24/7 루프 시작, 루프 중지, core/review 모델과 자율도 변경입니다.",
             {"type": "help"},
         )
 
@@ -122,6 +129,7 @@ class OperatorCommander:
             mode=profile.launch.mode,
             pause_between_departments=profile.launch.pause_between_departments,
             max_parallel_departments=profile.launch.run_settings.max_parallel_departments,
+            active_department_keys=profile.roster.active_department_keys,
             storage_root=self.storage_root,
             codex_model=profile.launch.run_settings.codex_model,
             codex_autonomy=profile.launch.run_settings.codex_autonomy,
@@ -168,6 +176,7 @@ class OperatorCommander:
             ),
             pause_between_departments=profile.autopilot.pause_between_departments,
             max_parallel_departments=profile.autopilot.run_settings.max_parallel_departments,
+            active_department_keys=profile.roster.active_department_keys,
             storage_root=self.storage_root,
             codex_model=profile.autopilot.run_settings.codex_model,
             codex_autonomy=profile.autopilot.run_settings.codex_autonomy,
@@ -206,6 +215,48 @@ class OperatorCommander:
             f"루프 {loop_state.loop_id}에 중지 요청을 넣었습니다.",
             {"type": "loop_stop", "loop_id": loop_state.loop_id},
         )
+
+    def _send_live_directive(self, message: str) -> tuple[str, dict[str, object]] | None:
+        directive = message.strip()
+        if not directive:
+            return None
+
+        active_runs = [run for run in self.run_storage.list_runs() if run.status == "running"]
+        if active_runs:
+            targets = active_runs
+            for run in targets:
+                self.run_storage.append_directive(run.run_id, directive)
+            if len(targets) == 1:
+                run = targets[0]
+                return (
+                    f"활성 런 {run.run_id}에 지시를 전달했습니다. 다음 가능한 부서 wave부터 반영됩니다.",
+                    {"type": "run_directive", "run_id": run.run_id},
+                )
+            return (
+                f"활성 런 {len(targets)}개에 지시를 브로드캐스트했습니다. 다음 가능한 부서 wave부터 반영됩니다.",
+                {"type": "run_directive_broadcast", "run_ids": [run.run_id for run in targets]},
+            )
+
+        active_loops = [
+            loop for loop in self.loop_supervisor.loop_storage.list_loops()
+            if loop.status in {"running", "stopping"}
+        ]
+        if active_loops:
+            targets = active_loops
+            for loop in targets:
+                self.loop_supervisor.loop_storage.append_directive(loop.loop_id, directive)
+            if len(targets) == 1:
+                loop = targets[0]
+                return (
+                    f"활성 루프 {loop.loop_id}에 지시를 전달했습니다. 다음 iteration부터 반영됩니다.",
+                    {"type": "loop_directive", "loop_id": loop.loop_id},
+                )
+            return (
+                f"활성 루프 {len(targets)}개에 지시를 브로드캐스트했습니다. 다음 iteration부터 반영됩니다.",
+                {"type": "loop_directive_broadcast", "loop_ids": [loop.loop_id for loop in targets]},
+            )
+
+        return None
 
     def _update_profile_from_message(
         self,
@@ -318,7 +369,7 @@ class OperatorCommander:
         return PROJECT_SLUG_PATTERN.sub("", message).replace("  ", " ").strip()
 
 
-def seed_operator_profile(profile: OperatorProfile) -> OperatorProfile:
+def seed_operator_profile(profile: OperatorProfile, company_config: CompanyConfig | None = None) -> OperatorProfile:
     if not profile.launch.run_settings.codex_model:
         profile.launch.run_settings.codex_model = DEFAULT_CORE_CODEX_MODEL
     if not profile.launch.run_settings.codex_review_model:
@@ -327,4 +378,22 @@ def seed_operator_profile(profile: OperatorProfile) -> OperatorProfile:
         profile.autopilot.run_settings.codex_model = DEFAULT_CORE_CODEX_MODEL
     if not profile.autopilot.run_settings.codex_review_model:
         profile.autopilot.run_settings.codex_review_model = DEFAULT_REVIEW_CODEX_MODEL
+    if company_config is not None:
+        all_department_keys = [
+            department.key
+            for department in [*company_config.departments, *company_config.review_departments]
+        ]
+        if company_config.enable_final_review:
+            all_department_keys.append("board_review")
+        if not profile.roster.active_department_keys:
+            profile.roster.active_department_keys = all_department_keys
+        else:
+            allowed = set(all_department_keys)
+            profile.roster.active_department_keys = [
+                key for key in profile.roster.active_department_keys if key in allowed
+            ]
+        allowed_campus = set(all_department_keys + ["monument"])
+        profile.roster.hidden_campus_items = [
+            key for key in profile.roster.hidden_campus_items if key in allowed_campus
+        ]
     return profile

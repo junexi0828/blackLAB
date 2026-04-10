@@ -90,6 +90,73 @@ function EngineeringLayout({ color }: { color: string }) {
   )
 }
 
+function DesignLayout({ color }: { color: string }) {
+  return (
+    <group>
+      <mesh position={[0, 0.08, 0]}>
+        <boxGeometry args={[1.55, 0.12, 0.92]} />
+        <meshStandardMaterial color="#ffffff" metalness={0.08} roughness={0.82} />
+      </mesh>
+      <mesh position={[-0.28, 0.28, -0.08]} rotation={[-0.08, 0.18, 0]}>
+        <boxGeometry args={[0.42, 0.28, 0.04]} />
+        <meshStandardMaterial color="#1f2937" metalness={0.2} roughness={0.24} />
+      </mesh>
+      <mesh position={[0.25, 0.28, 0.12]} rotation={[-0.05, -0.14, 0]}>
+        <boxGeometry args={[0.5, 0.32, 0.04]} />
+        <meshStandardMaterial color="#111827" metalness={0.18} roughness={0.22} />
+      </mesh>
+      <mesh position={[0, 0.18, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.42, 0.58, 32]} />
+        <meshBasicMaterial color={color} transparent opacity={0.2} />
+      </mesh>
+      <SubRover color={color} seed={6} index={0} />
+      <SubRover color={color} seed={7} index={1} />
+    </group>
+  )
+}
+
+function FinanceLayout({ color }: { color: string }) {
+  return (
+    <group>
+      {[-0.42, -0.12, 0.18, 0.48].map((x, index) => (
+        <mesh key={x} position={[x, 0.2 + index * 0.08, 0]}>
+          <boxGeometry args={[0.18, 0.35 + index * 0.18, 0.18]} />
+          <meshStandardMaterial color={index % 2 === 0 ? color : '#dff6ee'} metalness={0.16} roughness={0.58} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.14, -0.42]}>
+        <boxGeometry args={[1.2, 0.08, 0.18]} />
+        <meshStandardMaterial color="#ffffff" roughness={0.74} />
+      </mesh>
+      <SubRover color={color} seed={8} index={0} />
+    </group>
+  )
+}
+
+function LabLayout({ color }: { color: string }) {
+  return (
+    <group>
+      <mesh position={[0, 0.06, 0]}>
+        <cylinderGeometry args={[0.95, 0.95, 0.08, 32]} />
+        <meshStandardMaterial color="#f8fbff" roughness={0.8} />
+      </mesh>
+      {[-0.45, 0, 0.45].map((x, index) => (
+        <group key={x} position={[x, 0.16, 0]}>
+          <mesh>
+            <cylinderGeometry args={[0.12, 0.12, 0.28, 16]} />
+            <meshStandardMaterial color="#ffffff" metalness={0.04} roughness={0.28} />
+          </mesh>
+          <mesh position={[0, 0.08, 0]}>
+            <sphereGeometry args={[0.11, 16, 16]} />
+            <meshStandardMaterial color={index === 1 ? '#ff6b6b' : color} emissive={index === 1 ? '#ff6b6b' : color} emissiveIntensity={0.25} />
+          </mesh>
+        </group>
+      ))}
+      <SubRover color={color} seed={9} index={0} />
+    </group>
+  )
+}
+
 function RecoveryLayout() {
   const lightRef = useRef<THREE.PointLight>(null)
   
@@ -123,6 +190,18 @@ export function DepartmentInterior({ buildingId, color }: DepartmentInteriorProp
   
   if (id.includes('board') || id.includes('ceo') || id.includes('cto')) {
     return <BoardLayout color={color} />
+  }
+
+  if (id.includes('design')) {
+    return <DesignLayout color={color} />
+  }
+
+  if (id.includes('finance')) {
+    return <FinanceLayout color={color} />
+  }
+
+  if (id.includes('validation') || id.includes('test') || id.includes('quality')) {
+    return <LabLayout color={color} />
   }
   
   if (id.includes('dev') || id.includes('product') || id.includes('engineering')) {

@@ -219,6 +219,41 @@ a {
   margin-bottom: 1rem;
 }
 
+.panel-muted {
+  background: rgba(255, 255, 255, 0.48);
+}
+
+.toggle-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.toggle-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+  padding: 0.85rem 0.95rem;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.toggle-card input {
+  margin-top: 0.2rem;
+}
+
+.toggle-card strong,
+.toggle-card p {
+  margin: 0;
+}
+
+.toggle-card p {
+  margin-top: 0.18rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
 .panel-header h2,
 .hero h1,
 .card h2 {
@@ -416,6 +451,11 @@ a {
   background: rgba(191, 106, 2, 0.12);
 }
 
+.status-stopping {
+  color: #8a5a00;
+  background: rgba(138, 90, 0, 0.16);
+}
+
 .status-in_progress {
   color: var(--accent);
 }
@@ -476,6 +516,36 @@ a {
   margin-bottom: 1rem;
 }
 
+.operator-route {
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(25, 19, 13, 0.12);
+  background: rgba(255, 250, 242, 0.78);
+}
+
+.operator-route strong {
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.operator-route p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.operator-route-live_run,
+.operator-route-run_broadcast {
+  border-color: rgba(30, 122, 81, 0.18);
+  background: rgba(237, 251, 244, 0.9);
+}
+
+.operator-route-live_loop,
+.operator-route-loop_broadcast {
+  border-color: rgba(191, 106, 2, 0.18);
+  background: rgba(255, 244, 224, 0.9);
+}
+
 .chat-message {
   padding: 0.9rem 1rem;
   border-radius: 16px;
@@ -525,6 +595,14 @@ a {
   color: var(--muted);
 }
 
+.field-hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: #6b6258;
+}
+
 .control-form input,
 .control-form select,
 .control-form textarea {
@@ -546,6 +624,10 @@ a {
   gap: 0.8rem;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.button-row-spaced {
+  margin-top: 1.1rem;
 }
 
 .primary-button,

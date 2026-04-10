@@ -28,6 +28,7 @@
           <th>Profile</th>
           <th>Live Worker</th>
           <th>Mission</th>
+          <th>Action</th>
         </tr>
       </thead>
       <tbody>
@@ -94,10 +95,19 @@
                 </div>
               {% endif %}
             </td>
+            <td>
+              {% if run.status in ["running", "stopping"] %}
+                <button type="button" class="danger-button" data-stop-run="{{ run.run_id }}">
+                  {% if run.status == "stopping" %}Stopping...{% else %}Stop{% endif %}
+                </button>
+              {% else %}
+                <span class="table-muted">-</span>
+              {% endif %}
+            </td>
           </tr>
         {% else %}
           <tr>
-            <td colspan="8">No runs recorded yet.</td>
+            <td colspan="9">No runs recorded yet.</td>
           </tr>
         {% endfor %}
       </tbody>

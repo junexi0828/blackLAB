@@ -1,0 +1,146 @@
+{
+  "buildings": {
+    "ceo": {
+      "position": [
+        0.0,
+        0.0,
+        -0.8
+      ],
+      "shape": "hexagon",
+      "color": "#ff006e"
+    },
+    "research": {
+      "position": [
+        -10.9,
+        0.0,
+        -4.6
+      ],
+      "shape": "cylinder",
+      "color": "#00e5ff"
+    },
+    "product": {
+      "position": [
+        0.0,
+        0.0,
+        -6.8
+      ],
+      "shape": "box",
+      "color": "#39ff14"
+    },
+    "design": {
+      "position": [
+        7.4,
+        0.0,
+        -5.6
+      ],
+      "shape": "cylinder",
+      "color": "#bf5af2"
+    },
+    "growth": {
+      "position": [
+        -8.1,
+        0.0,
+        0.6
+      ],
+      "shape": "pyramid",
+      "color": "#ffd60a"
+    },
+    "finance": {
+      "position": [
+        8.1,
+        0.0,
+        0.6
+      ],
+      "shape": "hexagon",
+      "color": "#00d4aa"
+    },
+    "dev_1": {
+      "position": [
+        -3.5,
+        0.0,
+        6.5
+      ],
+      "shape": "pyramid",
+      "color": "#ff9500"
+    },
+    "dev_2": {
+      "position": [
+        3.5,
+        0.0,
+        6.5
+      ],
+      "shape": "pyramid",
+      "color": "#ff7b00"
+    },
+    "dev_3": {
+      "position": [
+        0.0,
+        0.0,
+        10.5
+      ],
+      "shape": "pyramid",
+      "color": "#ffb347"
+    },
+    "engineering": {
+      "position": [
+        0.0,
+        0.0,
+        7.8
+      ],
+      "shape": "cylinder",
+      "color": "#ff9500"
+    },
+    "validation": {
+      "position": [
+        -9.2,
+        0.0,
+        12.6
+      ],
+      "shape": "box",
+      "color": "#8be9fd"
+    },
+    "test_lab": {
+      "position": [
+        0.0,
+        0.0,
+        14.2
+      ],
+      "shape": "pyramid",
+      "color": "#ff6b6b"
+    },
+    "quality_gate": {
+      "position": [
+        9.2,
+        0.0,
+        12.6
+      ],
+      "shape": "hexagon",
+      "color": "#9cff57"
+    },
+    "board_review": {
+      "position": [
+        0.0,
+        0.0,
+        18.2
+      ],
+      "shape": "box",
+      "color": "#ffd700"
+    }
+  },
+  "monument": {
+    "position": [
+      0.0,
+      0.0,
+      3.9
+    ],
+    "baseInnerRadius": 0.98,
+    "baseOuterRadius": 1.14,
+    "ringInnerRadius": 0.4,
+    "ringOuterRadius": 0.54,
+    "torusRadius": 0.48,
+    "torusTube": 0.028,
+    "orbRadius": 0.14,
+    "torusHeight": 0.28,
+    "orbHeight": 0.38
+  }
+}

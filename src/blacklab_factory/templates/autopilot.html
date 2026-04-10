@@ -88,8 +88,9 @@
             <input type="number" name="interval_seconds" min="0" max="86400" value="{{ operator_profile.autopilot.interval_seconds }}" />
           </label>
           <label>
-            <span>Pause In Run</span>
+            <span>Wave Pause Seconds</span>
             <input type="number" step="0.5" min="0" name="pause_between_departments" value="{{ operator_profile.autopilot.pause_between_departments }}" />
+            <small class="field-hint">`0` means each run executes continuously. Raise it only if you want a small review gap between department waves inside each run.</small>
           </label>
         </div>
         <div class="button-row">

@@ -14,6 +14,11 @@
     </div>
     <div class="hero-metrics">
       <span class="badge status-{{ run.status }}">{{ run.status }}</span>
+      {% if run.status in ["running", "stopping"] %}
+        <button type="button" class="danger-button" data-stop-run="{{ run.run_id }}">
+          {% if run.status == "stopping" %}Stopping...{% else %}Stop Run{% endif %}
+        </button>
+      {% endif %}
       <span>{{ run.metrics.progress_percent }}% complete</span>
       <span>{{ run.metrics.artifact_count }} artifacts</span>
       <span>{{ run.metrics.open_risk_count }} open risks</span>

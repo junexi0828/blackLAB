@@ -87,6 +87,25 @@ function bindLoopStopButtons() {
   });
 }
 
+function bindRunStopButtons() {
+  document.querySelectorAll("[data-stop-run]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const runId = button.getAttribute("data-stop-run");
+      if (!runId) {
+        return;
+      }
+      try {
+        setFeedback(`Requesting stop for run ${runId}...`);
+        await postJson(`/api/runs/${runId}/stop`, {});
+        setFeedback(`Stop requested for run ${runId}.`);
+        window.setTimeout(() => window.location.reload(), 800);
+      } catch (error) {
+        setFeedback(`Run stop failed: ${error.message}`, true);
+      }
+    });
+  });
+}
+
 function bindRefreshControls() {
   const refreshButton = document.querySelector("[data-refresh-page]");
   if (refreshButton) {
@@ -178,6 +197,30 @@ function renderChatMessages(messages) {
   chatLogNode.scrollTop = chatLogNode.scrollHeight;
 }
 
+function summarizeOperatorAction(action, fallback) {
+  if (!action || !action.type) {
+    return fallback || "Operator replied.";
+  }
+  switch (action.type) {
+    case "run_directive":
+      return `Directive routed to live run ${action.run_id}.`;
+    case "run_directive_broadcast":
+      return `Directive broadcast to ${action.run_ids?.length || 0} live runs.`;
+    case "loop_directive":
+      return `Directive routed to live loop ${action.loop_id}.`;
+    case "loop_directive_broadcast":
+      return `Directive broadcast to ${action.loop_ids?.length || 0} live loops.`;
+    case "run_launch":
+      return `Run ${action.run_id} launched.`;
+    case "loop_launch":
+      return `Loop ${action.loop_id} launched.`;
+    case "loop_stop":
+      return `Stop requested for loop ${action.loop_id}.`;
+    default:
+      return fallback || "Operator replied.";
+  }
+}
+
 function bindOperatorSettingsForm() {
   const form = document.querySelector("#operator-settings-form");
   if (!form) {
@@ -185,7 +228,24 @@ function bindOperatorSettingsForm() {
   }
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const raw = Object.fromEntries(new FormData(form).entries());
+    const formData = new FormData(form);
+    const raw = Object.fromEntries(formData.entries());
+    const activeDepartmentKeys = Array.from(
+      document.querySelectorAll('input[name="roster_active_department_keys"]:checked'),
+    )
+      .map((element) => element.value)
+      .filter(Boolean);
+    const hiddenCampusItems = [];
+    const monumentVisible = document.querySelector(
+      'input[name="campus_item_monument_visible"]',
+    );
+    if (activeDepartmentKeys.length === 0) {
+      setFeedback("At least one department must remain active.", true);
+      return;
+    }
+    if (!(monumentVisible instanceof HTMLInputElement && monumentVisible.checked)) {
+      hiddenCampusItems.push("monument");
+    }
     const payload = {
       launch: {
         mode: raw.launch_mode,
@@ -216,6 +276,10 @@ function bindOperatorSettingsForm() {
           detached: false,
         },
       },
+      roster: {
+        active_department_keys: activeDepartmentKeys,
+        hidden_campus_items: hiddenCampusItems,
+      },
     };
     try {
       setFeedback("Saving web defaults...");
@@ -224,6 +288,13 @@ function bindOperatorSettingsForm() {
     } catch (error) {
       setFeedback(`Settings save failed: ${error.message}`, true);
     }
+  });
+
+  document.querySelectorAll(".settings-reset-button").forEach((button) => {
+    button.addEventListener("click", () => {
+      setFeedback("Resetting to saved defaults...");
+      window.location.reload();
+    });
   });
 }
 
@@ -243,7 +314,7 @@ function bindOperatorChat() {
       setFeedback("Sending command to the main operator...");
       const result = await postJson("/api/operator/chat", { message });
       renderChatMessages(result.messages || []);
-      setFeedback(result.reply || "Operator replied.");
+      setFeedback(summarizeOperatorAction(result.action, result.reply));
       if (textarea) {
         textarea.value = "";
       }
@@ -265,6 +336,7 @@ function bindOperatorChat() {
 
 bindRunLaunchForm();
 bindLoopLaunchForm();
+bindRunStopButtons();
 bindLoopStopButtons();
 bindRefreshControls();
 bindTogglePanels();

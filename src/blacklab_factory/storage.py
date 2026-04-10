@@ -9,6 +9,8 @@ from pydantic import ValidationError
 from blacklab_factory.models import (
     ArtifactRecord,
     LoopState,
+    OperatorDirectiveInbox,
+    OperatorDirectiveRecord,
     OperatorChatMessage,
     OperatorChatState,
     OperatorProfile,
@@ -90,6 +92,9 @@ class RunStorage:
     def log_path(self, run_id: str) -> Path:
         return self.run_dir(run_id) / "run.log"
 
+    def directives_path(self, run_id: str) -> Path:
+        return self.run_dir(run_id) / "directives.json"
+
     def save_state(self, state: RunState) -> None:
         state.updated_at = utc_now()
         self.state_path(state.run_id).write_text(
@@ -146,8 +151,44 @@ class RunStorage:
         lines = path.read_text(encoding="utf-8").splitlines()
         return "\n".join(lines[-limit:])
 
+    def append_directive(self, run_id: str, content: str) -> OperatorDirectiveRecord:
+        inbox = self._load_inbox(self.directives_path(run_id))
+        record = OperatorDirectiveRecord(
+            directive_id=self._directive_id(prefix="run"),
+            target_type="run",
+            target_id=run_id,
+            content=content.strip(),
+        )
+        inbox.directives.append(record)
+        self._save_inbox(self.directives_path(run_id), inbox)
+        self.append_log(run_id, f"Operator directive queued: {content.strip()}")
+        return record
+
+    def consume_directives(self, run_id: str) -> list[OperatorDirectiveRecord]:
+        path = self.directives_path(run_id)
+        inbox = self._load_inbox(path)
+        pending = [directive for directive in inbox.directives if directive.consumed_at is None]
+        if not pending:
+            return []
+        consumed_at = utc_now()
+        for directive in pending:
+            directive.consumed_at = consumed_at
+        self._save_inbox(path, inbox)
+        return pending
+
+    def request_stop(self, run_id: str) -> RunState:
+        state = self.load_state(run_id)
+        state.stop_requested = True
+        if state.status == "running":
+            state.status = "stopping"
+        state.current_status = "Operator requested the run to stop after the current department wave."
+        state.next_action = "No new departments will be launched. The current wave will finish first."
+        self.save_state(state)
+        self.append_log(run_id, "Run stop requested.")
+        return state
+
     def _mark_stale_if_needed(self, state: RunState) -> RunState:
-        if state.status != "running":
+        if state.status not in {"running", "stopping"}:
             return state
         if utc_now() - state.updated_at <= self.stale_after:
             return state
@@ -171,12 +212,26 @@ class RunStorage:
             counter += 1
         return f"{candidate}-{counter:02d}"
 
+    def _load_inbox(self, path: Path) -> OperatorDirectiveInbox:
+        if not path.exists():
+            inbox = OperatorDirectiveInbox()
+            self._save_inbox(path, inbox)
+            return inbox
+        return OperatorDirectiveInbox.model_validate_json(path.read_text(encoding="utf-8"))
+
+    def _save_inbox(self, path: Path, inbox: OperatorDirectiveInbox) -> None:
+        path.write_text(inbox.model_dump_json(indent=2), encoding="utf-8")
+
+    def _directive_id(self, prefix: str) -> str:
+        return f"{prefix}-{utc_now().strftime('%Y%m%dT%H%M%S%fZ')}"
+
 
 class LoopStorage:
     def __init__(self, root: Path) -> None:
         self.root = root
         self.loops_dir = self.root / "loops"
         self.loops_dir.mkdir(parents=True, exist_ok=True)
+        self.stale_after = timedelta(minutes=3)
 
     def create_loop(
         self,
@@ -211,6 +266,9 @@ class LoopStorage:
     def log_path(self, loop_id: str) -> Path:
         return self.loop_dir(loop_id) / "loop.log"
 
+    def directives_path(self, loop_id: str) -> Path:
+        return self.loop_dir(loop_id) / "directives.json"
+
     def save_state(self, state: LoopState) -> None:
         state.updated_at = utc_now()
         self.state_path(state.loop_id).write_text(
@@ -219,13 +277,15 @@ class LoopStorage:
         )
 
     def load_state(self, loop_id: str) -> LoopState:
-        return LoopState.model_validate_json(self.state_path(loop_id).read_text(encoding="utf-8"))
+        state = LoopState.model_validate_json(self.state_path(loop_id).read_text(encoding="utf-8"))
+        return self._mark_inactive_if_needed(state)
 
     def list_loops(self) -> list[LoopState]:
         loops: list[LoopState] = []
         for path in sorted(self.loops_dir.glob("*/state.json"), reverse=True):
             try:
-                loops.append(LoopState.model_validate_json(path.read_text(encoding="utf-8")))
+                state = LoopState.model_validate_json(path.read_text(encoding="utf-8"))
+                loops.append(self._mark_inactive_if_needed(state))
             except ValidationError:
                 continue
         return loops
@@ -245,6 +305,61 @@ class LoopStorage:
         lines = path.read_text(encoding="utf-8").splitlines()
         return "\n".join(lines[-limit:])
 
+    def append_directive(self, loop_id: str, content: str) -> OperatorDirectiveRecord:
+        inbox = self._load_inbox(self.directives_path(loop_id))
+        record = OperatorDirectiveRecord(
+            directive_id=self._directive_id(prefix="loop"),
+            target_type="loop",
+            target_id=loop_id,
+            content=content.strip(),
+        )
+        inbox.directives.append(record)
+        self._save_inbox(self.directives_path(loop_id), inbox)
+        self.append_log(loop_id, f"Operator directive queued: {content.strip()}")
+        return record
+
+    def consume_directives(self, loop_id: str) -> list[OperatorDirectiveRecord]:
+        path = self.directives_path(loop_id)
+        inbox = self._load_inbox(path)
+        pending = [directive for directive in inbox.directives if directive.consumed_at is None]
+        if not pending:
+            return []
+        consumed_at = utc_now()
+        for directive in pending:
+            directive.consumed_at = consumed_at
+        self._save_inbox(path, inbox)
+        return pending
+
+    def _mark_inactive_if_needed(self, state: LoopState) -> LoopState:
+        if state.status not in {"running", "stopping"}:
+            return state
+
+        grace = max(self.stale_after, timedelta(seconds=max(180, state.interval_seconds + 90)))
+        if utc_now() - state.updated_at <= grace:
+            return state
+
+        active_run = None
+        if state.current_run_id:
+            try:
+                active_run = RunStorage(self.root).load_state(state.current_run_id)
+            except FileNotFoundError:
+                active_run = None
+
+        if active_run is not None and active_run.status == "running":
+            return state
+
+        if state.stop_requested:
+            state.status = "completed"
+            state.latest_note = "Loop stop request was finalized after the active cycle ended."
+            self.append_log(state.loop_id, "Loop finalized from stopping to completed after heartbeat expiry.")
+        else:
+            state.status = "failed"
+            state.latest_note = "Loop heartbeat expired and no live run remains."
+            self.append_log(state.loop_id, "Loop marked failed because no live run remained after heartbeat expiry.")
+        state.current_run_id = None
+        self.save_state(state)
+        return state
+
     def _next_available_id(self, stamp: str, slug: str, root: Path) -> str:
         candidate = f"{stamp}-{slug}"
         if not (root / candidate).exists():
@@ -253,6 +368,19 @@ class LoopStorage:
         while (root / f"{candidate}-{counter:02d}").exists():
             counter += 1
         return f"{candidate}-{counter:02d}"
+
+    def _load_inbox(self, path: Path) -> OperatorDirectiveInbox:
+        if not path.exists():
+            inbox = OperatorDirectiveInbox()
+            self._save_inbox(path, inbox)
+            return inbox
+        return OperatorDirectiveInbox.model_validate_json(path.read_text(encoding="utf-8"))
+
+    def _save_inbox(self, path: Path, inbox: OperatorDirectiveInbox) -> None:
+        path.write_text(inbox.model_dump_json(indent=2), encoding="utf-8")
+
+    def _directive_id(self, prefix: str) -> str:
+        return f"{prefix}-{utc_now().strftime('%Y%m%dT%H%M%S%fZ')}"
 
 
 class OperatorStorage:

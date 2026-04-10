@@ -124,3 +124,24 @@ def test_dashboard_routes_render(tmp_path: Path) -> None:
     loop_detail_response = client.get(f"/api/loops/{loop_id}")
     assert loop_detail_response.status_code == 200
     assert loop_detail_response.json()["loop_id"] == loop_id
+
+
+def test_run_stop_api_marks_run_stopping(tmp_path: Path) -> None:
+    runner = FactoryRunner(storage_root=tmp_path)
+    state = runner.storage.create_run(
+        mission="Stop this mock run",
+        company_name="blackLAB",
+        mode="mock",
+        steps=[],
+    )
+    state.status = "running"
+    runner.storage.save_state(state)
+
+    client = TestClient(create_app(storage_root=tmp_path))
+    response = client.post(f"/api/runs/{state.run_id}/stop")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run_id"] == state.run_id
+    assert payload["status"] == "stopping"
+    assert payload["stop_requested"] is True

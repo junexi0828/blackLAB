@@ -19,6 +19,8 @@ function seeded(seed: number) {
   return x - Math.floor(x)
 }
 
+const FORWARD_VECTOR = new THREE.Vector3(0, 0, 1)
+
 // A performant individual beam component to animate flows using dashOffset
 function AnimatedBeam({
   points,
@@ -32,39 +34,84 @@ function AnimatedBeam({
   isDashed: boolean
 }) {
   const lineRef = useRef<Line2 | LineSegments2 | null>(null)
+  const pulseRefs = useRef<THREE.Mesh[]>([])
+  const pulseCount = 4
 
   // Use curve to generate smooth flowing path for highly active links
-  const pts = useMemo(() => {
+  const curve = useMemo(() => {
     if (points.length >= 3) {
-      const curve = new THREE.CatmullRomCurve3(points)
-      return curve.getPoints(32).map((p) => [p.x, p.y, p.z] as [number, number, number])
+      return new THREE.CatmullRomCurve3(points)
     }
-    return points.map((p) => [p.x, p.y, p.z] as [number, number, number])
+    return new THREE.CatmullRomCurve3(points)
   }, [points])
+
+  const pts = useMemo(
+    () => curve.getPoints(points.length >= 3 ? 32 : 2).map((p) => [p.x, p.y, p.z] as [number, number, number]),
+    [curve, points.length],
+  )
 
   useFrame((_, delta) => {
     if (isDashed && lineRef.current?.material) {
       // Flow backwards so it looks like it's moving from source to dest
       const material = lineRef.current.material as THREE.ShaderMaterial & { dashOffset?: number }
-      material.dashOffset = (material.dashOffset ?? 0) - delta * 3.5
+      material.dashOffset = (material.dashOffset ?? 0) - delta * 1.6
+    }
+
+    if (isDashed) {
+      const elapsed = performance.now() * 0.001
+      pulseRefs.current.forEach((mesh, index) => {
+        if (!mesh) return
+        const progress = ((elapsed * 0.22) - index * 0.11 + 1) % 1
+        const position = curve.getPointAt(progress)
+        const tangent = curve.getTangentAt(progress).normalize()
+        mesh.position.copy(position)
+        mesh.quaternion.setFromUnitVectors(FORWARD_VECTOR, tangent)
+        const material = mesh.material as THREE.MeshStandardMaterial
+        const intensity = Math.max(0.35, 1 - index * 0.16)
+        material.opacity = 0.28 + intensity * 0.6
+        material.emissiveIntensity = 1.4 + intensity * 3.2
+      })
     }
   })
 
   return (
-    <Line
-      ref={lineRef}
-      points={pts}
-      color={color}
-      transparent
-      opacity={opacity}
-      lineWidth={isDashed ? 3.5 : 1.5}
-      dashed={isDashed}
-      dashSize={0.8}
-      gapSize={1.5}
-      blending={THREE.NormalBlending}
-      depthWrite={false}
-      toneMapped={true}
-    />
+    <group>
+      <Line
+        ref={lineRef}
+        points={pts}
+        color={color}
+        transparent
+        opacity={opacity}
+        lineWidth={isDashed ? 2.6 : 1.4}
+        dashed={isDashed}
+        dashSize={0.52}
+        gapSize={1.15}
+        blending={THREE.NormalBlending}
+        depthWrite={false}
+        toneMapped={true}
+      />
+      {isDashed &&
+        Array.from({ length: pulseCount }).map((_, index) => (
+          <mesh
+            key={`pulse-${index}`}
+            ref={(node) => {
+              if (node) {
+                pulseRefs.current[index] = node
+              }
+            }}
+          >
+            <capsuleGeometry args={[0.07, 0.48, 4, 8]} />
+            <meshStandardMaterial
+              color={color}
+              emissive={color}
+              emissiveIntensity={2.6}
+              transparent
+              opacity={0.8}
+              toneMapped={false}
+            />
+          </mesh>
+        ))}
+    </group>
   )
 }
 
@@ -116,7 +163,7 @@ export function DataBeams({
             new THREE.Vector3(p1[0], 2.5, p1[2]),
           ],
           color: new THREE.Color(colors[act.department_key] ?? '#ffffff'),
-          opacity: isNight ? 0.95 : 0.8,
+          opacity: isNight ? 0.42 : 0.34,
           isDashed: true, // Animates!
         })
       }
@@ -140,7 +187,7 @@ export function DataBeams({
             new THREE.Vector3(b[0], midY, b[2]),
           ],
           color: new THREE.Color(isNight ? '#5d7fa6' : '#94a3b8'),
-          opacity: isNight ? 0.34 : 0.25,
+          opacity: isNight ? 0.22 : 0.14,
           isDashed: false,
         })
       }

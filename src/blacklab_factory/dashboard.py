@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import markdown
@@ -28,6 +29,7 @@ from .storage import RunStorage
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 FRONTEND_DIST_DIR = repo_root() / "frontend" / "dist"
+CAMPUS_LAYOUT_PATH = repo_root() / "frontend" / "src" / "config" / "campus-layout.json"
 
 
 class RunLaunchPayload(BaseModel):
@@ -61,6 +63,30 @@ class OperatorChatPayload(BaseModel):
     message: str
 
 
+class CampusBuildingPayload(BaseModel):
+    position: list[float]
+    shape: str
+    color: str
+
+
+class CampusMonumentPayload(BaseModel):
+    position: list[float]
+    baseInnerRadius: float
+    baseOuterRadius: float
+    ringInnerRadius: float
+    ringOuterRadius: float
+    torusRadius: float
+    torusTube: float
+    orbRadius: float
+    torusHeight: float
+    orbHeight: float
+
+
+class CampusLayoutPayload(BaseModel):
+    buildings: dict[str, CampusBuildingPayload]
+    monument: CampusMonumentPayload
+
+
 def create_app(storage: RunStorage) -> FastAPI:
     app = FastAPI(title="BlackLAB Factory Dashboard")
     app.add_middleware(
@@ -87,6 +113,19 @@ def create_app(storage: RunStorage) -> FastAPI:
     company_config = load_company_config()
     operator = OperatorCommander(base_root)
     resource_manager = RuntimeResourceManager()
+
+    def load_campus_layout() -> dict:
+        if not CAMPUS_LAYOUT_PATH.exists():
+            raise HTTPException(status_code=404, detail="Campus layout not found")
+        return json.loads(CAMPUS_LAYOUT_PATH.read_text(encoding="utf-8"))
+
+    def save_campus_layout(payload: CampusLayoutPayload) -> dict:
+        data = payload.model_dump(mode="json")
+        CAMPUS_LAYOUT_PATH.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return data
 
     def _running_message(run, department_label: str, department_purpose: str) -> str:
         current_status = (run.current_status or "").strip()
@@ -269,6 +308,40 @@ def create_app(storage: RunStorage) -> FastAPI:
             )
         return packets
 
+    def build_department_catalog(operator_profile: OperatorProfile) -> list[dict]:
+        active_keys = set(operator_profile.roster.active_department_keys)
+        hidden_campus = set(operator_profile.roster.hidden_campus_items)
+        catalog = []
+        for department in [*company_config.departments, *company_config.review_departments]:
+            catalog.append(
+                {
+                    "key": department.key,
+                    "label": department.label,
+                    "purpose": department.purpose,
+                    "output_title": department.output_title,
+                    "resource_lane": department.resource_lane,
+                    "priority": department.priority,
+                    "runtime_tier": department.runtime_tier,
+                    "is_active": department.key in active_keys,
+                    "is_visible_on_campus": department.key not in hidden_campus and department.key in active_keys,
+                }
+            )
+        if company_config.enable_final_review:
+            catalog.append(
+                {
+                    "key": "board_review",
+                    "label": company_config.final_review_label,
+                    "purpose": "Synthesize all department outputs into one operator briefing.",
+                    "output_title": company_config.final_review_output_title,
+                    "resource_lane": "review",
+                    "priority": 40,
+                    "runtime_tier": "review",
+                    "is_active": "board_review" in active_keys,
+                    "is_visible_on_campus": "board_review" not in hidden_campus and "board_review" in active_keys,
+                }
+            )
+        return catalog
+
     def build_overview_context() -> dict:
         runs = storage.list_runs()
         loops = loop_storage.list_loops()
@@ -279,6 +352,7 @@ def create_app(storage: RunStorage) -> FastAPI:
         blocked_runs = [run for run in runs if run.status in {"failed", "stale"}]
         completed_runs = [run for run in runs if run.status == "completed"]
         active_loops = [loop for loop in loops if loop.status in {"running", "stopping"}]
+        operator_route = build_operator_route(active_runs, active_loops)
         latest_decisions = [
             {"department": step.department_label, "summary": step.summary}
             for run in runs
@@ -307,8 +381,43 @@ def create_app(storage: RunStorage) -> FastAPI:
             "stale_runs": [run for run in runs if run.status == "stale"],
             "default_settings": RunSettings(),
             "operator_profile": operator_profile,
+            "department_catalog": build_department_catalog(operator_profile),
             "resource_snapshot": resource_snapshot,
             "current_project": current_project,
+            "operator_route": operator_route,
+        }
+
+    def build_operator_route(active_runs, active_loops) -> dict:
+        if active_runs:
+            if len(active_runs) == 1:
+                run = active_runs[0]
+                return {
+                    "mode": "live_run",
+                    "label": "Live Run Channel",
+                    "detail": f"Messages route into run {run.run_id} and apply on the next available department wave.",
+                }
+            return {
+                "mode": "run_broadcast",
+                "label": "Run Broadcast Channel",
+                "detail": f"Messages broadcast to {len(active_runs)} active runs and apply on their next available department waves.",
+            }
+        if active_loops:
+            if len(active_loops) == 1:
+                loop_state = active_loops[0]
+                return {
+                    "mode": "live_loop",
+                    "label": "Live Loop Channel",
+                    "detail": f"Messages route into loop {loop_state.loop_id} and apply on the next iteration.",
+                }
+            return {
+                "mode": "loop_broadcast",
+                "label": "Loop Broadcast Channel",
+                "detail": f"Messages broadcast to {len(active_loops)} active loops and apply on their next iterations.",
+            }
+        return {
+            "mode": "control_plane",
+            "label": "Control Plane Only",
+            "detail": "No live run or loop is active. Messages act as orchestration commands unless they explicitly launch new work.",
         }
 
     def build_current_project(runs, loops, operator_profile) -> dict | None:
@@ -472,6 +581,7 @@ def create_app(storage: RunStorage) -> FastAPI:
     def settings_page(request: Request):
         context = build_overview_context()
         context["company_config"] = company_config
+        context["department_catalog"] = build_department_catalog(context["operator_profile"])
         context["runtime_profiles"] = [
             {
                 "label": "Read Only",
@@ -637,6 +747,14 @@ def create_app(storage: RunStorage) -> FastAPI:
             }
         )
 
+    @app.get("/api/campus-layout")
+    def campus_layout_api():
+        return JSONResponse(load_campus_layout())
+
+    @app.post("/api/campus-layout")
+    def save_campus_layout_api(payload: CampusLayoutPayload = Body(...)):
+        return JSONResponse(save_campus_layout(payload))
+
     @app.get("/api/operator/profile")
     def operator_profile_api():
         return JSONResponse(operator.load_profile().model_dump(mode="json"))
@@ -652,12 +770,14 @@ def create_app(storage: RunStorage) -> FastAPI:
 
     @app.post("/api/launch/run")
     def launch_run_api(payload: RunLaunchPayload = Body(...)):
+        operator_profile = operator.load_profile()
         launch = launch_detached_run(
             mission=payload.mission,
             project_slug=payload.project_slug,
             mode=payload.mode,
             pause_between_departments=payload.pause_between_departments,
             max_parallel_departments=payload.max_parallel_departments,
+            active_department_keys=operator_profile.roster.active_department_keys,
             storage_root=base_root,
             codex_model=payload.codex_model,
             codex_autonomy=payload.codex_autonomy,
@@ -673,8 +793,14 @@ def create_app(storage: RunStorage) -> FastAPI:
             }
         )
 
+    @app.post("/api/runs/{run_id}/stop")
+    def stop_run_api(run_id: str):
+        run_state = storage.request_stop(run_id)
+        return JSONResponse(run_state.model_dump(mode="json"))
+
     @app.post("/api/launch/loop")
     def launch_loop_api(payload: LoopLaunchPayload = Body(...)):
+        operator_profile = operator.load_profile()
         launch = launch_detached_loop(
             objective=payload.objective,
             project_slug=payload.project_slug,
@@ -684,6 +810,7 @@ def create_app(storage: RunStorage) -> FastAPI:
             max_iterations=payload.max_iterations if payload.loop_mode == "full_auto" else None,
             pause_between_departments=payload.pause_between_departments,
             max_parallel_departments=payload.max_parallel_departments,
+            active_department_keys=operator_profile.roster.active_department_keys,
             storage_root=base_root,
             codex_model=payload.codex_model,
             codex_autonomy=payload.codex_autonomy,

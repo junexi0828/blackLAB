@@ -68,9 +68,22 @@ class AutopilotSupervisor:
         loop_state.latest_note = "Autopilot loop is active."
         self.loop_storage.save_state(loop_state)
         self.loop_storage.append_log(loop_state.loop_id, "Autopilot loop started.")
+        operator_directives: list[str] = []
 
         while True:
             loop_state = self.loop_storage.load_state(loop_state.loop_id)
+            new_directives = self.loop_storage.consume_directives(loop_state.loop_id)
+            if new_directives:
+                operator_directives.extend(
+                    directive.content for directive in new_directives if directive.content.strip()
+                )
+                latest_directive = new_directives[-1].content.strip()
+                loop_state.latest_note = "Operator directive queued for the next iteration."
+                self.loop_storage.save_state(loop_state)
+                self.loop_storage.append_log(
+                    loop_state.loop_id,
+                    f"Operator directive queued for next iteration: {latest_directive}",
+                )
             if loop_state.stop_requested:
                 loop_state.status = "completed"
                 loop_state.latest_note = "Autopilot stop request received."
@@ -87,7 +100,11 @@ class AutopilotSupervisor:
                     return loop_state
 
             iteration_number = loop_state.iterations_completed + 1
-            mission = self._build_iteration_mission(loop_state, iteration_number)
+            mission = self._build_iteration_mission(
+                loop_state,
+                iteration_number,
+                directive_context=self._build_directive_context(operator_directives),
+            )
             loop_state.current_iteration = iteration_number
             loop_state.latest_note = f"Launching run {iteration_number}."
             loop_state.runs.append(LoopIterationRecord(iteration=iteration_number))
@@ -202,7 +219,18 @@ class AutopilotSupervisor:
         self.loop_storage.append_log(loop_id, "Stop requested.")
         return loop_state
 
-    def _build_iteration_mission(self, loop_state: LoopState, iteration_number: int) -> str:
+    def _build_iteration_mission(
+        self,
+        loop_state: LoopState,
+        iteration_number: int,
+        directive_context: str = "",
+    ) -> str:
+        directive_block = (
+            "\nOperator directives for this cycle:\n"
+            f"{directive_context}\n"
+            if directive_context.strip()
+            else ""
+        )
         if loop_state.runs and loop_state.runs[-1].status == "failed" and loop_state.incidents:
             latest_incident = loop_state.incidents[-1]
             latest_successful_run = self._latest_successful_run(loop_state)
@@ -225,6 +253,7 @@ class AutopilotSupervisor:
                     "",
                     "Latest successful operator briefing excerpt:",
                     last_artifact,
+                    directive_block.rstrip(),
                     "",
                     "Execution rule:",
                     "Keep the project wedge fixed, reuse validated conclusions, focus on the failed lane, and finish with an updated operator briefing.",
@@ -253,10 +282,17 @@ class AutopilotSupervisor:
                 "",
                 "Open risks to address:",
                 unresolved_risks,
+                directive_block.rstrip(),
                 "",
                 "Run the loop again and finish with a tighter operator briefing.",
             ]
         )
+
+    def _build_directive_context(self, directives: list[str]) -> str:
+        if not directives:
+            return ""
+        recent = directives[-6:]
+        return "\n".join(f"- {directive}" for directive in recent)
 
     def _sleep_between_cycles(self, loop_state: LoopState) -> None:
         if loop_state.interval_seconds <= 0:
@@ -266,6 +302,9 @@ class AutopilotSupervisor:
             current = self.loop_storage.load_state(loop_state.loop_id)
             if current.stop_requested:
                 return
+            if remaining == loop_state.interval_seconds or remaining <= 5 or remaining % 15 == 0:
+                current.latest_note = f"Next cycle resumes in {remaining}s."
+                self.loop_storage.save_state(current)
             time.sleep(1)
             remaining -= 1
 
@@ -278,6 +317,9 @@ class AutopilotSupervisor:
             current = self.loop_storage.load_state(loop_state.loop_id)
             if current.stop_requested:
                 return
+            if remaining == seconds or remaining <= 5 or remaining % 30 == 0:
+                current.latest_note = f"Recovery hold active. Next rescue cycle in {remaining}s."
+                self.loop_storage.save_state(current)
             time.sleep(1)
             remaining -= 1
 

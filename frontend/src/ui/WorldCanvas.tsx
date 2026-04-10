@@ -1,14 +1,16 @@
-import { useMemo, useRef, useEffect } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import type { RefObject } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Sky, Environment, OrbitControls, Stars } from '@react-three/drei'
-import type { EventEntry, StepRecord } from '../types'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import * as THREE from 'three'
-import { DEPT_COLORS, DEPT_POSITIONS, DEPT_SHAPES } from './cityConstants'
+import type { CampusLayout, EventEntry, StepRecord } from '../types'
+import { buildCampusMaps, DEFAULT_CAMPUS_LAYOUT } from './cityConstants'
 import { CityBuilding } from './CityBuilding'
 import { AgentRovers } from './AgentRovers'
 import { DataBeams } from './DataBeams'
 import { GroundGrid } from './GroundGrid'
+import { CampusMonument } from './CampusMonument'
 
 interface WorldCanvasProps {
   steps: StepRecord[]
@@ -19,59 +21,77 @@ interface WorldCanvasProps {
   selectedBuilding?: string | null
   onSelectBuilding?: (id: string | null) => void
   timeTheme?: 'day' | 'night'
+  layout?: CampusLayout | null
+  showMonument?: boolean
 }
 
-function CameraRig({ selectedBuilding, positions }: { selectedBuilding?: string | null, positions: Record<string, [number, number, number]> }) {
-  const controlsRef = useRef<OrbitControlsImpl | null>(null)
+const DEFAULT_CAMERA_POSITION = new THREE.Vector3(18, 14, 18)
+const DEFAULT_CAMERA_TARGET = new THREE.Vector3(0, 0, 0)
+
+function CameraFocusController({
+  selectedBuilding,
+  positions,
+  controlsRef,
+}: {
+  selectedBuilding?: string | null
+  positions: Record<string, [number, number, number]>
+  controlsRef: RefObject<OrbitControlsImpl | null>
+}) {
   const { camera } = useThree()
-  const desiredPosition = useRef(new THREE.Vector3(18, 14, 18))
-  const desiredTarget = useRef(new THREE.Vector3(0, 0, 0))
-  const isTransitioning = useRef(true)
+  const transitionRef = useRef<{
+    fromPosition: THREE.Vector3
+    toPosition: THREE.Vector3
+    fromTarget: THREE.Vector3
+    toTarget: THREE.Vector3
+    progress: number
+  } | null>(null)
 
   useEffect(() => {
-    if (selectedBuilding && positions[selectedBuilding]) {
-      const pos = positions[selectedBuilding]
-      desiredPosition.current.set(pos[0] + 5.2, pos[1] + 4.1, pos[2] + 5.2)
-      desiredTarget.current.set(pos[0], pos[1] + 1, pos[2])
-    } else {
-      desiredPosition.current.set(18, 14, 18)
-      desiredTarget.current.set(0, 0, 0)
-    }
-    isTransitioning.current = true
-  }, [selectedBuilding, positions])
-
-  useFrame((_, delta) => {
     const controls = controlsRef.current
-    if (!controls || !isTransitioning.current) {
+    if (!controls) {
       return
     }
 
-    const ease = 1 - Math.exp(-delta * 3.4)
-    camera.position.lerp(desiredPosition.current, ease)
-    controls.target.lerp(desiredTarget.current, ease)
+    const fromPosition = camera.position.clone()
+    const fromTarget = controls.target.clone()
+    let toPosition = DEFAULT_CAMERA_POSITION.clone()
+    let toTarget = DEFAULT_CAMERA_TARGET.clone()
+
+    if (selectedBuilding && positions[selectedBuilding]) {
+      const [x, , z] = positions[selectedBuilding]
+      toTarget = new THREE.Vector3(x, 1.2, z)
+      toPosition = new THREE.Vector3(x + 6.8, 5.2, z + 7.2)
+    }
+
+    transitionRef.current = {
+      fromPosition,
+      toPosition,
+      fromTarget,
+      toTarget,
+      progress: 0,
+    }
+  }, [selectedBuilding, positions, camera, controlsRef])
+
+  useFrame((_, delta) => {
+    const controls = controlsRef.current
+    const transition = transitionRef.current
+    if (!controls || !transition) {
+      return
+    }
+
+    transition.progress = Math.min(1, transition.progress + delta * 1.2)
+    const eased = 1 - Math.pow(1 - transition.progress, 3)
+
+    camera.position.lerpVectors(transition.fromPosition, transition.toPosition, eased)
+    controls.target.lerpVectors(transition.fromTarget, transition.toTarget, eased)
     controls.update()
 
-    if (
-      camera.position.distanceTo(desiredPosition.current) < 0.08 &&
-      controls.target.distanceTo(desiredTarget.current) < 0.08
-    ) {
-      isTransitioning.current = false
+    if (transition.progress >= 1) {
+      transitionRef.current = null
     }
   })
 
-  return (
-    <OrbitControls
-      ref={controlsRef}
-      enableDamping
-      dampingFactor={0.06}
-      autoRotate={!selectedBuilding}
-      autoRotateSpeed={0.42}
-      maxPolarAngle={Math.PI / 2.1}
-      minDistance={3}
-      maxDistance={40}
-      makeDefault
-    />
-  )
+  return null
 }
 
 export function WorldCanvas({
@@ -83,8 +103,15 @@ export function WorldCanvas({
   selectedBuilding,
   onSelectBuilding,
   timeTheme = 'day',
+  layout = null,
+  showMonument = true,
 }: WorldCanvasProps) {
   const isNight = timeTheme === 'night'
+  const campusMaps = useMemo(
+    () => buildCampusMaps(layout ?? DEFAULT_CAMPUS_LAYOUT),
+    [layout],
+  )
+  const { positions, shapes, colors, monument } = campusMaps
   const activeDepts = useMemo(() => {
     const tokens = new Set(
       (currentDepartment ?? '')
@@ -105,9 +132,20 @@ export function WorldCanvas({
 
   const stepMap = useMemo(() => {
     const map: Record<string, StepRecord> = {}
-    for (const step of steps) map[step.department_key] = step
+    for (const step of steps) {
+      map[step.department_key] = step
+      if (step.department_key === 'engineering' && !map.dev_2) {
+        map.dev_2 = step
+      }
+    }
     return map
   }, [steps])
+
+  const visibleKeys = useMemo(
+    () => Object.keys(positions).filter((key) => key !== 'engineering'),
+    [positions],
+  )
+  const controlsRef = useRef<OrbitControlsImpl | null>(null)
 
   return (
     <Canvas
@@ -150,16 +188,18 @@ export function WorldCanvas({
 
       {/* Ground plane */}
       <GroundGrid timeTheme={timeTheme} />
+      {showMonument && <CampusMonument timeTheme={timeTheme} monument={monument} />}
 
       {/* Buildings per department */}
-      {Object.entries(DEPT_POSITIONS).map(([key, pos]) => {
+      {visibleKeys.map((key) => {
+        const pos = positions[key]
         const step = stepMap[key]
         const event = bubbleEvents[key] ?? null
         const isActive =
           (hasActiveRun && (activeDepts.has(key) || step?.status === 'running')) ||
           Boolean(event?.is_live)
         const status = hasActiveRun ? (step?.status ?? 'queued') : (event?.status ?? 'queued')
-        const color = DEPT_COLORS[key] ?? '#ffffff'
+        const color = colors[key] ?? '#ffffff'
         const label = step?.department_label ?? key.replace('_', ' ').toUpperCase()
         const isSelected = selectedBuilding === key
         const isDimmed = selectedBuilding !== null && !isSelected
@@ -174,7 +214,7 @@ export function WorldCanvas({
             status={status}
             label={label}
             summary={step?.summary}
-            shape={DEPT_SHAPES[key] || 'box'}
+            shape={shapes[key] || 'box'}
             event={event}
             onDismissEvent={onDismissBubble}
             isSelected={isSelected}
@@ -189,8 +229,8 @@ export function WorldCanvas({
       {selectedBuilding === null && (
         <DataBeams
           steps={steps}
-          positions={DEPT_POSITIONS}
-          colors={DEPT_COLORS}
+          positions={positions}
+          colors={colors}
           activeDepts={activeDepts}
           hasActiveRun={hasActiveRun}
           timeTheme={timeTheme}
@@ -199,16 +239,31 @@ export function WorldCanvas({
 
       {/* Rovers move only when a run is live, otherwise they remain asleep near buildings */}
       <AgentRovers
-        positions={DEPT_POSITIONS}
+        positions={positions}
         activeDepts={activeDepts}
-        colors={DEPT_COLORS}
+        colors={colors}
         steps={steps}
         hasActiveRun={hasActiveRun}
         selectedBuilding={selectedBuilding}
       />
 
-      {/* Interactive camera rig replaces OrbitControls */}
-      <CameraRig selectedBuilding={selectedBuilding} positions={DEPT_POSITIONS} />
+      <CameraFocusController
+        selectedBuilding={selectedBuilding}
+        positions={positions}
+        controlsRef={controlsRef}
+      />
+
+      <OrbitControls
+        ref={controlsRef}
+        enableDamping
+        dampingFactor={0.06}
+        autoRotate={!selectedBuilding}
+        autoRotateSpeed={-0.42}
+        maxPolarAngle={Math.PI / 2.1}
+        minDistance={6}
+        maxDistance={40}
+        makeDefault
+      />
 
       {/* Soft atmospheric white fog */}
       <fog attach="fog" args={[isNight ? '#06111d' : '#f5f7fa', 20, isNight ? 58 : 70]} />

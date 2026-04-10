@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 RunMode = Literal["mock", "codex", "openai"]
 StepStatus = Literal["pending", "running", "completed", "failed"]
-RunStatus = Literal["queued", "running", "completed", "failed", "stale"]
+RunStatus = Literal["queued", "running", "stopping", "completed", "failed", "stale"]
 ProcessStatus = Literal["running", "completed", "failed"]
 ParallelStrategy = Literal["dependency_graph", "full_parallel"]
 CodexAutonomyMode = Literal["read_only", "full_auto", "yolo"]
@@ -163,6 +163,7 @@ class RunSettings(BaseModel):
     codex_review_autonomy: CodexAutonomyMode = DEFAULT_REVIEW_CODEX_AUTONOMY
     detached: bool = False
     max_parallel_departments: int | None = None
+    active_department_keys: list[str] | None = None
 
     def model_for_tier(self, tier: CodexRuntimeTier) -> str:
         if tier == "review":
@@ -185,6 +186,7 @@ class RunState(BaseModel):
     status: RunStatus = "queued"
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
+    stop_requested: bool = False
     current_department: str | None = None
     next_action: str = "Ready to start"
     current_status: str = "Waiting for first department."
@@ -354,9 +356,15 @@ class AutopilotControlProfile(BaseModel):
     )
 
 
+class RosterProfile(BaseModel):
+    active_department_keys: list[str] = Field(default_factory=list)
+    hidden_campus_items: list[str] = Field(default_factory=list)
+
+
 class OperatorProfile(BaseModel):
     launch: LaunchControlProfile = Field(default_factory=LaunchControlProfile)
     autopilot: AutopilotControlProfile = Field(default_factory=AutopilotControlProfile)
+    roster: RosterProfile = Field(default_factory=RosterProfile)
 
 
 class OperatorChatMessage(BaseModel):
@@ -367,3 +375,23 @@ class OperatorChatMessage(BaseModel):
 
 class OperatorChatState(BaseModel):
     messages: list[OperatorChatMessage] = Field(default_factory=list)
+
+
+DirectiveTarget = Literal["run", "loop"]
+
+
+class OperatorDirectiveRecord(BaseModel):
+    directive_id: str
+    target_type: DirectiveTarget
+    target_id: str
+    content: str
+    created_at: datetime = Field(default_factory=utc_now)
+    consumed_at: datetime | None = None
+
+    @property
+    def is_pending(self) -> bool:
+        return self.consumed_at is None
+
+
+class OperatorDirectiveInbox(BaseModel):
+    directives: list[OperatorDirectiveRecord] = Field(default_factory=list)

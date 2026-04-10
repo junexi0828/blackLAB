@@ -1,7 +1,8 @@
+from datetime import timedelta
 from pathlib import Path
 
 from blacklab_factory.autopilot import AutopilotSupervisor, LoopRunRequest
-from blacklab_factory.models import RunSettings, RunState
+from blacklab_factory.models import RunSettings, RunState, utc_now
 
 
 def test_full_auto_loop_completes_configured_iterations(tmp_path: Path) -> None:
@@ -90,3 +91,28 @@ def test_loop_auto_recovers_after_failed_run(tmp_path: Path) -> None:
     assert loop_state.consecutive_failures == 0
     assert loop_state.runs[0].status == "failed"
     assert loop_state.runs[1].status == "completed"
+
+
+def test_stopping_loop_without_live_run_is_finalized(tmp_path: Path) -> None:
+    supervisor = AutopilotSupervisor(storage_root=tmp_path)
+    request = LoopRunRequest(
+        objective="Finalize stale stopping loop",
+        loop_mode="always_on",
+        run_mode="mock",
+        run_settings=RunSettings(),
+        interval_seconds=0,
+    )
+
+    loop_state = supervisor.start_loop(request)
+    loop_state.status = "stopping"
+    loop_state.stop_requested = True
+    loop_state.latest_note = "Operator requested the loop to stop after the current cycle."
+    loop_state.updated_at = utc_now() - timedelta(minutes=10)
+    supervisor.loop_storage.state_path(loop_state.loop_id).write_text(
+        loop_state.model_dump_json(indent=2),
+        encoding="utf-8",
+    )
+
+    refreshed = supervisor.loop_storage.load_state(loop_state.loop_id)
+    assert refreshed.status == "completed"
+    assert "finalized" in refreshed.latest_note.lower()

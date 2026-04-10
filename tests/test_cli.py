@@ -12,6 +12,7 @@ def test_detached_launch_returns_run_id_and_completes(tmp_path: Path) -> None:
         mode="mock",
         pause_between_departments=0,
         max_parallel_departments=7,
+        active_department_keys=None,
         storage_root=tmp_path,
         codex_model="gpt-5.4",
         codex_autonomy="read_only",

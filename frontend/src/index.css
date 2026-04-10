@@ -1166,6 +1166,158 @@ textarea {
   height: 100% !important;
 }
 
+.console-overview-back {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  pointer-events: auto;
+}
+
+.console-overview-back__button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.5rem 0.95rem;
+  background: rgba(8, 16, 25, 0.74);
+  color: #edf7ef;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+}
+
+.console-world--day .console-overview-back__button {
+  background: rgba(255, 255, 255, 0.84);
+  color: rgba(15, 23, 42, 0.88);
+}
+
+.layout-editor {
+  position: absolute;
+  top: 72px;
+  left: 28px;
+  z-index: 12;
+  width: min(240px, calc(100vw - 56px));
+  pointer-events: auto;
+}
+
+.layout-editor__header,
+.layout-editor__body {
+  border: 1px solid rgba(138, 162, 184, 0.22);
+  background: rgba(9, 16, 26, 0.82);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.28);
+}
+
+.console-world--day .layout-editor__header,
+.console-world--day .layout-editor__body {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(100, 116, 139, 0.18);
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.12);
+}
+
+.layout-editor__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.58rem 0.72rem;
+  border-radius: 14px;
+  font-size: 0.84rem;
+}
+
+.layout-editor__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.layout-editor__body {
+  margin-top: 0.55rem;
+  padding: 0.72rem;
+  border-radius: 16px;
+  display: grid;
+  gap: 0.62rem;
+  max-height: min(60vh, 420px);
+  overflow: auto;
+}
+
+.layout-editor__toggle,
+.layout-editor__actions button,
+.layout-editor__pad button,
+.layout-editor__scale button {
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+  padding: 0.48rem 0.62rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  font-size: 0.78rem;
+}
+
+.console-world--day .layout-editor__toggle,
+.console-world--day .layout-editor__actions button,
+.console-world--day .layout-editor__pad button,
+.console-world--day .layout-editor__scale button {
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.layout-editor__save {
+  background: linear-gradient(135deg, #ff9542, #f06421) !important;
+  color: #fff7ef;
+}
+
+.layout-editor__field {
+  display: grid;
+  gap: 0.26rem;
+  font-size: 0.76rem;
+}
+
+.layout-editor__field select {
+  border-radius: 10px;
+  border: 1px solid rgba(138, 162, 184, 0.2);
+  padding: 0.44rem 0.55rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font-size: 0.78rem;
+}
+
+.console-world--day .layout-editor__field select {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.layout-editor__meta,
+.layout-editor__notice {
+  margin: 0;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.console-world--day .layout-editor__meta,
+.console-world--day .layout-editor__notice {
+  color: rgba(15, 23, 42, 0.72);
+}
+
+.layout-editor__pad {
+  display: grid;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.layout-editor__pad-row {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.layout-editor__pad button {
+  min-width: 44px;
+}
+
+.layout-editor__scale,
+.layout-editor__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 /* HUD overlay — pointer-events none, absolutely positioned */
 .console-hud {
   position: absolute;
@@ -1392,6 +1544,105 @@ textarea {
   z-index: 11;
   display: grid;
   gap: 0.75rem;
+}
+
+.console-focus-card {
+  position: absolute;
+  left: 28px;
+  bottom: 96px;
+  z-index: 11;
+  width: min(360px, calc(100vw - 56px));
+  border: 1px solid rgba(138, 162, 184, 0.2);
+  border-radius: 20px;
+  background: rgba(8, 16, 25, 0.76);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.24);
+  padding: 0.95rem 1rem;
+  pointer-events: auto;
+}
+
+.console-world--day .console-focus-card {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(100, 116, 139, 0.18);
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.14);
+}
+
+.console-focus-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.console-focus-card__head strong {
+  display: block;
+  font-size: 1rem;
+  margin-top: 0.1rem;
+}
+
+.console-focus-card__close {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.42rem 0.72rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  cursor: pointer;
+}
+
+.console-world--day .console-focus-card__close {
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.console-focus-card__meta {
+  margin-top: 0.65rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.console-world--day .console-focus-card__meta {
+  color: rgba(71, 85, 105, 0.8);
+}
+
+.console-focus-card__status {
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.console-focus-card__status--running {
+  color: #7ef7c2;
+}
+
+.console-focus-card__status--completed {
+  color: #8fd3ff;
+}
+
+.console-focus-card__status--failed {
+  color: #ff9d9d;
+}
+
+.console-focus-card__summary,
+.console-focus-card__mission {
+  margin: 0.75rem 0 0;
+  font-size: 0.84rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.console-world--day .console-focus-card__summary,
+.console-world--day .console-focus-card__mission {
+  color: rgba(15, 23, 42, 0.8);
+}
+
+.console-focus-card__mission .hud-small-tag {
+  display: block;
+  margin-bottom: 0.35rem;
 }
 
 .console-event-feed__header {

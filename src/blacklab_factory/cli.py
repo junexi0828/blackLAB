@@ -68,6 +68,11 @@ def run(
         "--project-slug",
         help="Optional persistent project slug to attach this run to.",
     ),
+    active_departments: str | None = typer.Option(
+        None,
+        "--active-departments",
+        help="Comma-separated department keys to activate for this run.",
+    ),
     detach: bool = typer.Option(
         False,
         "--detach",
@@ -93,6 +98,7 @@ def run(
         codex_review_autonomy=codex_review_autonomy,  # type: ignore[arg-type]
         detached=detach,
         max_parallel_departments=max_parallel_departments or None,
+        active_department_keys=[item.strip() for item in active_departments.split(",") if item.strip()] if active_departments else None,
     )
     if detach:
         launch = launch_detached_run(
@@ -101,6 +107,7 @@ def run(
             mode=mode,
             pause_between_departments=pause_between_departments,
             max_parallel_departments=max_parallel_departments or None,
+            active_department_keys=run_settings.active_department_keys,
             storage_root=storage_root or FactoryRunner().storage.root,
             codex_model=codex_model,
             codex_autonomy=codex_autonomy,
@@ -178,6 +185,7 @@ def autopilot_start(
     codex_review_model: str = typer.Option(DEFAULT_REVIEW_CODEX_MODEL, "--codex-review-model", help="Codex model for review departments in each cycle."),
     codex_review_autonomy: str = typer.Option(DEFAULT_REVIEW_CODEX_AUTONOMY, "--codex-review-autonomy", help="Codex autonomy for review departments: read_only, full_auto, yolo."),
     project_slug: str | None = typer.Option(None, "--project-slug", help="Optional persistent project slug to attach this loop to."),
+    active_departments: str | None = typer.Option(None, "--active-departments", help="Comma-separated department keys to activate for each run."),
     detach: bool = typer.Option(False, "--detach", help="Launch the autopilot loop in the background."),
     storage_root: Path | None = typer.Option(None, "--storage-root", hidden=True),
     loop_id_file: Path | None = typer.Option(None, "--loop-id-file", hidden=True),
@@ -190,6 +198,7 @@ def autopilot_start(
         codex_review_autonomy=codex_review_autonomy,  # type: ignore[arg-type]
         detached=detach,
         max_parallel_departments=max_parallel_departments or None,
+        active_department_keys=[item.strip() for item in active_departments.split(",") if item.strip()] if active_departments else None,
     )
 
     if detach:
@@ -202,6 +211,7 @@ def autopilot_start(
             max_iterations=max_iterations if loop_mode == "full_auto" else None,
             pause_between_departments=pause_between_departments,
             max_parallel_departments=max_parallel_departments or None,
+            active_department_keys=run_settings.active_department_keys,
             storage_root=base_storage,
             codex_model=codex_model,
             codex_autonomy=codex_autonomy,

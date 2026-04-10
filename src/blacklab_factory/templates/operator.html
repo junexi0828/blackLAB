@@ -4,7 +4,7 @@
   <section class="hero">
     <div>
       <h1>Operator Chat</h1>
-      <p class="subhead">Talk to the main orchestration layer, launch missions, stop loops, and inspect the live factory without touching the CLI.</p>
+      <p class="subhead">Send live directives to the active loop or run. If nothing is live, use this page to launch or stop work.</p>
     </div>
     <div class="button-row">
       <a class="primary-button" href="/settings">Open Settings</a>
@@ -17,8 +17,12 @@
       <div class="panel-header">
         <div>
           <h2>Command Channel</h2>
-          <p id="action-feedback">Ask for status, start a run, start a 24/7 loop, stop a loop, or change core/review defaults.</p>
+          <p id="action-feedback">Active run first. Otherwise active loop. If nothing is live, messages act as control commands.</p>
         </div>
+      </div>
+      <div class="operator-route operator-route-{{ operator_route.mode }}">
+        <strong>{{ operator_route.label }}</strong>
+        <p>{{ operator_route.detail }}</p>
       </div>
       <div id="operator-chat-log" class="chat-log">
         {% for message in chat_messages %}
@@ -29,20 +33,20 @@
         {% else %}
           <article class="chat-message chat-assistant">
             <div class="chat-meta">assistant</div>
-            <div class="chat-body">무엇을 할지 말해주시면 메인 제어면이 직접 실행합니다.</div>
+            <div class="chat-body">메시지를 보내면 현재 실행 중인 회사에 바로 지시를 전달합니다.</div>
           </article>
         {% endfor %}
       </div>
       <form id="operator-chat-form" class="control-form">
         <label>
           <span>Message</span>
-          <textarea name="message" rows="4" placeholder="예: 24/7 루프 시작 Revenue Leak Auditor를 계속 개선해" required></textarea>
+          <textarea name="message" rows="4" placeholder="예: 가장 중요한 리스크 하나에 집중해" required></textarea>
         </label>
         <div class="button-row">
-          <button type="submit" class="primary-button">Send To Main Operator</button>
-          <button type="button" class="ghost-button" data-chat-command="상태 알려줘">Status</button>
-          <button type="button" class="ghost-button" data-chat-command="새 런 시작 project: revenue-leak-auditor Build a profitable AI workflow for Korean SMBs">Launch Run</button>
-          <button type="button" class="ghost-button" data-chat-command="24/7 루프 시작 project: revenue-leak-auditor Operate the strongest profitable wedge continuously">Start 24/7</button>
+          <button type="submit" class="primary-button">Send</button>
+          <button type="button" class="ghost-button" data-chat-command="지금 상태 알려줘">Status</button>
+          <button type="button" class="ghost-button" data-chat-command="가장 중요한 리스크 하나에 집중해">Directive</button>
+          <button type="button" class="ghost-button" data-chat-command="24/7 루프 시작 현재 프로젝트를 계속 개선해">24/7</button>
         </div>
       </form>
     </article>
@@ -64,6 +68,17 @@
   </section>
 
   <section class="three-column">
+    <article class="panel">
+      <div class="panel-header">
+        <h2>How It Works</h2>
+      </div>
+      <ul class="list">
+        <li><strong>Loop</strong><p>The main engine. It keeps the same project moving across iterations.</p></li>
+        <li><strong>Chat</strong><p>The live directive channel for whatever is currently running.</p></li>
+        <li><strong>Run</strong><p>One bounded execution cycle for a single goal.</p></li>
+      </ul>
+    </article>
+
     <article class="panel">
       <div class="panel-header">
         <h2>Active Runs</h2>
@@ -96,18 +111,6 @@
         {% else %}
           <li>No active loops.</li>
         {% endfor %}
-      </ul>
-    </article>
-
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Quick Links</h2>
-      </div>
-      <ul class="list">
-        <li><a href="/launch">Launch one mission</a></li>
-        <li><a href="/autopilot">Run Full Auto or 24/7</a></li>
-        <li><a href="/settings">Edit defaults</a></li>
-        <li><a href="/console">Open visual campus</a></li>
       </ul>
     </article>
   </section>

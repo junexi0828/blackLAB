@@ -70,8 +70,9 @@
           </label>
         </div>
         <label>
-          <span>Pause Between Waves</span>
+          <span>Wave Pause Seconds</span>
           <input type="number" step="0.5" min="0" name="pause_between_departments" value="{{ operator_profile.launch.pause_between_departments }}" />
+          <small class="field-hint">`0` means continuous execution. Add a short pause only if you want a brief inspection gap between department waves.</small>
         </label>
         <div class="button-row">
           <button type="submit" class="primary-button">Launch Detached Run</button>

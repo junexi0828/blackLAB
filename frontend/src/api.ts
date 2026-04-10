@@ -1,4 +1,4 @@
-import type { CompanyConfig, FeedPayload, LoopState, RunState } from './types'
+import type { CampusLayout, CompanyConfig, FeedPayload, LoopState, OperatorProfileData, RunState } from './types'
 
 const rawBase =
   import.meta.env.VITE_API_BASE ??
@@ -41,6 +41,22 @@ export async function getSettings(): Promise<CompanyConfig> {
 
 export async function getFeed(): Promise<FeedPayload> {
   return requestJson<FeedPayload>('/api/feed')
+}
+
+export async function getCampusLayout(): Promise<CampusLayout> {
+  return requestJson<CampusLayout>('/api/campus-layout')
+}
+
+export async function saveCampusLayout(payload: CampusLayout): Promise<CampusLayout> {
+  return requestJson<CampusLayout>('/api/campus-layout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function getOperatorProfile(): Promise<OperatorProfileData> {
+  return requestJson<OperatorProfileData>('/api/operator/profile')
 }
 
 export async function launchRun(payload: Record<string, unknown>) {

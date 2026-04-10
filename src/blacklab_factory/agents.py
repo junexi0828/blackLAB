@@ -51,6 +51,7 @@ class DepartmentAgent:
         hooks: DepartmentRunHooks | None = None,
         workspace_path: Path | None = None,
         project_context: str = "",
+        directive_context: str = "",
     ) -> DepartmentResult:
         raise NotImplementedError
 
@@ -64,6 +65,7 @@ class MockDepartmentAgent(DepartmentAgent):
         hooks: DepartmentRunHooks | None = None,
         workspace_path: Path | None = None,
         project_context: str = "",
+        directive_context: str = "",
     ) -> DepartmentResult:
         if hooks and hooks.on_log:
             hooks.on_log(f"{department.label}: generating deterministic mock artifact.")
@@ -79,6 +81,16 @@ class MockDepartmentAgent(DepartmentAgent):
             if project_snapshot
             else []
         )
+        directive_snapshot = directive_context.strip()
+        directive_lines = (
+            [
+                "## Operator Directives",
+                directive_snapshot,
+                "",
+            ]
+            if directive_snapshot
+            else []
+        )
         if department.key == "board_review":
             summary = f"{department.label} consolidated the company plan for: {state.mission}"
             body = "\n".join(
@@ -89,6 +101,7 @@ class MockDepartmentAgent(DepartmentAgent):
                     state.mission,
                     "",
                     *project_lines,
+                    *directive_lines,
                     "## Company Thesis",
                     "- Build the narrowest profitable wedge first, then expand only after proving retention.",
                     "",
@@ -127,6 +140,7 @@ class MockDepartmentAgent(DepartmentAgent):
                     state.mission,
                     "",
                     *project_lines,
+                    *directive_lines,
                     "## Review Lens",
                     department.purpose,
                     "",
@@ -163,6 +177,7 @@ class MockDepartmentAgent(DepartmentAgent):
                 state.mission,
                 "",
                 *project_lines,
+                *directive_lines,
                 "## Department Goal",
                 department.purpose,
                 "",
@@ -209,6 +224,7 @@ class OpenAIDepartmentAgent(DepartmentAgent):
         hooks: DepartmentRunHooks | None = None,
         workspace_path: Path | None = None,
         project_context: str = "",
+        directive_context: str = "",
     ) -> DepartmentResult:
         prior_summaries = "\n".join(
             f"- {step.department_label}: {step.summary}"
@@ -221,9 +237,16 @@ class OpenAIDepartmentAgent(DepartmentAgent):
             else ""
         )
         project_block = project_context.strip() + "\n\n" if project_context.strip() else ""
+        directive_block = (
+            "Operator directives:\n"
+            f"{directive_context.strip()}\n\n"
+            if directive_context.strip()
+            else ""
+        )
         prompt = "\n".join(
             [
                 project_block.rstrip(),
+                directive_block.rstrip(),
                 f"You are the {department.label} inside {company.company_name}.",
                 f"Mission style: {company.mission_style}.",
                 f"Department purpose: {department.purpose}",
@@ -274,6 +297,7 @@ class CodexDepartmentAgent(DepartmentAgent):
         hooks: DepartmentRunHooks | None = None,
         workspace_path: Path | None = None,
         project_context: str = "",
+        directive_context: str = "",
     ) -> DepartmentResult:
         schema = {
             "type": "object",
@@ -298,6 +322,7 @@ class CodexDepartmentAgent(DepartmentAgent):
             state=state,
             workspace_path=effective_workspace,
             project_context=project_context,
+            directive_context=directive_context,
         )
         runtime_profile = self._resolve_runtime_profile(department=department, settings=state.settings)
         max_attempts = max(1, company.codex_retry_attempts + 1)
@@ -458,6 +483,7 @@ class CodexDepartmentAgent(DepartmentAgent):
         state: RunState,
         workspace_path: Path | None = None,
         project_context: str = "",
+        directive_context: str = "",
     ) -> str:
         runtime_profile = self._resolve_runtime_profile(department=department, settings=state.settings)
         prior_summaries = "\n".join(
@@ -484,9 +510,15 @@ class CodexDepartmentAgent(DepartmentAgent):
         # This gives the AI instant awareness of the project and run history
         # without any manual setup by the operator.
         project_block = project_context.strip() + "\n\n" if project_context.strip() else ""
+        directive_block = (
+            "LIVE OPERATOR DIRECTIVES\n"
+            f"{directive_context.strip()}\n\n"
+            if directive_context.strip()
+            else ""
+        )
 
         if department.key == "board_review":
-            return project_block + "\n".join(
+            return project_block + directive_block + "\n".join(
                 [
                     f"You are the {department.label} inside {company.company_name}.",
                     "Your job is to act as the final executive editor and quality gate for the entire company run.",
@@ -522,7 +554,7 @@ class CodexDepartmentAgent(DepartmentAgent):
             )
 
         if department.runtime_tier == "review":
-            return project_block + "\n".join(
+            return project_block + directive_block + "\n".join(
                 [
                     f"You are the {department.label} department inside {company.company_name}.",
                     "You are part of the lightweight review lane that tests and validates the company packet.",
@@ -556,7 +588,7 @@ class CodexDepartmentAgent(DepartmentAgent):
                 ]
             )
 
-        return project_block + "\n".join(
+        return project_block + directive_block + "\n".join(
             [
                 f"You are the {department.label} department inside {company.company_name}.",
                 f"Mission style: {company.mission_style}.",

@@ -37,8 +37,12 @@ class FactoryRunner:
         parallel_limit = max(1, max_parallel_departments or self.config.max_parallel_departments)
         effective_settings = (run_settings.model_copy(deep=True) if run_settings else RunSettings())
         effective_settings.max_parallel_departments = parallel_limit
-        workflow_departments = self._build_workflow_departments()
-        base_department_keys = {department.key for department in self.config.departments}
+        workflow_departments = self._build_workflow_departments(effective_settings.active_department_keys)
+        base_department_keys = {
+            department.key
+            for department in workflow_departments
+            if department.runtime_tier == "core"
+        }
         steps = [
             StepRecord(
                 department_key=department.key,
@@ -88,12 +92,35 @@ class FactoryRunner:
         lock = Lock()
         active_step: StepRecord | None = None
         last_effective_parallel_limit: int | None = None
+        operator_directives: list[str] = []
 
         try:
             with ThreadPoolExecutor(max_workers=parallel_limit) as executor:
                 futures: dict[Future, tuple[StepRecord, object]] = {}
 
                 while len(completed_keys) < len(workflow_departments):
+                    persisted_state = self.storage.load_state(state.run_id)
+                    if persisted_state.stop_requested and not state.stop_requested:
+                        state.stop_requested = True
+                        state.status = "stopping"
+                        state.current_status = "Stop requested. Finishing the current department wave before ending the run."
+                        state.next_action = "No new departments will be launched."
+                        self.storage.save_state(state)
+
+                    new_directives = self.storage.consume_directives(state.run_id)
+                    if new_directives:
+                        operator_directives.extend(
+                            directive.content for directive in new_directives if directive.content.strip()
+                        )
+                        latest_directive = new_directives[-1].content.strip()
+                        state.current_status = "Operator directive received and queued for the next available department wave."
+                        state.next_action = latest_directive
+                        self.storage.save_state(state)
+                        self.storage.append_log(
+                            state.run_id,
+                            f"Operator directive applied to next wave: {latest_directive}",
+                        )
+
                     resource_snapshot = self.resource_manager.snapshot(
                         requested_parallelism=parallel_limit,
                         active_workers=len(futures),
@@ -116,46 +143,54 @@ class FactoryRunner:
                         )
                         last_effective_parallel_limit = resource_snapshot.effective_parallelism
 
-                    active_departments = [department for _, department in futures.values()]
-                    launch_wave = self._select_departments_for_launch(
-                        workflow_departments=workflow_departments,
-                        step_by_key=step_by_key,
-                        completed_keys=completed_keys,
-                        base_department_keys=base_department_keys,
-                        active_departments=active_departments,
-                        parallel_limit=resource_snapshot.effective_parallelism,
-                    )
-                    for department in launch_wave:
-                        step = step_by_key[department.key]
-
-                        step.status = "running"
-                        step.started_at = utc_now()
-                        self._refresh_runtime_snapshot(state)
-                        state.current_status = f"{department.label} is preparing its execution packet."
-                        state.next_action = f"{department.label} is generating {department.output_title}."
-                        self.storage.save_state(state)
-                        self.storage.append_log(state.run_id, f"{department.label} started.")
-
-                        hooks = self._build_hooks(state=state, department_label=department.label, lock=lock)
-                        snapshot = state.model_copy(deep=True)
-                        # Use project shared workspace if project_slug is set;
-                        # otherwise fall back to the run-scoped sandbox.
-                        if normalized_project_slug:
-                            workspace = self.projects.workspace_dir(normalized_project_slug)
-                        else:
-                            workspace = self.storage.workspace_dir(state.run_id)
-                        future = executor.submit(
-                            agent.run,
-                            self.config,
-                            department,
-                            snapshot,
-                            hooks,
-                            workspace,
-                            project_context,
+                    if not state.stop_requested:
+                        active_departments = [department for _, department in futures.values()]
+                        launch_wave = self._select_departments_for_launch(
+                            workflow_departments=workflow_departments,
+                            step_by_key=step_by_key,
+                            completed_keys=completed_keys,
+                            base_department_keys=base_department_keys,
+                            active_departments=active_departments,
+                            parallel_limit=resource_snapshot.effective_parallelism,
                         )
-                        futures[future] = (step, department)
+                        for department in launch_wave:
+                            step = step_by_key[department.key]
+
+                            step.status = "running"
+                            step.started_at = utc_now()
+                            self._refresh_runtime_snapshot(state)
+                            state.current_status = f"{department.label} is preparing its execution packet."
+                            state.next_action = f"{department.label} is generating {department.output_title}."
+                            self.storage.save_state(state)
+                            self.storage.append_log(state.run_id, f"{department.label} started.")
+
+                            hooks = self._build_hooks(state=state, department_label=department.label, lock=lock)
+                            snapshot = state.model_copy(deep=True)
+                            # Use project shared workspace if project_slug is set;
+                            # otherwise fall back to the run-scoped sandbox.
+                            if normalized_project_slug:
+                                workspace = self.projects.workspace_dir(normalized_project_slug)
+                            else:
+                                workspace = self.storage.workspace_dir(state.run_id)
+                            future = executor.submit(
+                                agent.run,
+                                self.config,
+                                department,
+                                snapshot,
+                                hooks,
+                                workspace,
+                                project_context,
+                                self._build_directive_context(operator_directives),
+                            )
+                            futures[future] = (step, department)
+                    else:
+                        state.current_status = "Stop requested. Waiting for the current department wave to finish."
+                        state.next_action = "The run will close once the active workers finish."
+                        self.storage.save_state(state)
 
                     if not futures:
+                        if state.stop_requested:
+                            break
                         unresolved = [dep.key for dep in workflow_departments if step_by_key[dep.key].status == "pending"]
                         raise RuntimeError(f"No runnable departments remain. Check dependencies: {', '.join(unresolved)}")
 
@@ -193,7 +228,7 @@ class FactoryRunner:
                             self.storage.append_log(state.run_id, f"{department.label} completed. Artifact: {artifact.filename}")
                         active_step = None
 
-                    if pause_between_departments > 0 and len(completed_keys) < len(workflow_departments):
+                    if pause_between_departments > 0 and len(completed_keys) < len(workflow_departments) and not state.stop_requested:
                         state.current_status = "Paused for operator inspection before launching the next ready department."
                         self.storage.save_state(state)
                         time.sleep(pause_between_departments)
@@ -215,10 +250,15 @@ class FactoryRunner:
         state.status = "completed"
         state.current_processes = []
         self._refresh_runtime_snapshot(state)
-        state.current_status = "Run completed."
-        state.next_action = "Inspect dashboard, decide whether to launch another run, or tighten the company config."
+        if state.stop_requested:
+            state.current_status = "Run stopped by operator request."
+            state.next_action = "Inspect the completed artifacts so far or launch a fresh run."
+            self.storage.append_log(state.run_id, "Run stopped by operator request.")
+        else:
+            state.current_status = "Run completed."
+            state.next_action = "Inspect dashboard, decide whether to launch another run, or tighten the company config."
+            self.storage.append_log(state.run_id, "Run completed.")
         self.storage.save_state(state)
-        self.storage.append_log(state.run_id, "Run completed.")
 
         # ── Project: seed foundation once, refresh live context every run, append memory ─
         if normalized_project_slug:
@@ -264,6 +304,16 @@ class FactoryRunner:
             self.storage.append_log(state.run_id, f"Project '{normalized_project_slug}' memory updated.")
 
         return state
+
+    def _build_directive_context(self, directives: list[str]) -> str:
+        if not directives:
+            return ""
+        recent = directives[-6:]
+        lines = [
+            "- Apply these live operator directives unless they would violate project safety constraints or validated hard requirements.",
+        ]
+        lines.extend(f"- {directive}" for directive in recent)
+        return "\n".join(lines)
 
     def list_runs(self) -> list[RunState]:
         return self.storage.list_runs()
@@ -323,11 +373,27 @@ class FactoryRunner:
         state.current_department = ", ".join(active_departments) if active_departments else None
         state.metrics["active_workers"] = len(state.current_processes)
 
-    def _build_workflow_departments(self) -> list[DepartmentConfig]:
-        workflow_departments = list(self.config.departments)
-        review_departments = list(self.config.review_departments)
+    def _build_workflow_departments(self, active_department_keys: list[str] | None = None) -> list[DepartmentConfig]:
+        allowed_keys = set(active_department_keys or [])
+        if not allowed_keys:
+            allowed_keys = {
+                department.key for department in self.config.departments + self.config.review_departments
+            }
+            if self.config.enable_final_review:
+                allowed_keys.add("board_review")
+
+        workflow_departments = [
+            department
+            for department in self.config.departments
+            if department.key in allowed_keys
+        ]
+        review_departments = [
+            department
+            for department in self.config.review_departments
+            if department.key in allowed_keys
+        ]
         workflow_departments.extend(review_departments)
-        if not self.config.enable_final_review:
+        if not self.config.enable_final_review or "board_review" not in allowed_keys or not workflow_departments:
             return workflow_departments
         review_keys = [department.key for department in review_departments]
         workflow_departments.append(

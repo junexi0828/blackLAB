@@ -8,6 +8,7 @@ export interface RunSettings {
   codex_review_autonomy: string
   detached: boolean
   max_parallel_departments: number | null
+  active_department_keys?: string[] | null
 }
 
 export interface StepRecord {
@@ -118,6 +119,17 @@ export interface CompanyConfig {
   review_departments: DepartmentConfig[]
 }
 
+export interface OperatorRoster {
+  active_department_keys: string[]
+  hidden_campus_items: string[]
+}
+
+export interface OperatorProfileData {
+  launch: Record<string, unknown>
+  autopilot: Record<string, unknown>
+  roster: OperatorRoster
+}
+
 export interface EventEntry {
   event_id: string
   scope: string
@@ -135,4 +147,28 @@ export interface EventEntry {
 export interface FeedPayload {
   events: EventEntry[]
   bubbles: Record<string, EventEntry>
+}
+
+export interface CampusBuildingLayout {
+  position: [number, number, number]
+  shape: string
+  color: string
+}
+
+export interface CampusMonumentLayout {
+  position: [number, number, number]
+  baseInnerRadius: number
+  baseOuterRadius: number
+  ringInnerRadius: number
+  ringOuterRadius: number
+  torusRadius: number
+  torusTube: number
+  orbRadius: number
+  torusHeight: number
+  orbHeight: number
+}
+
+export interface CampusLayout {
+  buildings: Record<string, CampusBuildingLayout>
+  monument: CampusMonumentLayout
 }

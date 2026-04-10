@@ -24,12 +24,12 @@ def test_dashboard_routes_render(tmp_path: Path) -> None:
     launch_page = client.get("/launch")
     assert launch_page.status_code == 200
     assert "Mission Control" in launch_page.text
-    assert "Project Slug" in launch_page.text
+    assert "Project Name" in launch_page.text
 
     autopilot_page = client.get("/autopilot")
     assert autopilot_page.status_code == 200
     assert "Autopilot Control Room" in autopilot_page.text
-    assert "Project Slug" in autopilot_page.text
+    assert "Project Name" in autopilot_page.text
 
     runs_page = client.get("/runs")
     assert runs_page.status_code == 200

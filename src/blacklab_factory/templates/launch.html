@@ -8,21 +8,62 @@
     </div>
   </section>
 
-  <section class="two-column">
-    <article class="panel launch-panel">
-        <div class="panel-header">
-          <h2>Mission Control</h2>
-          <p id="action-feedback">Submit a mission and the factory will launch it in the background.</p>
-        </div>
+  <section class="panel launch-panel">
+      <div class="panel-header">
+        <h2>Mission Control</h2>
+        <p id="action-feedback">Submit a mission and the factory will launch it in the background.</p>
+      </div>
       <form id="run-launch-form" class="control-form">
         <label>
           <span>Mission</span>
           <textarea name="mission" rows="5" placeholder="Build a profitable AI operator for Korean SMBs" required></textarea>
         </label>
         <label>
-          <span>Project Slug</span>
-          <input type="text" name="project_slug" placeholder="e.g. revenue-leak-auditor" value="{{ operator_profile.launch.project_slug or '' }}" />
+          <span>Project Name</span>
+          <input type="text" name="project_slug" placeholder="Revenue Leak Auditor" value="{{ operator_profile.launch.project_slug or '' }}" />
         </label>
+        <div class="project-selector-row">
+          <button
+            type="button"
+            class="ghost-button"
+            data-toggle-target="launch-project-library"
+            data-toggle-label-open="Hide Library"
+            data-toggle-label-closed="Open Library"
+          >
+            Open Library
+          </button>
+          {% if recent_projects %}
+            <div class="recent-projects">
+              {% for project in recent_projects %}
+                <button
+                  type="button"
+                  class="recent-project-link"
+                  data-apply-project="run-launch-form:project_slug"
+                  data-project-value="{{ project.slug }}"
+                >
+                  {{ project.name }}
+                </button>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </div>
+        <div id="launch-project-library" class="toggle-panel" hidden>
+          <div class="project-library-inline">
+            {% for project in project_library %}
+              <button
+                type="button"
+                class="project-library-inline__item"
+                data-apply-project="run-launch-form:project_slug"
+                data-project-value="{{ project.slug }}"
+              >
+                <strong>{{ project.name }}</strong>
+                <small>{{ project.slug }} · {{ project.run_count }} runs</small>
+              </button>
+            {% else %}
+              <div class="empty-library">No saved projects yet.</div>
+            {% endfor %}
+          </div>
+        </div>
         <div class="form-grid">
           <label>
             <span>Mode</span>
@@ -79,27 +120,26 @@
           <a class="ghost-button" href="/runs">Open Run Ledger</a>
         </div>
       </form>
-    </article>
+  </section>
 
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Recent Runs</h2>
-        <a href="/runs">view all</a>
-      </div>
-      <ul class="list">
-        {% for run in recent_runs %}
-          <li>
-            <strong><a href="/runs/{{ run.run_id }}">{{ run.run_id }}</a></strong>
-            <p>{{ run.mission }}</p>
-            <small>
-              {{ run.status }} · core {{ run.settings.codex_model }}/{{ run.settings.codex_autonomy }}
-              · review {{ run.settings.codex_review_model }}/{{ run.settings.codex_review_autonomy }}
-            </small>
-          </li>
-        {% else %}
-          <li>No runs have been launched yet.</li>
-        {% endfor %}
-      </ul>
-    </article>
+  <section class="panel">
+    <div class="panel-header">
+      <h2>Recent Runs</h2>
+      <a href="/runs">view all</a>
+    </div>
+    <ul class="list">
+      {% for run in recent_runs %}
+        <li>
+          <strong><a href="/runs/{{ run.run_id }}">{{ run.run_id }}</a></strong>
+          <p>{{ run.mission }}</p>
+          <small>
+            {{ run.status }} · core {{ run.settings.codex_model }}/{{ run.settings.codex_autonomy }}
+            · review {{ run.settings.codex_review_model }}/{{ run.settings.codex_review_autonomy }}
+          </small>
+        </li>
+      {% else %}
+        <li>No runs have been launched yet.</li>
+      {% endfor %}
+    </ul>
   </section>
 {% endblock %}

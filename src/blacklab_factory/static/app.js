@@ -158,6 +158,30 @@ function bindTogglePanels() {
   })
 }
 
+function bindProjectSelectors() {
+  document.querySelectorAll("[data-apply-project]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const binding = button.getAttribute("data-apply-project");
+      const value = button.getAttribute("data-project-value") || "";
+      if (!binding) {
+        return;
+      }
+      const [formId, fieldName] = binding.split(":");
+      const form = document.getElementById(formId);
+      if (!(form instanceof HTMLFormElement)) {
+        return;
+      }
+      const input = form.querySelector(`[name="${fieldName}"]`);
+      if (!(input instanceof HTMLInputElement)) {
+        return;
+      }
+      input.value = value;
+      input.focus();
+      setFeedback(`Project set to ${value}.`);
+    });
+  });
+}
+
 function scheduleRefresh() {
   const autoRefreshToggle = document.querySelector("[data-toggle-refresh]");
   if (!autoRefreshToggle) {
@@ -340,6 +364,7 @@ bindRunStopButtons();
 bindLoopStopButtons();
 bindRefreshControls();
 bindTogglePanels();
+bindProjectSelectors();
 bindOperatorSettingsForm();
 bindOperatorChat();
 scheduleRefresh();

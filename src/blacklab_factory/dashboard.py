@@ -24,7 +24,7 @@ from .models import (
 )
 from .operator_control import OperatorCommander
 from .resources import RuntimeResourceManager
-from .storage import RunStorage
+from .storage import ProjectStorage, RunStorage
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -110,6 +110,7 @@ def create_app(storage: RunStorage) -> FastAPI:
             app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="frontend-assets")
     base_root = storage.root
     loop_storage = AutopilotSupervisor(storage_root=base_root).loop_storage
+    project_storage = ProjectStorage(base_root)
     company_config = load_company_config()
     operator = OperatorCommander(base_root)
     resource_manager = RuntimeResourceManager()
@@ -342,6 +343,23 @@ def create_app(storage: RunStorage) -> FastAPI:
             )
         return catalog
 
+    def build_project_library() -> list[dict]:
+        projects = sorted(
+            project_storage.list_projects(),
+            key=lambda record: record.last_run_at or record.updated_at,
+            reverse=True,
+        )
+        return [
+            {
+                "slug": record.slug,
+                "name": record.name or record.slug.replace("-", " ").title(),
+                "brief": record.brief,
+                "run_count": record.run_count,
+                "last_run_id": record.last_run_id,
+            }
+            for record in projects
+        ]
+
     def build_overview_context() -> dict:
         runs = storage.list_runs()
         loops = loop_storage.list_loops()
@@ -353,6 +371,7 @@ def create_app(storage: RunStorage) -> FastAPI:
         completed_runs = [run for run in runs if run.status == "completed"]
         active_loops = [loop for loop in loops if loop.status in {"running", "stopping"}]
         operator_route = build_operator_route(active_runs, active_loops)
+        project_library = build_project_library()
         latest_decisions = [
             {"department": step.department_label, "summary": step.summary}
             for run in runs
@@ -382,6 +401,8 @@ def create_app(storage: RunStorage) -> FastAPI:
             "default_settings": RunSettings(),
             "operator_profile": operator_profile,
             "department_catalog": build_department_catalog(operator_profile),
+            "project_library": project_library,
+            "recent_projects": project_library[:3],
             "resource_snapshot": resource_snapshot,
             "current_project": current_project,
             "operator_route": operator_route,
@@ -532,6 +553,13 @@ def create_app(storage: RunStorage) -> FastAPI:
     @app.get("/loops")
     def loops_page(request: Request):
         context = build_overview_context()
+        current_loop_card = None
+        if context["active_loops"]:
+            active_loop = context["active_loops"][0]
+            current_loop_card = build_loop_report(active_loop)
+        elif context["recent_loop_reports"]:
+            current_loop_card = context["recent_loop_reports"][0]
+        context["current_loop_card"] = current_loop_card
         return templates.TemplateResponse(
             name="loops.html",
             request=request,
@@ -761,6 +789,10 @@ def create_app(storage: RunStorage) -> FastAPI:
 
     @app.post("/api/operator/profile")
     def save_operator_profile_api(profile: OperatorProfile = Body(...)):
+        if profile.launch.project_slug:
+            profile.launch.project_slug = project_storage.normalize_slug(profile.launch.project_slug)
+        if profile.autopilot.project_slug:
+            profile.autopilot.project_slug = project_storage.normalize_slug(profile.autopilot.project_slug)
         saved = operator.save_profile(profile)
         return JSONResponse(saved.model_dump(mode="json"))
 
@@ -771,9 +803,10 @@ def create_app(storage: RunStorage) -> FastAPI:
     @app.post("/api/launch/run")
     def launch_run_api(payload: RunLaunchPayload = Body(...)):
         operator_profile = operator.load_profile()
+        project_slug = project_storage.normalize_slug(payload.project_slug) if payload.project_slug else None
         launch = launch_detached_run(
             mission=payload.mission,
-            project_slug=payload.project_slug,
+            project_slug=project_slug,
             mode=payload.mode,
             pause_between_departments=payload.pause_between_departments,
             max_parallel_departments=payload.max_parallel_departments,
@@ -801,9 +834,10 @@ def create_app(storage: RunStorage) -> FastAPI:
     @app.post("/api/launch/loop")
     def launch_loop_api(payload: LoopLaunchPayload = Body(...)):
         operator_profile = operator.load_profile()
+        project_slug = project_storage.normalize_slug(payload.project_slug) if payload.project_slug else None
         launch = launch_detached_loop(
             objective=payload.objective,
-            project_slug=payload.project_slug,
+            project_slug=project_slug,
             run_mode=payload.run_mode,
             loop_mode=payload.loop_mode,
             interval_seconds=payload.interval_seconds,

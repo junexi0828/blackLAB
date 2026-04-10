@@ -14,6 +14,33 @@
 
   <section class="panel">
     <div class="panel-header">
+      <h2>Current Loop</h2>
+      <a href="/autopilot">open autopilot</a>
+    </div>
+    {% if current_loop_card %}
+      <div class="list">
+        <li>
+          <div class="timeline-head">
+            <strong><a href="/loops/{{ current_loop_card.loop_id }}">{{ current_loop_card.title }}</a></strong>
+            <span class="badge status-{{ current_loop_card.status }}">{{ current_loop_card.status }}</span>
+          </div>
+          {% if current_loop_card.project_slug %}
+            <p class="project-chip">PROJECT // {{ current_loop_card.project_name or current_loop_card.project_slug }}</p>
+          {% endif %}
+          <p>{{ current_loop_card.headline }}</p>
+          <small>current run {{ current_loop_card.current_run_id or "-" }} · iterations {{ current_loop_card.iterations_completed }}</small>
+          <p class="table-excerpt scroll-block scroll-block-sm">{{ current_loop_card.latest_note }}</p>
+        </li>
+      </div>
+    {% else %}
+      <ul class="list">
+        <li>No loops recorded yet.</li>
+      </ul>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
       <h2>All Loops</h2>
       <p>Stop buttons request termination after the current cycle finishes.</p>
     </div>

@@ -23,9 +23,9 @@ export function EventFeedOverlay({ events, isCollapsed, onDismiss, onClearAll, o
     return (
       <aside className="console-event-feed console-event-feed--collapsed">
         <button type="button" className="console-event-feed__ghost-toggle" onClick={onExpand}>
-          <span className="console-event-feed__ghost-label">EVENT FEED</span>
+          <span className="console-event-feed__ghost-label">UPDATES</span>
           <span className="console-event-feed__ghost-sep">·</span>
-          <span className="console-event-feed__ghost-action">OPEN</span>
+          <span className="console-event-feed__ghost-action">SHOW</span>
           <span className="console-event-feed__ghost-sep">·</span>
           <span className="console-event-feed__count">{visibleEvents.length}</span>
         </button>
@@ -36,12 +36,12 @@ export function EventFeedOverlay({ events, isCollapsed, onDismiss, onClearAll, o
   return (
     <aside className="console-event-feed">
       <div className="console-event-feed__header">
-        <span className="hud-small-tag">EVENT FEED</span>
+        <span className="hud-small-tag">UPDATES</span>
         <div className="console-event-feed__actions">
           <span className="console-event-feed__count">{visibleEvents.length}</span>
           {visibleEvents.length > 0 && (
             <button type="button" className="console-event-feed__clear" onClick={onClearAll}>
-              Clear
+              Hide
             </button>
           )}
         </div>
@@ -60,7 +60,7 @@ export function EventFeedOverlay({ events, isCollapsed, onDismiss, onClearAll, o
                   type="button"
                   className="console-event-card__dismiss"
                   onClick={() => onDismiss(event.event_id)}
-                  aria-label={`Dismiss ${event.title}`}
+                  aria-label={`Hide ${event.title}`}
                 >
                   ×
                 </button>

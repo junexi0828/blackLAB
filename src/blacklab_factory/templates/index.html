@@ -3,8 +3,8 @@
 {% block content %}
   <section class="hero">
     <div>
-      <h1>Operator Overview</h1>
-      <p class="subhead">One place to see the factory state before you drill into launch, autopilot, runs, or loops.</p>
+      <h1>Overview</h1>
+      <p class="subhead">See what is running, what finished, and what needs attention.</p>
     </div>
     <div class="button-row">
       <a class="primary-button" href="/console">Open 3D Campus</a>
@@ -25,7 +25,7 @@
       <p class="metric">{{ completed_runs|length }}</p>
     </article>
     <article class="card">
-      <h2>Blocked Runs</h2>
+      <h2>Needs Attention</h2>
       <p class="metric">{{ blocked_runs|length }}</p>
     </article>
   </section>
@@ -33,8 +33,8 @@
   <section class="two-column">
     <article class="panel">
       <div class="panel-header">
-        <h2>Current Run Reports</h2>
-        <a href="/runs">open runs</a>
+        <h2>Recent Runs</h2>
+        <a href="/runs">Open Runs</a>
       </div>
       <ul class="list">
         {% for report in recent_run_reports %}
@@ -48,21 +48,21 @@
             {% endif %}
             <p>{{ report.headline }}</p>
             <small>
-              now {{ report.current_department or "-" }} · last {{ report.last_completed_department or "-" }} ·
-              {{ report.completed_departments_count }}/{{ report.total_departments_count }} departments
+              current {{ report.current_department or "-" }} · last {{ report.last_completed_department or "-" }} ·
+              {{ report.completed_departments_count }}/{{ report.total_departments_count }} teams
             </small>
             <p class="table-excerpt scroll-block scroll-block-sm">{{ report.current_status }}</p>
           </li>
         {% else %}
-          <li>No runs recorded yet.</li>
+          <li>No runs yet.</li>
         {% endfor %}
       </ul>
     </article>
 
     <article class="panel">
       <div class="panel-header">
-        <h2>Current Loop Reports</h2>
-        <a href="/loops">open loops</a>
+        <h2>Recent Loops</h2>
+        <a href="/loops">Open Loops</a>
       </div>
       <ul class="list">
         {% for report in recent_loop_reports %}
@@ -75,11 +75,11 @@
               <p class="project-chip">PROJECT // {{ report.project_name or report.project_slug }}</p>
             {% endif %}
             <p>{{ report.headline }}</p>
-            <small>current run {{ report.current_run_id or "-" }} · iterations {{ report.iterations_completed }}</small>
+            <small>run {{ report.current_run_id or "-" }} · cycles {{ report.iterations_completed }}</small>
             <p class="table-excerpt scroll-block scroll-block-sm">{{ report.latest_note }}</p>
           </li>
         {% else %}
-          <li>No loops recorded yet.</li>
+          <li>No loops yet.</li>
         {% endfor %}
       </ul>
     </article>
@@ -87,8 +87,8 @@
 
   <section class="panel">
     <div class="panel-header">
-      <h2>Operator Event Feed</h2>
-      <p>Recent run, department, and loop events.</p>
+      <h2>Recent Activity</h2>
+      <p>Latest updates from runs and loops.</p>
     </div>
     <ul class="timeline">
       {% for event in operator_feed %}
@@ -109,8 +109,8 @@
   <section class="two-column">
     <article class="panel">
       <div class="panel-header">
-        <h2>Latest Department Updates</h2>
-        <a href="/runs">open runs</a>
+        <h2>Recent Team Updates</h2>
+        <a href="/runs">Open Runs</a>
       </div>
       <ul class="list">
         {% for decision in latest_decisions %}
@@ -119,15 +119,15 @@
             <p>{{ decision.summary }}</p>
           </li>
         {% else %}
-          <li>No completed decisions yet.</li>
+          <li>No finished updates yet.</li>
         {% endfor %}
       </ul>
     </article>
 
     <article class="panel">
       <div class="panel-header">
-        <h2>Open Risk Feed</h2>
-        <a href="/runs">open runs</a>
+        <h2>Open Issues</h2>
+        <a href="/runs">Open Runs</a>
       </div>
       <ul class="list">
         {% for risk in top_risks %}
@@ -136,7 +136,7 @@
             <p>{{ risk.summary }}</p>
           </li>
         {% else %}
-          <li>No risks recorded yet.</li>
+          <li>No open issues.</li>
         {% endfor %}
       </ul>
     </article>

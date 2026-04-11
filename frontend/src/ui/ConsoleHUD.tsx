@@ -30,9 +30,9 @@ export function ConsoleHUD({
 }: ConsoleHUDProps) {
   const isLive = systemMode === 'live' || systemMode === 'stopping' || loopStatus === 'running'
   const phaseIcon = timeTheme === 'day' ? '☀' : '☾'
-  const phaseLabel = timeTheme === 'day' ? 'DAY SHIFT' : 'NIGHT SHIFT'
-  const phaseSource = themeSource === 'location' ? 'GPS SOLAR' : 'TIMEZONE ESTIMATE'
-  const systemLabel = systemMode === 'stopping' ? 'CONTROLLED STOP' : isLive ? 'OPERATING' : 'STANDBY'
+  const phaseLabel = timeTheme === 'day' ? 'DAY' : 'NIGHT'
+  const phaseSource = themeSource === 'location' ? 'LOCAL SUN' : 'LOCAL TIME'
+  const systemLabel = systemMode === 'stopping' ? 'STOPPING' : isLive ? 'RUNNING' : 'READY'
 
   // Ticker clock
   const [clock, setClock] = useState(() => new Date().toISOString())
@@ -60,18 +60,12 @@ export function ConsoleHUD({
 
       {/* ── Top-right: iteration counter ── */}
       <div className="hud-iter-block">
-        <span className="hud-iter-label">LOOP</span>
+        <span className="hud-iter-label">CYCLE</span>
         <span className="hud-iter-num">{iteration ?? iterationsCompleted}</span>
       </div>
 
       {/* ── Bottom: mission ribbon ── */}
       <div className="hud-ribbon">
-        {displayText && (
-          <div className="hud-ribbon-mission">
-            <span className="hud-small-tag">MISSION</span>
-            <span className="hud-ribbon-text">{displayText}</span>
-          </div>
-        )}
         <div className="hud-crew-strip">
           <span className="hud-crew-pill">
             <small>HQ</small>
@@ -88,16 +82,22 @@ export function ConsoleHUD({
           {systemMode === 'stopping' && (
             <span className="hud-crew-pill hud-crew-pill--hold">
               <small>SYSTEM</small>
-              <strong>CONTROLLED STOP</strong>
+              <strong>STOPPING</strong>
             </span>
           )}
         </div>
+        {displayText && (
+          <div className="hud-ribbon-mission">
+            <span className="hud-small-tag">FOCUS</span>
+            <span className="hud-ribbon-text">{displayText}</span>
+          </div>
+        )}
         <div className="hud-ribbon-meta">
-          <span>{activeRunCount} run{activeRunCount !== 1 ? 's' : ''} active</span>
+          <span>{activeRunCount} run{activeRunCount !== 1 ? 's' : ''} live</span>
           <span className="hud-sep" />
-          <span>{iterationsCompleted} iterations done</span>
+          <span>{iterationsCompleted} cycles complete</span>
           <span className="hud-sep" />
-          <span className="hud-clock">{localClockLabel} LOCAL</span>
+          <span className="hud-clock">{localClockLabel}</span>
           <span className="hud-sep" />
           <span>{clock.slice(11, 19)} UTC</span>
         </div>

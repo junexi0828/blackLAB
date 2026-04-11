@@ -14,14 +14,14 @@
       <aside class="shell-sidebar">
         <div>
           <a class="brand" href="/">blackLAB Factory</a>
-          <p class="subhead">Autonomous venture studio control plane</p>
+          <p class="subhead">Start work, follow progress, and review results in one place.</p>
         </div>
         <nav class="shell-nav">
           <a class="nav-link {% if request.url.path == '/' %}is-active{% endif %}" href="/">Overview</a>
-          <a class="nav-link {% if request.url.path.startswith('/console') %}is-active{% endif %}" href="/console">3D Campus (Console)</a>
+          <a class="nav-link {% if request.url.path.startswith('/console') %}is-active{% endif %}" href="/console">3D Campus</a>
           <a class="nav-link {% if request.url.path == '/launch' %}is-active{% endif %}" href="/launch">Launch</a>
           <a class="nav-link {% if request.url.path == '/autopilot' %}is-active{% endif %}" href="/autopilot">Autopilot</a>
-          <a class="nav-link {% if request.url.path == '/operator' %}is-active{% endif %}" href="/operator">Operator Chat</a>
+          <a class="nav-link {% if request.url.path == '/operator' %}is-active{% endif %}" href="/operator">Live Chat</a>
           <a class="nav-link {% if request.url.path == '/runs' %}is-active{% endif %}" href="/runs">Runs</a>
           <a class="nav-link {% if request.url.path == '/loops' %}is-active{% endif %}" href="/loops">Loops</a>
           <a class="nav-link {% if request.url.path == '/settings' %}is-active{% endif %}" href="/settings">Organization</a>

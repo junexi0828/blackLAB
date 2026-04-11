@@ -21,7 +21,7 @@
   <section class="hero">
     <div>
       <h1>Organization</h1>
-      <p class="subhead">A simple view of who leads each team, which teams support each other, and what you can control.</p>
+      <p class="subhead">See your teams, saved projects, and what new work should use by default.</p>
     </div>
   </section>
 
@@ -51,8 +51,8 @@
   <section class="panel settings-org-panel">
     <div class="panel-header">
       <div>
-        <h2>Organization Chart</h2>
-        <p>Read the company from top to bottom: leadership first, then the teams that report into each group.</p>
+        <h2>Team Structure</h2>
+        <p>See how the teams are grouped and who supports each area.</p>
       </div>
     </div>
     <div class="settings-org-map">
@@ -65,8 +65,8 @@
   <section class="panel">
     <div class="panel-header">
       <div>
-        <h2>Teams at a Glance</h2>
-        <p>Quick summaries of what each team does, grouped the way most users expect to read an organization.</p>
+        <h2>Teams</h2>
+        <p>Quick summaries of what each team does.</p>
       </div>
     </div>
     <div class="settings-team-directory">
@@ -92,8 +92,8 @@
   <section class="panel">
     <div class="panel-header">
       <div>
-        <h2>Project Library</h2>
-        <p>Reuse an existing project without memorizing an internal key.</p>
+        <h2>Saved Projects</h2>
+        <p>Pick an existing project instead of typing it again.</p>
       </div>
     </div>
     <div class="project-library-list">
@@ -113,7 +113,7 @@
               data-apply-project="operator-settings-form:launch_project_slug"
               data-project-value="{{ project.slug }}"
             >
-              Launch
+              Use for Run
             </button>
             <button
               type="button"
@@ -121,7 +121,7 @@
               data-apply-project="operator-settings-form:autopilot_project_slug"
               data-project-value="{{ project.slug }}"
             >
-              Autopilot
+              Use for Autopilot
             </button>
           </div>
         </div>
@@ -134,14 +134,14 @@
   <section class="panel">
     <div class="panel-header">
       <div>
-        <h2>Operational Controls</h2>
-        <p>Choose which teams appear in new runs and whether the central campus monument stays visible.</p>
+        <h2>New Work Settings</h2>
+        <p>Choose which teams are included in new work and what appears in the 3D campus.</p>
       </div>
     </div>
     <div class="two-column">
       <article class="panel panel-muted">
         <div class="panel-header">
-          <h3>Active Teams</h3>
+          <h3>Teams in New Work</h3>
         </div>
         <div class="toggle-grid">
           {% for item in department_catalog %}
@@ -157,21 +157,21 @@
       </article>
       <article class="panel panel-muted">
         <div class="panel-header">
-          <h3>Campus Display</h3>
+          <h3>3D Campus</h3>
         </div>
         <div class="toggle-grid">
           <label class="toggle-card">
             <input type="checkbox" name="campus_item_monument_visible" value="1" form="operator-settings-form" {% if "monument" not in operator_profile.roster.hidden_campus_items %}checked{% endif %} />
             <div>
               <strong>Central Monument</strong>
-              <p>Show or hide the monument in the center of the 3D campus.</p>
+              <p>Show or hide the monument in the middle of the 3D campus.</p>
             </div>
           </label>
         </div>
       </article>
     </div>
     <div class="button-row button-row-spaced">
-      <button type="submit" class="primary-button" form="operator-settings-form">Save</button>
+      <button type="submit" class="primary-button" form="operator-settings-form">Save Changes</button>
       <button type="button" class="ghost-button settings-reset-button">Reset</button>
     </div>
   </section>

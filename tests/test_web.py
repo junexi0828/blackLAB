@@ -20,27 +20,27 @@ def test_dashboard_routes_render(tmp_path: Path) -> None:
     index_response = client.get("/")
     assert index_response.status_code == 200
     assert "blackLAB Factory" in index_response.text
-    assert "Operator Overview" in index_response.text
-    assert "Current Run Reports" in index_response.text
+    assert "Overview" in index_response.text
+    assert "Recent Runs" in index_response.text
 
     launch_page = client.get("/launch")
     assert launch_page.status_code == 200
-    assert "Mission Control" in launch_page.text
-    assert "Project Name" in launch_page.text
+    assert "New Run" in launch_page.text
+    assert "Project" in launch_page.text
 
     autopilot_page = client.get("/autopilot")
     assert autopilot_page.status_code == 200
-    assert "Autopilot Control Room" in autopilot_page.text
-    assert "Project Name" in autopilot_page.text
+    assert "Start Autopilot" in autopilot_page.text
+    assert "Project" in autopilot_page.text
 
     runs_page = client.get("/runs")
     assert runs_page.status_code == 200
-    assert "Run Ledger" in runs_page.text
+    assert "<h1>Runs</h1>" in runs_page.text
     assert "PROJECT // Revenue Leak Auditor" in runs_page.text
 
     loops_page = client.get("/loops")
     assert loops_page.status_code == 200
-    assert "Loop Ledger" in loops_page.text
+    assert "<h1>Loops</h1>" in loops_page.text
 
     settings_page = client.get("/settings")
     assert settings_page.status_code == 200
@@ -48,7 +48,7 @@ def test_dashboard_routes_render(tmp_path: Path) -> None:
 
     detail_response = client.get(f"/runs/{state.run_id}")
     assert detail_response.status_code == 200
-    assert "Operator Report" in detail_response.text
+    assert "Run Summary" in detail_response.text
     assert "PROJECT // Revenue Leak Auditor" in detail_response.text
 
     console_response = client.get("/console")
@@ -120,8 +120,8 @@ def test_dashboard_routes_render(tmp_path: Path) -> None:
 
     loop_detail_page = client.get(f"/loops/{loop_id}")
     assert loop_detail_page.status_code == 200
-    assert "Iterations" in loop_detail_page.text
-    assert "Loop Status Report" in loop_detail_page.text
+    assert "Cycles" in loop_detail_page.text
+    assert "Loop Summary" in loop_detail_page.text
 
     loop_detail_response = client.get(f"/api/loops/{loop_id}")
     assert loop_detail_response.status_code == 200
@@ -166,7 +166,7 @@ def test_runs_page_shows_useful_action_links(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert f'href="/runs/{state.run_id}"' in response.text
     assert f'href="/runs/{state.run_id}/log"' in response.text
-    assert "Report" in response.text
+    assert "Details" in response.text
     assert "Log" in response.text
 
 
@@ -203,9 +203,9 @@ def test_loops_page_sidebar_uses_loop_project_context(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert "Current Project" in response.text
     assert "Loop Project" in response.text
-    assert "current loop" in response.text
+    assert "Current loop" in response.text
     assert "Current Loop" in response.text
-    assert "All Loops" in response.text
+    assert "<h2>Loops</h2>" in response.text
 
 
 def test_loops_page_sidebar_does_not_fall_back_to_recent_run_project(tmp_path: Path) -> None:
@@ -239,13 +239,13 @@ def test_loops_page_sidebar_does_not_fall_back_to_recent_run_project(tmp_path: P
     assert response.status_code == 200
     assert "Current Loop" in response.text
     assert "Run Project" not in response.text
-    assert "recent run" not in response.text
+    assert "Recent run" not in response.text
 
 
 def test_launch_page_sidebar_uses_launch_default_project_context(tmp_path: Path) -> None:
     runner = FactoryRunner(storage_root=tmp_path)
     run_state = runner.storage.create_run(
-        mission="Recent run should not own launch sidebar context",
+        mission="Launch sidebar context check",
         company_name="blackLAB",
         mode="mock",
         steps=[],
@@ -298,14 +298,14 @@ def test_launch_page_sidebar_uses_launch_default_project_context(tmp_path: Path)
     assert "Current Project" in response.text
     assert "Launch Project" in response.text
     assert "launch-project" in response.text
-    assert "launch default" in response.text
-    assert "recent run" not in response.text
+    assert "Saved for launch" in response.text
+    assert "Recent run" not in response.text
 
 
 def test_loop_detail_sidebar_falls_back_to_autopilot_default(tmp_path: Path) -> None:
     runner = FactoryRunner(storage_root=tmp_path)
     run_state = runner.storage.create_run(
-        mission="Recent run should not override loop detail sidebar",
+        mission="Loop detail sidebar context check",
         company_name="blackLAB",
         mode="mock",
         steps=[],
@@ -369,6 +369,6 @@ def test_loop_detail_sidebar_falls_back_to_autopilot_default(tmp_path: Path) -> 
     assert response.status_code == 200
     assert "Current Project" in response.text
     assert "Loop Home" in response.text
-    assert "autopilot default" in response.text
-    assert "configured default" in response.text
-    assert "recent run" not in response.text
+    assert "Saved for autopilot" in response.text
+    assert "Saved default" in response.text
+    assert "Recent run" not in response.text

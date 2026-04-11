@@ -16,9 +16,9 @@ def test_operator_page_and_chat_control_work_from_web(tmp_path: Path) -> None:
 
     operator_page = client.get("/operator")
     assert operator_page.status_code == 200
-    assert "Operator Chat" in operator_page.text
-    assert "Launch Project" in operator_page.text
-    assert "Autopilot Project" in operator_page.text
+    assert "Live Chat" in operator_page.text
+    assert "Run Project" in operator_page.text
+    assert "Loop Project" in operator_page.text
 
     profile_response = client.post(
         "/api/operator/profile",

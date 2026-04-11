@@ -3,8 +3,8 @@
 {% block content %}
   <section class="hero">
     <div>
-      <h1>Run Ledger</h1>
-      <p class="subhead">Mission history, live worker state, and drill-down links for every company run.</p>
+      <h1>Runs</h1>
+      <p class="subhead">See every run, check progress, and open details only when you need them.</p>
     </div>
     <div class="button-row">
       <a class="primary-button" href="/launch">New Run</a>
@@ -14,8 +14,8 @@
 
   <section class="panel">
     <div class="panel-header">
-      <h2>All Runs</h2>
-      <p>Use the run id to open the full operator briefing and department timeline.</p>
+      <h2>Runs</h2>
+      <p>Open any run for the full summary, updates, and log.</p>
     </div>
     <div class="table-scroll ledger-table-scroll">
       <table class="run-table ledger-table runs-ledger-table">
@@ -24,12 +24,12 @@
             <th>Run</th>
             <th>Project</th>
             <th>Status</th>
-            <th>Department Progress</th>
-            <th>Current / Last</th>
-            <th>Profile</th>
-            <th>Live Worker</th>
-            <th>Mission</th>
-            <th>Action</th>
+            <th>Team Progress</th>
+            <th>Current / Last Team</th>
+            <th>Models</th>
+            <th>Worker</th>
+            <th>Request</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -39,7 +39,7 @@
                 <a href="/runs/{{ run.run_id }}">{{ run.run_id }}</a>
                 {% if run.autopilot_iteration %}
                   <br />
-                  <small>autopilot iteration {{ run.autopilot_iteration }}</small>
+                  <small>cycle {{ run.autopilot_iteration }}</small>
                 {% endif %}
               </td>
               <td data-label="Project">
@@ -57,20 +57,20 @@
                 <small>{{ run.metrics.progress_percent }}% complete</small>
               </td>
               <td data-label="Current / Last">
-                <strong>now</strong> {{ run.current_department or "-" }}
+                <strong>current</strong> {{ run.current_department or "-" }}
                 <br />
                 <small>last {{ run.last_completed_department or "-" }}</small>
               </td>
-              <td data-label="Profile">
-                core {{ run.settings.codex_model }}/{{ run.settings.codex_autonomy }}
+              <td data-label="Models">
+                main {{ run.settings.codex_model }}/{{ run.settings.codex_autonomy }}
                 <br />
                 review {{ run.settings.codex_review_model }}/{{ run.settings.codex_review_autonomy }}
               </td>
-              <td data-label="Live Worker">
+              <td data-label="Worker">
                 {% if run.current_process %}
                   <strong>{{ run.current_process.label }}</strong>
                   <br />
-                  <small>live pid {{ run.current_process.pid }}</small>
+                  <small>pid {{ run.current_process.pid }}</small>
                 {% elif run.last_process %}
                   <strong>{{ run.last_process.label }}</strong>
                   <br />
@@ -86,10 +86,10 @@
                     type="button"
                     class="ghost-button"
                     data-toggle-target="run-ledger-mission-{{ loop.index }}"
-                    data-toggle-label-open="Hide original mission"
-                    data-toggle-label-closed="Show original mission"
+                    data-toggle-label-open="Hide full request"
+                    data-toggle-label-closed="Show full request"
                   >
-                    Show original mission
+                    Show full request
                   </button>
                   <div id="run-ledger-mission-{{ loop.index }}" class="toggle-panel" hidden>
                     <pre class="log-view">{{ run.mission }}</pre>
@@ -98,7 +98,7 @@
               </td>
               <td data-label="Action">
                 <div class="table-actions">
-                  <a class="ghost-button ghost-button-compact" href="/runs/{{ run.run_id }}">Report</a>
+                  <a class="ghost-button ghost-button-compact" href="/runs/{{ run.run_id }}">Details</a>
                   <a class="ghost-button ghost-button-compact" href="/runs/{{ run.run_id }}/log">Log</a>
                   {% if run.status in ["running", "stopping"] %}
                     <button type="button" class="danger-button ghost-button-compact" data-stop-run="{{ run.run_id }}">
@@ -110,7 +110,7 @@
             </tr>
           {% else %}
             <tr>
-              <td colspan="9">No runs recorded yet.</td>
+              <td colspan="9">No runs yet.</td>
             </tr>
           {% endfor %}
         </tbody>

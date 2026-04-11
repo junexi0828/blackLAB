@@ -84,8 +84,8 @@ class OperatorCommander:
         )
 
     def _status_reply(self) -> str:
-        runs = self.run_storage.list_runs()
-        loops = self.loop_supervisor.loop_storage.list_loops()
+        runs, _ = self.run_storage.list_runs()
+        loops, _ = self.loop_supervisor.loop_storage.list_loops()
         active_runs = [run for run in runs if run.status == "running"]
         active_loops = [loop for loop in loops if loop.status in {"running", "stopping"}]
         latest_run = runs[0] if runs else None
@@ -194,9 +194,10 @@ class OperatorCommander:
     def _stop_loop(self, message: str) -> tuple[str, dict[str, object]]:
         loop_id = self._extract_loop_id(message)
         if not loop_id:
+            loops, _ = self.loop_supervisor.loop_storage.list_loops()
             active_loops = [
                 loop
-                for loop in self.loop_supervisor.loop_storage.list_loops()
+                for loop in loops
                 if loop.status in {"running", "stopping"}
             ]
             if len(active_loops) == 1:
@@ -221,7 +222,8 @@ class OperatorCommander:
         if not directive:
             return None
 
-        active_runs = [run for run in self.run_storage.list_runs() if run.status == "running"]
+        runs, _ = self.run_storage.list_runs()
+        active_runs = [run for run in runs if run.status == "running"]
         if active_runs:
             targets = active_runs
             for run in targets:
@@ -237,10 +239,8 @@ class OperatorCommander:
                 {"type": "run_directive_broadcast", "run_ids": [run.run_id for run in targets]},
             )
 
-        active_loops = [
-            loop for loop in self.loop_supervisor.loop_storage.list_loops()
-            if loop.status in {"running", "stopping"}
-        ]
+        loops, _ = self.loop_supervisor.loop_storage.list_loops()
+        active_loops = [loop for loop in loops if loop.status in {"running", "stopping"}]
         if active_loops:
             targets = active_loops
             for loop in targets:

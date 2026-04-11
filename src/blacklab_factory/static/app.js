@@ -35,12 +35,12 @@ function bindRunLaunchForm() {
     payload.max_parallel_departments = Number(payload.max_parallel_departments || 9);
     payload.pause_between_departments = Number(payload.pause_between_departments || 0);
     try {
-      setFeedback("Launching detached run...");
+      setFeedback("Starting run...");
       const result = await postJson("/api/launch/run", payload);
-      setFeedback(`Run ${result.run_id} launched. PID ${result.pid}.`);
+      setFeedback(`Run ${result.run_id} is starting now.`);
       window.setTimeout(() => window.location.reload(), 800);
     } catch (error) {
-      setFeedback(`Run launch failed: ${error.message}`, true);
+      setFeedback(`Could not start the run: ${error.message}`, true);
     }
   });
 }
@@ -58,12 +58,12 @@ function bindLoopLaunchForm() {
     payload.interval_seconds = Number(payload.interval_seconds || 30);
     payload.max_iterations = Number(payload.max_iterations || 3);
     try {
-      setFeedback("Launching autopilot loop...");
+      setFeedback("Starting autopilot...");
       const result = await postJson("/api/launch/loop", payload);
-      setFeedback(`Loop ${result.loop_id} launched. PID ${result.pid}.`);
+      setFeedback(`Loop ${result.loop_id} is starting now.`);
       window.setTimeout(() => window.location.reload(), 800);
     } catch (error) {
-      setFeedback(`Autopilot launch failed: ${error.message}`, true);
+      setFeedback(`Could not start autopilot: ${error.message}`, true);
     }
   });
 }
@@ -76,12 +76,12 @@ function bindLoopStopButtons() {
         return;
       }
       try {
-        setFeedback(`Requesting stop for loop ${loopId}...`);
+        setFeedback(`Asking loop ${loopId} to stop...`);
         await postJson(`/api/loops/${loopId}/stop`, {});
-        setFeedback(`Stop requested for loop ${loopId}.`);
+        setFeedback(`Loop ${loopId} will stop after the current cycle.`);
         window.setTimeout(() => window.location.reload(), 800);
       } catch (error) {
-        setFeedback(`Loop stop failed: ${error.message}`, true);
+        setFeedback(`Could not stop the loop: ${error.message}`, true);
       }
     });
   });
@@ -95,12 +95,12 @@ function bindRunStopButtons() {
         return;
       }
       try {
-        setFeedback(`Requesting stop for run ${runId}...`);
+        setFeedback(`Asking run ${runId} to stop...`);
         await postJson(`/api/runs/${runId}/stop`, {});
-        setFeedback(`Stop requested for run ${runId}.`);
+        setFeedback(`Run ${runId} will stop shortly.`);
         window.setTimeout(() => window.location.reload(), 800);
       } catch (error) {
-        setFeedback(`Run stop failed: ${error.message}`, true);
+        setFeedback(`Could not stop the run: ${error.message}`, true);
       }
     });
   });
@@ -118,7 +118,7 @@ function bindRefreshControls() {
   }
   toggle.addEventListener("click", () => {
     autoRefreshEnabled = !autoRefreshEnabled;
-    toggle.textContent = autoRefreshEnabled ? "Auto Refresh On" : "Auto Refresh Off";
+    toggle.textContent = autoRefreshEnabled ? "Auto refresh on" : "Auto refresh off";
     toggle.setAttribute("data-active", autoRefreshEnabled ? "true" : "false");
     if (autoRefreshEnabled) {
       scheduleRefresh();
@@ -177,7 +177,7 @@ function bindProjectSelectors() {
       }
       input.value = value;
       input.focus();
-      setFeedback(`Project set to ${value}.`);
+      setFeedback(`Project selected: ${value}.`);
     });
   });
 }
@@ -223,25 +223,25 @@ function renderChatMessages(messages) {
 
 function summarizeOperatorAction(action, fallback) {
   if (!action || !action.type) {
-    return fallback || "Operator replied.";
+    return fallback || "Reply received.";
   }
   switch (action.type) {
     case "run_directive":
-      return `Directive routed to live run ${action.run_id}.`;
+      return `Message sent to run ${action.run_id}.`;
     case "run_directive_broadcast":
-      return `Directive broadcast to ${action.run_ids?.length || 0} live runs.`;
+      return `Message sent to ${action.run_ids?.length || 0} running runs.`;
     case "loop_directive":
-      return `Directive routed to live loop ${action.loop_id}.`;
+      return `Message sent to loop ${action.loop_id}.`;
     case "loop_directive_broadcast":
-      return `Directive broadcast to ${action.loop_ids?.length || 0} live loops.`;
+      return `Message sent to ${action.loop_ids?.length || 0} running loops.`;
     case "run_launch":
-      return `Run ${action.run_id} launched.`;
+      return `Run ${action.run_id} started.`;
     case "loop_launch":
-      return `Loop ${action.loop_id} launched.`;
+      return `Loop ${action.loop_id} started.`;
     case "loop_stop":
-      return `Stop requested for loop ${action.loop_id}.`;
+      return `Loop ${action.loop_id} will stop after the current cycle.`;
     default:
-      return fallback || "Operator replied.";
+      return fallback || "Reply received.";
   }
 }
 
@@ -264,7 +264,7 @@ function bindOperatorSettingsForm() {
       'input[name="campus_item_monument_visible"]',
     );
     if (activeDepartmentKeys.length === 0) {
-      setFeedback("At least one department must remain active.", true);
+      setFeedback("Keep at least one team turned on.", true);
       return;
     }
     if (!(monumentVisible instanceof HTMLInputElement && monumentVisible.checked)) {
@@ -306,17 +306,17 @@ function bindOperatorSettingsForm() {
       },
     };
     try {
-      setFeedback("Saving web defaults...");
+      setFeedback("Saving changes...");
       await postJson("/api/operator/profile", payload);
-      setFeedback("Web defaults saved.");
+      setFeedback("Changes saved.");
     } catch (error) {
-      setFeedback(`Settings save failed: ${error.message}`, true);
+      setFeedback(`Could not save changes: ${error.message}`, true);
     }
   });
 
   document.querySelectorAll(".settings-reset-button").forEach((button) => {
     button.addEventListener("click", () => {
-      setFeedback("Resetting to saved defaults...");
+      setFeedback("Reloading saved changes...");
       window.location.reload();
     });
   });
@@ -335,7 +335,7 @@ function bindOperatorChat() {
       return;
     }
     try {
-      setFeedback("Sending command to the main operator...");
+      setFeedback("Sending message...");
       const result = await postJson("/api/operator/chat", { message });
       renderChatMessages(result.messages || []);
       setFeedback(summarizeOperatorAction(result.action, result.reply));
@@ -343,7 +343,7 @@ function bindOperatorChat() {
         textarea.value = "";
       }
     } catch (error) {
-      setFeedback(`Operator chat failed: ${error.message}`, true);
+      setFeedback(`Could not send the message: ${error.message}`, true);
     }
   });
 

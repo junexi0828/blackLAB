@@ -3,23 +3,23 @@
 {% block content %}
   <section class="hero">
     <div>
-      <h1>Launch Detached Run</h1>
-      <p class="subhead">Start one AI company cycle with separate core and review runtimes.</p>
+      <h1>Start a Run</h1>
+      <p class="subhead">Start one focused run for a project.</p>
     </div>
   </section>
 
   <section class="panel launch-panel">
       <div class="panel-header">
-        <h2>Mission Control</h2>
-        <p id="action-feedback">Submit a mission and the factory will launch it in the background.</p>
+        <h2>New Run</h2>
+        <p id="action-feedback">Describe the work you want and start the run.</p>
       </div>
       <form id="run-launch-form" class="control-form">
         <label>
-          <span>Mission</span>
+          <span>What should this run do?</span>
           <textarea name="mission" rows="5" placeholder="Build a profitable AI operator for Korean SMBs" required></textarea>
         </label>
         <label>
-          <span>Project Name</span>
+          <span>Project</span>
           <input type="text" name="project_slug" placeholder="Revenue Leak Auditor" value="{{ operator_profile.launch.project_slug or '' }}" />
         </label>
         <div class="project-selector-row">
@@ -27,10 +27,10 @@
             type="button"
             class="ghost-button"
             data-toggle-target="launch-project-library"
-            data-toggle-label-open="Hide Library"
-            data-toggle-label-closed="Open Library"
+            data-toggle-label-open="Hide saved projects"
+            data-toggle-label-closed="Open saved projects"
           >
-            Open Library
+            Open saved projects
           </button>
           {% if recent_projects %}
             <div class="recent-projects">
@@ -66,15 +66,15 @@
         </div>
         <div class="form-grid">
           <label>
-            <span>Mode</span>
+            <span>How to run it</span>
             <select name="mode">
-              <option value="codex" {% if operator_profile.launch.mode == "codex" %}selected{% endif %}>codex</option>
-              <option value="mock" {% if operator_profile.launch.mode == "mock" %}selected{% endif %}>mock</option>
-              <option value="openai" {% if operator_profile.launch.mode == "openai" %}selected{% endif %}>openai</option>
+              <option value="codex" {% if operator_profile.launch.mode == "codex" %}selected{% endif %}>AI execution</option>
+              <option value="mock" {% if operator_profile.launch.mode == "mock" %}selected{% endif %}>Demo mode</option>
+              <option value="openai" {% if operator_profile.launch.mode == "openai" %}selected{% endif %}>OpenAI API</option>
             </select>
           </label>
           <label>
-            <span>Core Model</span>
+            <span>Main model</span>
             <select name="codex_model">
               <option value="gpt-5.4" {% if operator_profile.launch.run_settings.codex_model == "gpt-5.4" %}selected{% endif %}>gpt-5.4</option>
               <option value="gpt-5.3-codex" {% if operator_profile.launch.run_settings.codex_model == "gpt-5.3-codex" %}selected{% endif %}>gpt-5.3-codex</option>
@@ -82,15 +82,15 @@
             </select>
           </label>
           <label>
-            <span>Core Autonomy</span>
+            <span>Main access</span>
             <select name="codex_autonomy">
-              <option value="read_only" {% if operator_profile.launch.run_settings.codex_autonomy == "read_only" %}selected{% endif %}>read_only</option>
-              <option value="full_auto" {% if operator_profile.launch.run_settings.codex_autonomy == "full_auto" %}selected{% endif %}>full_auto</option>
-              <option value="yolo" {% if operator_profile.launch.run_settings.codex_autonomy == "yolo" %}selected{% endif %}>yolo</option>
+              <option value="read_only" {% if operator_profile.launch.run_settings.codex_autonomy == "read_only" %}selected{% endif %}>Read only</option>
+              <option value="full_auto" {% if operator_profile.launch.run_settings.codex_autonomy == "full_auto" %}selected{% endif %}>Automatic</option>
+              <option value="yolo" {% if operator_profile.launch.run_settings.codex_autonomy == "yolo" %}selected{% endif %}>High access</option>
             </select>
           </label>
           <label>
-            <span>Review Model</span>
+            <span>Review model</span>
             <select name="codex_review_model">
               <option value="gpt-5.4-mini" {% if operator_profile.launch.run_settings.codex_review_model == "gpt-5.4-mini" %}selected{% endif %}>gpt-5.4-mini</option>
               <option value="gpt-5.4" {% if operator_profile.launch.run_settings.codex_review_model == "gpt-5.4" %}selected{% endif %}>gpt-5.4</option>
@@ -98,26 +98,26 @@
             </select>
           </label>
           <label>
-            <span>Review Autonomy</span>
+            <span>Review access</span>
             <select name="codex_review_autonomy">
-              <option value="read_only" {% if operator_profile.launch.run_settings.codex_review_autonomy == "read_only" %}selected{% endif %}>read_only</option>
-              <option value="full_auto" {% if operator_profile.launch.run_settings.codex_review_autonomy == "full_auto" %}selected{% endif %}>full_auto</option>
-              <option value="yolo" {% if operator_profile.launch.run_settings.codex_review_autonomy == "yolo" %}selected{% endif %}>yolo</option>
+              <option value="read_only" {% if operator_profile.launch.run_settings.codex_review_autonomy == "read_only" %}selected{% endif %}>Read only</option>
+              <option value="full_auto" {% if operator_profile.launch.run_settings.codex_review_autonomy == "full_auto" %}selected{% endif %}>Automatic</option>
+              <option value="yolo" {% if operator_profile.launch.run_settings.codex_review_autonomy == "yolo" %}selected{% endif %}>High access</option>
             </select>
           </label>
           <label>
-            <span>Parallel Teams</span>
+            <span>Teams at once</span>
             <input type="number" name="max_parallel_departments" min="1" max="16" value="{{ operator_profile.launch.run_settings.max_parallel_departments or company_config.max_parallel_departments }}" />
           </label>
         </div>
         <label>
-          <span>Wave Pause Seconds</span>
+          <span>Pause between teams (seconds)</span>
           <input type="number" step="0.5" min="0" name="pause_between_departments" value="{{ operator_profile.launch.pause_between_departments }}" />
-          <small class="field-hint">`0` means continuous execution. Add a short pause only if you want a brief inspection gap between department waves.</small>
+          <small class="field-hint">Use `0` to keep the run moving without a pause.</small>
         </label>
         <div class="button-row">
-          <button type="submit" class="primary-button">Launch Detached Run</button>
-          <a class="ghost-button" href="/runs">Open Run Ledger</a>
+          <button type="submit" class="primary-button">Start Run</button>
+          <a class="ghost-button" href="/runs">Open Runs</a>
         </div>
       </form>
   </section>
@@ -125,7 +125,7 @@
   <section class="panel">
     <div class="panel-header">
       <h2>Recent Runs</h2>
-      <a href="/runs">view all</a>
+      <a href="/runs">Open all</a>
     </div>
     <ul class="list">
       {% for run in recent_runs %}
@@ -133,12 +133,12 @@
           <strong><a href="/runs/{{ run.run_id }}">{{ run.run_id }}</a></strong>
           <p>{{ run.mission }}</p>
           <small>
-            {{ run.status }} · core {{ run.settings.codex_model }}/{{ run.settings.codex_autonomy }}
+            {{ run.status }} · main {{ run.settings.codex_model }}/{{ run.settings.codex_autonomy }}
             · review {{ run.settings.codex_review_model }}/{{ run.settings.codex_review_autonomy }}
           </small>
         </li>
       {% else %}
-        <li>No runs have been launched yet.</li>
+        <li>No runs yet.</li>
       {% endfor %}
     </ul>
   </section>

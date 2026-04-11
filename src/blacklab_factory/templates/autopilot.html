@@ -3,12 +3,12 @@
 {% block content %}
   <section class="hero">
     <div>
-      <h1>Autopilot Control Room</h1>
-      <p class="subhead">Run plan -> design -> validate -> improve loops with separate core and review runtimes.</p>
+      <h1>Autopilot</h1>
+      <p class="subhead">Keep improving one project over time.</p>
     </div>
     <div class="button-row">
-      <button type="button" class="ghost-button" data-refresh-page>Refresh Now</button>
-      <button type="button" class="ghost-button" data-toggle-refresh data-active="true">Auto Refresh On</button>
+      <button type="button" class="ghost-button" data-refresh-page>Refresh</button>
+      <button type="button" class="ghost-button" data-toggle-refresh data-active="true">Auto refresh on</button>
     </div>
   </section>
 
@@ -16,15 +16,15 @@
     <article class="panel launch-panel">
         <div class="panel-header">
           <h2>Start Autopilot</h2>
-          <p id="action-feedback">Launch a background improvement loop from this page.</p>
+          <p id="action-feedback">Set the goal and start an improvement loop.</p>
         </div>
       <form id="loop-launch-form" class="control-form">
         <label>
-          <span>Objective</span>
+          <span>What should this loop improve?</span>
           <textarea name="objective" rows="5" placeholder="Create a 24/7 AI company that keeps improving a profitable product" required></textarea>
         </label>
         <label>
-          <span>Project Name</span>
+          <span>Project</span>
           <input type="text" name="project_slug" placeholder="Revenue Leak Auditor" value="{{ operator_profile.autopilot.project_slug or '' }}" />
         </label>
         <div class="project-selector-row">
@@ -32,10 +32,10 @@
             type="button"
             class="ghost-button"
             data-toggle-target="autopilot-project-library"
-            data-toggle-label-open="Hide Library"
-            data-toggle-label-closed="Open Library"
+            data-toggle-label-open="Hide saved projects"
+            data-toggle-label-closed="Open saved projects"
           >
-            Open Library
+            Open saved projects
           </button>
           {% if recent_projects %}
             <div class="recent-projects">
@@ -71,22 +71,22 @@
         </div>
         <div class="form-grid">
           <label>
-            <span>Loop Mode</span>
+            <span>How long to run</span>
             <select name="loop_mode">
-              <option value="full_auto" {% if operator_profile.autopilot.loop_mode == "full_auto" %}selected{% endif %}>full_auto</option>
-              <option value="always_on" {% if operator_profile.autopilot.loop_mode == "always_on" %}selected{% endif %}>24/7</option>
+              <option value="full_auto" {% if operator_profile.autopilot.loop_mode == "full_auto" %}selected{% endif %}>Fixed number of cycles</option>
+              <option value="always_on" {% if operator_profile.autopilot.loop_mode == "always_on" %}selected{% endif %}>Run until stopped</option>
             </select>
           </label>
           <label>
-            <span>Run Mode</span>
+            <span>How each run works</span>
             <select name="run_mode">
-              <option value="codex" {% if operator_profile.autopilot.run_mode == "codex" %}selected{% endif %}>codex</option>
-              <option value="mock" {% if operator_profile.autopilot.run_mode == "mock" %}selected{% endif %}>mock</option>
-              <option value="openai" {% if operator_profile.autopilot.run_mode == "openai" %}selected{% endif %}>openai</option>
+              <option value="codex" {% if operator_profile.autopilot.run_mode == "codex" %}selected{% endif %}>AI execution</option>
+              <option value="mock" {% if operator_profile.autopilot.run_mode == "mock" %}selected{% endif %}>Demo mode</option>
+              <option value="openai" {% if operator_profile.autopilot.run_mode == "openai" %}selected{% endif %}>OpenAI API</option>
             </select>
           </label>
           <label>
-            <span>Core Model</span>
+            <span>Main model</span>
             <select name="codex_model">
               <option value="gpt-5.4" {% if operator_profile.autopilot.run_settings.codex_model == "gpt-5.4" %}selected{% endif %}>gpt-5.4</option>
               <option value="gpt-5.3-codex" {% if operator_profile.autopilot.run_settings.codex_model == "gpt-5.3-codex" %}selected{% endif %}>gpt-5.3-codex</option>
@@ -94,15 +94,15 @@
             </select>
           </label>
           <label>
-            <span>Core Autonomy</span>
+            <span>Main access</span>
             <select name="codex_autonomy">
-              <option value="full_auto" {% if operator_profile.autopilot.run_settings.codex_autonomy == "full_auto" %}selected{% endif %}>full_auto</option>
-              <option value="yolo" {% if operator_profile.autopilot.run_settings.codex_autonomy == "yolo" %}selected{% endif %}>yolo</option>
-              <option value="read_only" {% if operator_profile.autopilot.run_settings.codex_autonomy == "read_only" %}selected{% endif %}>read_only</option>
+              <option value="full_auto" {% if operator_profile.autopilot.run_settings.codex_autonomy == "full_auto" %}selected{% endif %}>Automatic</option>
+              <option value="yolo" {% if operator_profile.autopilot.run_settings.codex_autonomy == "yolo" %}selected{% endif %}>High access</option>
+              <option value="read_only" {% if operator_profile.autopilot.run_settings.codex_autonomy == "read_only" %}selected{% endif %}>Read only</option>
             </select>
           </label>
           <label>
-            <span>Review Model</span>
+            <span>Review model</span>
             <select name="codex_review_model">
               <option value="gpt-5.4-mini" {% if operator_profile.autopilot.run_settings.codex_review_model == "gpt-5.4-mini" %}selected{% endif %}>gpt-5.4-mini</option>
               <option value="gpt-5.4" {% if operator_profile.autopilot.run_settings.codex_review_model == "gpt-5.4" %}selected{% endif %}>gpt-5.4</option>
@@ -110,55 +110,55 @@
             </select>
           </label>
           <label>
-            <span>Review Autonomy</span>
+            <span>Review access</span>
             <select name="codex_review_autonomy">
-              <option value="read_only" {% if operator_profile.autopilot.run_settings.codex_review_autonomy == "read_only" %}selected{% endif %}>read_only</option>
-              <option value="full_auto" {% if operator_profile.autopilot.run_settings.codex_review_autonomy == "full_auto" %}selected{% endif %}>full_auto</option>
-              <option value="yolo" {% if operator_profile.autopilot.run_settings.codex_review_autonomy == "yolo" %}selected{% endif %}>yolo</option>
+              <option value="read_only" {% if operator_profile.autopilot.run_settings.codex_review_autonomy == "read_only" %}selected{% endif %}>Read only</option>
+              <option value="full_auto" {% if operator_profile.autopilot.run_settings.codex_review_autonomy == "full_auto" %}selected{% endif %}>Automatic</option>
+              <option value="yolo" {% if operator_profile.autopilot.run_settings.codex_review_autonomy == "yolo" %}selected{% endif %}>High access</option>
             </select>
           </label>
           <label>
-            <span>Parallel Teams</span>
+            <span>Teams at once</span>
             <input type="number" name="max_parallel_departments" min="1" max="16" value="{{ operator_profile.autopilot.run_settings.max_parallel_departments or company_config.max_parallel_departments }}" />
           </label>
           <label>
-            <span>Full Auto Cycles</span>
+            <span>Number of cycles</span>
             <input type="number" name="max_iterations" min="1" max="100" value="{{ operator_profile.autopilot.max_iterations }}" />
           </label>
           <label>
-            <span>Loop Delay Seconds</span>
+            <span>Wait between cycles (seconds)</span>
             <input type="number" name="interval_seconds" min="0" max="86400" value="{{ operator_profile.autopilot.interval_seconds }}" />
           </label>
         </div>
         <div class="form-grid form-grid-timing">
           <label>
-            <span>Wave Pause Seconds</span>
+            <span>Pause between teams (seconds)</span>
             <input type="number" step="0.5" min="0" name="pause_between_departments" value="{{ operator_profile.autopilot.pause_between_departments }}" />
-            <small class="field-hint">`0` means each run executes continuously. Raise it only if you want a small review gap between department waves inside each run.</small>
+            <small class="field-hint">Use `0` to keep each run moving without a pause.</small>
           </label>
         </div>
         <div class="button-row">
-          <button type="submit" class="primary-button">Start Full Auto / 24-7</button>
-          <a class="ghost-button" href="/loops">Open Loop Ledger</a>
+          <button type="submit" class="primary-button">Start Autopilot</button>
+          <a class="ghost-button" href="/loops">Open Loops</a>
         </div>
       </form>
     </article>
 
     <article class="panel">
       <div class="panel-header">
-        <h2>Active Loops</h2>
-        <a href="/loops">view all</a>
+        <h2>Running Loops</h2>
+        <a href="/loops">Open all</a>
       </div>
       <ul class="list">
         {% for loop_state in active_loops %}
-          <li>
-            <strong>{{ loop_state.loop_id }}</strong>
-            <p>{{ loop_state.objective }}</p>
-            <small>{{ loop_state.status }} · {{ loop_state.loop_mode }} · current run {{ loop_state.current_run_id or "-" }}</small>
-          </li>
-        {% else %}
-          <li>No loop is actively running.</li>
-        {% endfor %}
+        <li>
+          <strong>{{ loop_state.loop_id }}</strong>
+          <p>{{ loop_state.objective }}</p>
+          <small>{{ loop_state.status }} · run {{ loop_state.current_run_id or "-" }}</small>
+        </li>
+      {% else %}
+          <li>No loops are running right now.</li>
+      {% endfor %}
       </ul>
     </article>
   </section>

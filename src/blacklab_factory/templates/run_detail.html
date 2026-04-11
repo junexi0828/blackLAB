@@ -4,13 +4,13 @@
   <section class="hero">
     <div>
       <h1>{{ run.display_title }}</h1>
-      <p class="subhead">Run ID {{ run.run_id }} · mode {{ run.mode }}</p>
+      <p class="subhead">Run {{ run.run_id }} · {{ run.mode }}</p>
       {% if run.project_slug %}
         <p class="hero-project">PROJECT // {{ run.project_name or run.project_slug }} · {{ run.project_slug }}</p>
       {% endif %}
-      <p class="subhead">Current department {{ run.current_department or "-" }} · next action {{ run.next_action }}</p>
+      <p class="subhead">Current team {{ run.current_department or "-" }} · next step {{ run.next_action }}</p>
       <p class="subhead">{{ run_report.headline }}</p>
-      <p class="subhead">Prompt preview {{ run.mission_preview }}</p>
+      <p class="subhead">Request preview {{ run.mission_preview }}</p>
     </div>
     <div class="hero-metrics">
       <span class="badge status-{{ run.status }}">{{ run.status }}</span>
@@ -20,79 +20,79 @@
         </button>
       {% endif %}
       <span>{{ run.metrics.progress_percent }}% complete</span>
-      <span>{{ run.metrics.artifact_count }} artifacts</span>
-      <span>{{ run.metrics.open_risk_count }} open risks</span>
-      <span>{{ run.completed_departments_count }} / {{ run.total_departments_count }} departments</span>
+      <span>{{ run.metrics.artifact_count }} outputs</span>
+      <span>{{ run.metrics.open_risk_count }} open issues</span>
+      <span>{{ run.completed_departments_count }} / {{ run.total_departments_count }} teams</span>
     </div>
   </section>
 
   <section class="report-cluster">
     <div class="report-cluster__header">
-      <p class="report-cluster__eyebrow">Executive Brief</p>
-      <h2>Operator decision and runtime state</h2>
+      <p class="report-cluster__eyebrow">Summary</p>
+      <h2>What happened and what comes next</h2>
     </div>
     <div class="two-column">
       <article class="panel">
         <div class="panel-header">
-          <h2>Operator Report</h2>
+          <h2>Run Summary</h2>
           {% if run.autopilot_iteration %}
-            <p>autopilot iteration {{ run.autopilot_iteration }}</p>
+            <p>cycle {{ run.autopilot_iteration }}</p>
           {% endif %}
         </div>
         <ul class="list">
           <li>
-            <strong>Situation</strong>
+            <strong>Overview</strong>
             <p>{{ run_report.headline }}</p>
           </li>
           <li>
-            <strong>Current Status</strong>
+            <strong>Current update</strong>
             <p class="scroll-block scroll-block-md">{{ run_report.current_status }}</p>
           </li>
           <li>
-            <strong>Next Action</strong>
+            <strong>Next step</strong>
             <p>{{ run_report.next_action }}</p>
           </li>
           <li>
             <strong>Coverage</strong>
-            <p>{{ run_report.completed_departments_count }} / {{ run_report.total_departments_count }} departments complete, {{ run_report.artifact_count }} artifacts, {{ run_report.risk_count }} open risks.</p>
+            <p>{{ run_report.completed_departments_count }} / {{ run_report.total_departments_count }} teams complete, {{ run_report.artifact_count }} outputs, {{ run_report.risk_count }} open issues.</p>
           </li>
         </ul>
       </article>
 
       <article class="panel">
         <div class="panel-header">
-          <h2>Live Control Room</h2>
+          <h2>Live Details</h2>
         </div>
         <ul class="list">
           <li>
-            <strong>Worker</strong>
+            <strong>Current worker</strong>
             <p>{{ run.current_process.label if run.current_process else "-" }}</p>
           </li>
           <li>
-            <strong>PID</strong>
+            <strong>Process ID</strong>
             <p>{{ run.current_process.pid if run.current_process else "-" }}</p>
           </li>
           <li>
-            <strong>Command</strong>
-            <p class="scroll-block scroll-block-sm">{{ run.current_process.command_preview if run.current_process else "No live worker." }}</p>
+            <strong>Current command</strong>
+            <p class="scroll-block scroll-block-sm">{{ run.current_process.command_preview if run.current_process else "No active worker." }}</p>
           </li>
           <li>
-            <strong>Department Progress</strong>
+            <strong>Team progress</strong>
             <p>{{ run.completed_departments_count }} / {{ run.total_departments_count }} completed</p>
           </li>
           <li>
-            <strong>Parallel Budget</strong>
+            <strong>Teams at once</strong>
             <p>
               requested {{ run.metrics.get("requested_parallel_departments", run.settings.max_parallel_departments or "-") }}
-              · effective {{ run.metrics.get("effective_parallel_departments", run.settings.max_parallel_departments or "-") }}
+              · current {{ run.metrics.get("effective_parallel_departments", run.settings.max_parallel_departments or "-") }}
             </p>
           </li>
           <li>
-            <strong>Governor</strong>
-            <p class="scroll-block scroll-block-sm">{{ run.metrics.get("resource_governor_reason", "No resource governor note yet.") }}</p>
+            <strong>Resource note</strong>
+            <p class="scroll-block scroll-block-sm">{{ run.metrics.get("resource_governor_reason", "No resource note yet.") }}</p>
           </li>
           <li>
-            <strong>Last Completed Department</strong>
+            <strong>Last finished team</strong>
             <p>{{ run.last_completed_department or "-" }}</p>
           </li>
         </ul>
@@ -102,8 +102,8 @@
 
   <section class="report-cluster">
     <div class="report-cluster__header">
-      <p class="report-cluster__eyebrow">Artifacts</p>
-      <h2>Each department artifact in one view</h2>
+      <p class="report-cluster__eyebrow">Outputs</p>
+      <h2>All team outputs in one place</h2>
     </div>
     <div class="department-board">
       {% for packet in department_packets %}
@@ -120,13 +120,13 @@
             <div class="department-card__artifact">
               <small>{{ packet.artifact_title }}</small>
               {% if packet.is_final %}
-                <small>final operator briefing</small>
+                <small>final summary</small>
               {% endif %}
-              <a href="/runs/{{ run.run_id }}/artifacts/{{ packet.artifact_filename }}">open artifact</a>
+              <a href="/runs/{{ run.run_id }}/artifacts/{{ packet.artifact_filename }}">Open file</a>
               <p class="table-excerpt scroll-block scroll-block-sm">{{ packet.artifact_preview }}</p>
             </div>
           {% else %}
-            <p class="table-muted">artifact pending</p>
+            <p class="table-muted">No file yet</p>
           {% endif %}
         </article>
       {% endfor %}
@@ -135,13 +135,13 @@
 
   <section class="report-cluster">
     <div class="report-cluster__header">
-      <p class="report-cluster__eyebrow">Evidence</p>
-      <h2>Primary artifact, prompt, and risk context</h2>
+      <p class="report-cluster__eyebrow">Notes</p>
+      <h2>Main output and supporting notes</h2>
     </div>
     <div class="two-column detail-preview-grid">
     <article class="panel">
       <div class="panel-header">
-        <h2>Artifact Preview</h2>
+        <h2>Selected Output</h2>
         {% if selected_artifact %}
           <p>{{ selected_artifact.department_key }} · {{ selected_artifact.title }}</p>
         {% endif %}
@@ -154,24 +154,24 @@
     <div class="stack-column">
       <article class="panel">
         <div class="panel-header">
-          <h2>Execution Notes</h2>
+          <h2>Notes</h2>
         </div>
         <ul class="list">
           <li>
-            <strong>Next Action</strong>
+            <strong>Next step</strong>
             <p>{{ run.next_action }}</p>
           </li>
           <li>
-            <strong>Original Prompt</strong>
+            <strong>Original Request</strong>
             {% if run.mission_is_long %}
               <button
                 type="button"
                 class="ghost-button"
                 data-toggle-target="run-mission-raw"
-                data-toggle-label-open="Hide original prompt"
-                data-toggle-label-closed="Show original prompt"
+                data-toggle-label-open="Hide full request"
+                data-toggle-label-closed="Show full request"
               >
-                Show original prompt
+                Show full request
               </button>
               <div id="run-mission-raw" class="toggle-panel" hidden>
                 <pre class="log-view">{{ run.mission }}</pre>
@@ -185,7 +185,7 @@
 
       <article class="panel">
         <div class="panel-header">
-          <h2>Risks</h2>
+          <h2>Open Issues</h2>
         </div>
         <ul class="list panel-scroll panel-scroll-md">
           {% for risk in run.risks %}
@@ -193,7 +193,7 @@
               <p>{{ risk }}</p>
             </li>
           {% else %}
-            <li>No open risks recorded.</li>
+            <li>No open issues.</li>
           {% endfor %}
         </ul>
       </article>
@@ -203,13 +203,13 @@
 
   <section class="report-cluster">
     <div class="report-cluster__header">
-      <p class="report-cluster__eyebrow">Activity Stream</p>
-      <h2>Timeline, event feed, log, and worker history</h2>
+      <p class="report-cluster__eyebrow">Activity</p>
+      <h2>Timeline, updates, logs, and worker history</h2>
     </div>
     <div class="two-column">
       <article class="panel">
         <div class="panel-header">
-          <h2>Department Timeline</h2>
+          <h2>Team Timeline</h2>
         </div>
         <ul class="timeline panel-scroll panel-scroll-xl">
           {% for stage in run.steps %}
@@ -219,7 +219,7 @@
                 <span class="badge status-{{ stage.status }}">{{ stage.status }}</span>
               </div>
               <p>{{ stage.summary or stage.purpose }}</p>
-              <small>artifact: {{ stage.artifact_filename or "-" }}</small>
+              <small>file: {{ stage.artifact_filename or "-" }}</small>
             </li>
           {% endfor %}
         </ul>
@@ -227,8 +227,8 @@
 
       <article class="panel">
         <div class="panel-header">
-          <h2>Event Feed</h2>
-          <p>Meaningful department updates only.</p>
+          <h2>Recent Updates</h2>
+          <p>Latest updates from this run.</p>
         </div>
         <ul class="timeline panel-scroll panel-scroll-xl">
           {% for event in event_feed %}
@@ -253,14 +253,14 @@
       <article class="panel">
         <div class="panel-header">
           <h2>Run Log</h2>
-          <p><a href="/runs/{{ run.run_id }}/log">open raw log</a></p>
+          <p><a href="/runs/{{ run.run_id }}/log">Open full log</a></p>
         </div>
         <pre class="log-view">{{ log_tail or "No log yet." }}</pre>
       </article>
 
       <article class="panel">
         <div class="panel-header">
-          <h2>Process History</h2>
+          <h2>Worker History</h2>
         </div>
         <ul class="list panel-scroll panel-scroll-md">
           {% for process in run.process_history | reverse %}
@@ -269,7 +269,7 @@
               <p>pid {{ process.pid }} · {{ process.status }} · exit {{ process.exit_code if process.exit_code is not none else "-" }}</p>
             </li>
           {% else %}
-            <li>No completed worker history yet.</li>
+            <li>No finished worker history yet.</li>
           {% endfor %}
         </ul>
       </article>

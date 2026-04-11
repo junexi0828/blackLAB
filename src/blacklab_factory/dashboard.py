@@ -349,15 +349,15 @@ def create_app(storage: RunStorage) -> FastAPI:
     def build_run_report(run) -> dict:
         headline: str
         if run.status == "running":
-            headline = f"현재 {run.current_department or '대기 상태'}에서 작업 중입니다."
+            headline = f"Working in {run.current_department or 'the next team'} right now."
         elif run.status == "completed":
-            headline = f"전체 {run.completed_departments_count}개 부서를 완료했습니다."
+            headline = f"Finished {run.completed_departments_count} team steps."
         elif run.status == "failed":
-            headline = "실패한 run입니다. 아래 상태와 로그를 확인해야 합니다."
+            headline = "This run stopped with an issue. Check the summary and log below."
         elif run.status == "stale":
-            headline = "워커 heartbeat가 끊긴 run입니다."
+            headline = "This run may have stopped unexpectedly."
         else:
-            headline = "실행 대기 중인 run입니다."
+            headline = "This run is waiting to start."
 
         updates = []
         for step in run.steps:
@@ -391,13 +391,13 @@ def create_app(storage: RunStorage) -> FastAPI:
 
     def build_loop_report(loop_state) -> dict:
         if loop_state.status in {"running", "stopping"}:
-            headline = f"현재 iteration {loop_state.current_iteration}을 기준으로 루프가 작동 중입니다."
+            headline = f"Cycle {loop_state.current_iteration} is in progress."
         elif loop_state.status == "completed":
-            headline = f"총 {loop_state.iterations_completed}회 iteration을 완료했습니다."
+            headline = f"Finished {loop_state.iterations_completed} cycles."
         elif loop_state.status == "failed":
-            headline = "실패한 loop입니다. 마지막 note와 연결된 run을 확인해야 합니다."
+            headline = "This loop stopped with an issue. Check the latest note and linked run."
         else:
-            headline = "루프 대기 상태입니다."
+            headline = "This loop is waiting to start."
 
         return {
             "loop_id": loop_state.loop_id,
@@ -607,32 +607,47 @@ def create_app(storage: RunStorage) -> FastAPI:
                 run = active_runs[0]
                 return {
                     "mode": "live_run",
-                    "label": "Live Run Channel",
-                    "detail": f"Messages route into run {run.run_id} and apply on the next available department wave.",
+                    "label": "Current run",
+                    "detail": f"Your next message will go to run {run.run_id}.",
                 }
             return {
                 "mode": "run_broadcast",
-                "label": "Run Broadcast Channel",
-                "detail": f"Messages broadcast to {len(active_runs)} active runs and apply on their next available department waves.",
+                "label": "All running runs",
+                "detail": f"Your next message will go to {len(active_runs)} running runs.",
             }
         if active_loops:
             if len(active_loops) == 1:
                 loop_state = active_loops[0]
                 return {
                     "mode": "live_loop",
-                    "label": "Live Loop Channel",
-                    "detail": f"Messages route into loop {loop_state.loop_id} and apply on the next iteration.",
+                    "label": "Current loop",
+                    "detail": f"Your next message will go to loop {loop_state.loop_id}.",
                 }
             return {
                 "mode": "loop_broadcast",
-                "label": "Loop Broadcast Channel",
-                "detail": f"Messages broadcast to {len(active_loops)} active loops and apply on their next iterations.",
+                "label": "All running loops",
+                "detail": f"Your next message will go to {len(active_loops)} running loops.",
             }
         return {
             "mode": "control_plane",
-            "label": "Control Plane Only",
-            "detail": "No live run or loop is active. Messages act as orchestration commands unless they explicitly launch new work.",
+            "label": "No live work",
+            "detail": "Nothing is running right now. You can ask for status, launch new work, or start a loop.",
         }
+
+    def project_source_label(source: str) -> str:
+        labels = {
+            "active run": "Current run",
+            "active loop": "Current loop",
+            "listed run": "Run on this page",
+            "listed loop": "Loop on this page",
+            "recent run": "Recent run",
+            "recent loop": "Recent loop",
+            "launch default": "Saved for launch",
+            "autopilot default": "Saved for autopilot",
+            "current run": "Current run",
+            "current loop": "Current loop",
+        }
+        return labels.get(source, source.replace("_", " ").title())
 
     def current_project_payload(
         *,
@@ -645,9 +660,9 @@ def create_app(storage: RunStorage) -> FastAPI:
         return {
             "slug": slug,
             "name": name or slug,
-            "source": source,
+            "source": project_source_label(source),
             "entity_id": entity_id,
-            "reference_label": reference_label or entity_id or "configured default",
+            "reference_label": reference_label or entity_id or "Saved default",
         }
 
     def build_default_project_payload(slug: str | None, source: str) -> dict | None:

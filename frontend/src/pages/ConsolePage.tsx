@@ -4,6 +4,7 @@ import { useJsonResource } from '../hooks/useJsonResource'
 import { useLiveRefresh } from '../hooks/useLiveRefresh'
 import { useSolarTheme } from '../hooks/useSolarTheme'
 import type { CampusLayout, EventEntry, StepRecord } from '../types'
+import { ConsoleHUD } from '../ui/ConsoleHUD'
 import { EventFeedOverlay } from '../ui/EventFeedOverlay'
 import { WorldCanvas } from '../ui/WorldCanvas'
 import { buildCrewCounts, resolveLiveDepartmentKeys } from '../ui/roverPersona'
@@ -35,6 +36,7 @@ export function ConsolePage() {
   const profileResource = useJsonResource(getOperatorProfile, [])
   const [dismissedFeedIds, setDismissedFeedIds] = useState<string[]>([])
   const [dismissedBubbleIds, setDismissedBubbleIds] = useState<string[]>([])
+  const [feedCollapsed, setFeedCollapsed] = useState(false)
   const [clockNow, setClockNow] = useState(() => Date.now())
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null)
   const [editMode, setEditMode] = useState(false)
@@ -107,7 +109,7 @@ export function ConsolePage() {
   )
 
   const localDate = useMemo(() => new Date(clockNow), [clockNow])
-  const { timeTheme } = useSolarTheme(clockNow)
+  const { timeTheme, themeSource } = useSolarTheme(clockNow)
   const activeDepartmentKeys = useMemo(
     () => new Set(operatorProfile?.roster.active_department_keys ?? []),
     [operatorProfile],
@@ -149,16 +151,6 @@ export function ConsolePage() {
       }),
     [localDate],
   )
-  const systemLabel = useMemo(() => {
-    if (systemMode === 'stopping') {
-      return 'Controlled Stop'
-    }
-    if (systemMode === 'live') {
-      return 'Operating'
-    }
-    return 'Standby'
-  }, [systemMode])
-  const dockMessage = activeLoop?.latest_note ?? activeRun?.mission ?? latestRun?.mission ?? null
   const selectedStep = useMemo<StepRecord | null>(() => {
     if (!selectedBuilding) {
       return null
@@ -199,7 +191,11 @@ export function ConsolePage() {
   }
 
   function clearFeedEvents() {
-    setDismissedFeedIds(visibleFeedEvents.map((event) => event.event_id))
+    setFeedCollapsed(true)
+  }
+
+  function reopenFeedEvents() {
+    setFeedCollapsed(false)
   }
 
   function updateBuildingPosition(buildingKey: string, dx: number, dz: number) {
@@ -273,172 +269,6 @@ export function ConsolePage() {
 
   return (
     <div className={`console-world console-world--${timeTheme}`}>
-      <aside className="console-ops-dock">
-        <div className="console-ops-dock__top">
-          <a href="/" className="console-ops-dock__home">Home</a>
-          <button
-            type="button"
-            className="console-ops-dock__toggle"
-            onClick={() =>
-              setEditMode((current) => {
-                const next = !current
-                setSelectedBuilding(null)
-                if (next) {
-                  setEditTarget('monument')
-                } else {
-                  setEditTarget(null)
-                }
-                return next
-              })
-            }
-          >
-            {editMode ? 'Close Layout' : 'Layout Edit'}
-          </button>
-        </div>
-
-        <div className="console-ops-dock__status">
-          <span className={`console-ops-dock__mode console-ops-dock__mode--${systemMode}`}>{systemLabel}</span>
-          <span>{activeRunCount} active run{activeRunCount !== 1 ? 's' : ''}</span>
-          <span>{localClockLabel}</span>
-        </div>
-
-        <div className="console-ops-dock__crew">
-          <article className="console-ops-dock__crew-card">
-            <small>HQ</small>
-            <strong>{String(crewCounts.hq).padStart(2, '0')}</strong>
-          </article>
-          <article className="console-ops-dock__crew-card">
-            <small>R&amp;D</small>
-            <strong>{String(crewCounts.rnd).padStart(2, '0')}</strong>
-          </article>
-          <article className="console-ops-dock__crew-card">
-            <small>Operations</small>
-            <strong>{String(crewCounts.operations).padStart(2, '0')}</strong>
-          </article>
-        </div>
-
-        {dockMessage && <p className="console-ops-dock__message">{dockMessage}</p>}
-
-        {editMode && layoutDraft && (
-          <div className="console-ops-dock__editor">
-            <div className="layout-editor__header">
-              <strong>Layout Editor</strong>
-              <div className="layout-editor__header-actions">
-                <button
-                  type="button"
-                  className="layout-editor__save"
-                  onClick={handleSaveLayout}
-                  disabled={layoutSaving || !layoutDraft}
-                >
-                  {layoutSaving ? 'Saving…' : 'Save'}
-                </button>
-              </div>
-            </div>
-            <div className="layout-editor__body">
-              <label className="layout-editor__field">
-                <span>Target</span>
-                <select
-                  value={editTarget ?? ''}
-                  onChange={(event) => {
-                    const value = event.target.value || null
-                    setEditTarget(value as string | 'monument' | null)
-                    setSelectedBuilding(null)
-                  }}
-                >
-                  <option value="">Select target</option>
-                  <option value="monument">Central Monument</option>
-                  {buildingKeys.map((key) => (
-                    <option key={key} value={key}>
-                      {key}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="layout-editor__field">
-                <span>Nudge</span>
-                <select value={layoutStep} onChange={(event) => setLayoutStep(Number(event.target.value))}>
-                  <option value={0.25}>0.25</option>
-                  <option value={0.5}>0.5</option>
-                  <option value={1}>1.0</option>
-                </select>
-              </label>
-              {editTarget === 'monument' && monumentPosition && (
-                <p className="layout-editor__meta">
-                  Monument · x {monumentPosition[0].toFixed(2)} / z {monumentPosition[2].toFixed(2)}
-                </p>
-              )}
-              {editTarget && editTarget !== 'monument' && selectedBuildingPosition && (
-                <p className="layout-editor__meta">
-                  {editTarget} · x {selectedBuildingPosition[0].toFixed(2)} / z {selectedBuildingPosition[2].toFixed(2)}
-                </p>
-              )}
-              <div className="layout-editor__pad">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (editTarget === 'monument') updateMonument(0, -layoutStep)
-                    else if (editTarget) updateBuildingPosition(editTarget, 0, -layoutStep)
-                  }}
-                  disabled={!editTarget}
-                >
-                  ↑
-                </button>
-                <div className="layout-editor__pad-row">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (editTarget === 'monument') updateMonument(-layoutStep, 0)
-                      else if (editTarget) updateBuildingPosition(editTarget, -layoutStep, 0)
-                    }}
-                    disabled={!editTarget}
-                  >
-                    ←
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (editTarget === 'monument') updateMonument(layoutStep, 0)
-                      else if (editTarget) updateBuildingPosition(editTarget, layoutStep, 0)
-                    }}
-                    disabled={!editTarget}
-                  >
-                    →
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (editTarget === 'monument') updateMonument(0, layoutStep)
-                    else if (editTarget) updateBuildingPosition(editTarget, 0, layoutStep)
-                  }}
-                  disabled={!editTarget}
-                >
-                  ↓
-                </button>
-              </div>
-              {editTarget === 'monument' && (
-                <div className="layout-editor__scale">
-                  <button type="button" onClick={() => updateMonumentScale(-0.08)}>
-                    Shrink
-                  </button>
-                  <button type="button" onClick={() => updateMonumentScale(0.08)}>
-                    Grow
-                  </button>
-                </div>
-              )}
-              <div className="layout-editor__actions">
-                <button type="button" onClick={handleResetLayout}>
-                  Reload
-                </button>
-                <button type="button" onClick={() => { setSelectedBuilding(null); setEditTarget('monument') }}>
-                  Monument
-                </button>
-              </div>
-              {layoutNotice && <p className="layout-editor__notice">{layoutNotice}</p>}
-            </div>
-          </div>
-        )}
-      </aside>
       {selectedBuilding && !editMode && (
         <div className="console-overview-back">
           <button type="button" className="console-overview-back__button" onClick={() => setSelectedBuilding(null)}>
@@ -472,6 +302,145 @@ export function ConsolePage() {
           )}
         </aside>
       )}
+      <div className="layout-editor">
+        <div className="layout-editor__header">
+          <strong>Layout Editor</strong>
+          <div className="layout-editor__header-actions">
+            {editMode && (
+              <button
+                type="button"
+                className="layout-editor__save"
+                onClick={handleSaveLayout}
+                disabled={layoutSaving || !layoutDraft}
+              >
+                {layoutSaving ? 'Saving…' : 'Save'}
+              </button>
+            )}
+            <button
+              type="button"
+              className="layout-editor__toggle"
+              onClick={() =>
+                setEditMode((current) => {
+                  const next = !current
+                  setSelectedBuilding(null)
+                  if (next) {
+                    setEditTarget('monument')
+                  } else {
+                    setEditTarget(null)
+                  }
+                  return next
+                })
+              }
+            >
+              {editMode ? 'Close' : 'Edit'}
+            </button>
+          </div>
+        </div>
+        {editMode && layoutDraft && (
+          <div className="layout-editor__body">
+            <label className="layout-editor__field">
+              <span>Target</span>
+              <select
+                value={editTarget ?? ''}
+                onChange={(event) => {
+                  const value = event.target.value || null
+                  setEditTarget(value as string | 'monument' | null)
+                  setSelectedBuilding(null)
+                }}
+              >
+                <option value="">Select target</option>
+                <option value="monument">Central Monument</option>
+                {buildingKeys.map((key) => (
+                  <option key={key} value={key}>
+                    {key}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="layout-editor__field">
+              <span>Nudge</span>
+              <select value={layoutStep} onChange={(event) => setLayoutStep(Number(event.target.value))}>
+                <option value={0.25}>0.25</option>
+                <option value={0.5}>0.5</option>
+                <option value={1}>1.0</option>
+              </select>
+            </label>
+            {editTarget === 'monument' && monumentPosition && (
+              <p className="layout-editor__meta">
+                Monument · x {monumentPosition[0].toFixed(2)} / z {monumentPosition[2].toFixed(2)}
+              </p>
+            )}
+            {editTarget && editTarget !== 'monument' && selectedBuildingPosition && (
+              <p className="layout-editor__meta">
+                {editTarget} · x {selectedBuildingPosition[0].toFixed(2)} / z {selectedBuildingPosition[2].toFixed(2)}
+              </p>
+            )}
+            <div className="layout-editor__pad">
+              <button
+                type="button"
+                onClick={() => {
+                  if (editTarget === 'monument') updateMonument(0, -layoutStep)
+                  else if (editTarget) updateBuildingPosition(editTarget, 0, -layoutStep)
+                }}
+                disabled={!editTarget}
+              >
+                ↑
+              </button>
+              <div className="layout-editor__pad-row">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (editTarget === 'monument') updateMonument(-layoutStep, 0)
+                    else if (editTarget) updateBuildingPosition(editTarget, -layoutStep, 0)
+                  }}
+                  disabled={!editTarget}
+                >
+                  ←
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (editTarget === 'monument') updateMonument(layoutStep, 0)
+                    else if (editTarget) updateBuildingPosition(editTarget, layoutStep, 0)
+                  }}
+                  disabled={!editTarget}
+                >
+                  →
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (editTarget === 'monument') updateMonument(0, layoutStep)
+                  else if (editTarget) updateBuildingPosition(editTarget, 0, layoutStep)
+                }}
+                disabled={!editTarget}
+              >
+                ↓
+              </button>
+            </div>
+            {editTarget === 'monument' && (
+              <div className="layout-editor__scale">
+                <button type="button" onClick={() => updateMonumentScale(-0.08)}>
+                  Shrink
+                </button>
+                <button type="button" onClick={() => updateMonumentScale(0.08)}>
+                  Grow
+                </button>
+              </div>
+            )}
+            <div className="layout-editor__actions">
+              <button type="button" onClick={handleResetLayout}>
+                Reload
+              </button>
+              <button type="button" onClick={() => { setSelectedBuilding(null); setEditTarget('monument') }}>
+                Monument
+              </button>
+            </div>
+            {layoutNotice && <p className="layout-editor__notice">{layoutNotice}</p>}
+          </div>
+        )}
+      </div>
       <WorldCanvas
         steps={activeRun?.steps ?? []}
         currentDepartment={activeRun?.current_department ?? null}
@@ -491,10 +460,25 @@ export function ConsolePage() {
         layout={visibleLayout}
         showMonument={!hiddenCampusItems.has('monument')}
       />
+      <ConsoleHUD
+        mission={activeRun?.mission ?? activeLoop?.objective ?? latestRun?.mission ?? null}
+        iteration={activeLoop?.current_iteration ?? null}
+        iterationsCompleted={activeLoop?.iterations_completed ?? 0}
+        loopStatus={activeLoop?.status ?? null}
+        activeRunCount={activeRunCount}
+        loopNote={activeLoop?.latest_note ?? null}
+        timeTheme={timeTheme}
+        localClockLabel={localClockLabel}
+        themeSource={themeSource}
+        crewCounts={crewCounts}
+        systemMode={systemMode}
+      />
       <EventFeedOverlay
         events={visibleFeedEvents}
+        isCollapsed={feedCollapsed}
         onDismiss={dismissFeedEvent}
         onClearAll={clearFeedEvents}
+        onExpand={reopenFeedEvents}
       />
     </div>
   )

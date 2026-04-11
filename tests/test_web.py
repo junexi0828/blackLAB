@@ -203,7 +203,7 @@ def test_loops_page_sidebar_uses_loop_project_context(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert "Current Project" in response.text
     assert "Loop Project" in response.text
-    assert "active loop" in response.text
+    assert "current loop" in response.text
     assert "Current Loop" in response.text
     assert "All Loops" in response.text
 
@@ -239,4 +239,136 @@ def test_loops_page_sidebar_does_not_fall_back_to_recent_run_project(tmp_path: P
     assert response.status_code == 200
     assert "Current Loop" in response.text
     assert "Run Project" not in response.text
+    assert "recent run" not in response.text
+
+
+def test_launch_page_sidebar_uses_launch_default_project_context(tmp_path: Path) -> None:
+    runner = FactoryRunner(storage_root=tmp_path)
+    run_state = runner.storage.create_run(
+        mission="Recent run should not own launch sidebar context",
+        company_name="blackLAB",
+        mode="mock",
+        steps=[],
+    )
+    run_state.status = "completed"
+    run_state.project_slug = "recent-run-project"
+    run_state.project_name = "Recent Run Project"
+    runner.storage.save_state(run_state)
+
+    client = TestClient(create_app(storage_root=tmp_path))
+    profile_response = client.post(
+        "/api/operator/profile",
+        json={
+            "launch": {
+                "mode": "mock",
+                "project_slug": "launch-project",
+                "pause_between_departments": 0,
+                "run_settings": {
+                    "codex_model": "gpt-5.4",
+                    "codex_autonomy": "read_only",
+                    "codex_review_model": "gpt-5.4-mini",
+                    "codex_review_autonomy": "read_only",
+                    "detached": False,
+                    "max_parallel_departments": 7,
+                },
+            },
+            "autopilot": {
+                "run_mode": "mock",
+                "project_slug": None,
+                "loop_mode": "full_auto",
+                "interval_seconds": 0,
+                "max_iterations": 1,
+                "pause_between_departments": 0,
+                "run_settings": {
+                    "codex_model": "gpt-5.4",
+                    "codex_autonomy": "full_auto",
+                    "codex_review_model": "gpt-5.4-mini",
+                    "codex_review_autonomy": "read_only",
+                    "detached": False,
+                    "max_parallel_departments": 7,
+                },
+            },
+        },
+    )
+    assert profile_response.status_code == 200
+
+    response = client.get("/launch")
+
+    assert response.status_code == 200
+    assert "Current Project" in response.text
+    assert "Launch Project" in response.text
+    assert "launch-project" in response.text
+    assert "launch default" in response.text
+    assert "recent run" not in response.text
+
+
+def test_loop_detail_sidebar_falls_back_to_autopilot_default(tmp_path: Path) -> None:
+    runner = FactoryRunner(storage_root=tmp_path)
+    run_state = runner.storage.create_run(
+        mission="Recent run should not override loop detail sidebar",
+        company_name="blackLAB",
+        mode="mock",
+        steps=[],
+    )
+    run_state.status = "completed"
+    run_state.project_slug = "recent-run-project"
+    run_state.project_name = "Recent Run Project"
+    runner.storage.save_state(run_state)
+
+    supervisor = AutopilotSupervisor(storage_root=tmp_path)
+    loop_state = supervisor.start_loop(
+        LoopRunRequest(
+            objective="Loop without linked project",
+            loop_mode="always_on",
+            run_mode="mock",
+            run_settings=RunSettings(),
+        )
+    )
+    loop_state.status = "completed"
+    supervisor.loop_storage.save_state(loop_state)
+
+    client = TestClient(create_app(storage_root=tmp_path))
+    profile_response = client.post(
+        "/api/operator/profile",
+        json={
+            "launch": {
+                "mode": "mock",
+                "project_slug": None,
+                "pause_between_departments": 0,
+                "run_settings": {
+                    "codex_model": "gpt-5.4",
+                    "codex_autonomy": "read_only",
+                    "codex_review_model": "gpt-5.4-mini",
+                    "codex_review_autonomy": "read_only",
+                    "detached": False,
+                    "max_parallel_departments": 7,
+                },
+            },
+            "autopilot": {
+                "run_mode": "mock",
+                "project_slug": "loop-home",
+                "loop_mode": "always_on",
+                "interval_seconds": 0,
+                "max_iterations": 1,
+                "pause_between_departments": 0,
+                "run_settings": {
+                    "codex_model": "gpt-5.4",
+                    "codex_autonomy": "full_auto",
+                    "codex_review_model": "gpt-5.4-mini",
+                    "codex_review_autonomy": "read_only",
+                    "detached": False,
+                    "max_parallel_departments": 7,
+                },
+            },
+        },
+    )
+    assert profile_response.status_code == 200
+
+    response = client.get(f"/loops/{loop_state.loop_id}")
+
+    assert response.status_code == 200
+    assert "Current Project" in response.text
+    assert "Loop Home" in response.text
+    assert "autopilot default" in response.text
+    assert "configured default" in response.text
     assert "recent run" not in response.text

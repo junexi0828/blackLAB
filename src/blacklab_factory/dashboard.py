@@ -6,7 +6,7 @@ from pathlib import Path
 import markdown
 from pydantic import BaseModel
 from fastapi import Body, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.cors import CORSMiddleware
@@ -634,12 +634,20 @@ def create_app(storage: RunStorage) -> FastAPI:
             "detail": "No live run or loop is active. Messages act as orchestration commands unless they explicitly launch new work.",
         }
 
-    def current_project_payload(*, slug: str, name: str | None, source: str, entity_id: str | None) -> dict:
+    def current_project_payload(
+        *,
+        slug: str,
+        name: str | None,
+        source: str,
+        entity_id: str | None,
+        reference_label: str | None = None,
+    ) -> dict:
         return {
             "slug": slug,
             "name": name or slug,
             "source": source,
             "entity_id": entity_id,
+            "reference_label": reference_label or entity_id or "configured default",
         }
 
     def build_default_project_payload(slug: str | None, source: str) -> dict | None:
@@ -777,6 +785,10 @@ def create_app(storage: RunStorage) -> FastAPI:
         context = build_overview_context()
         context["recent_runs"] = context["runs"][:10]
         context["company_config"] = company_config
+        context["current_project"] = build_default_project_payload(
+            context["operator_profile"].launch.project_slug,
+            "launch default",
+        ) or context.get("current_project")
         return templates.TemplateResponse(
             name="launch.html",
             request=request,
@@ -787,6 +799,10 @@ def create_app(storage: RunStorage) -> FastAPI:
     def autopilot_page(request: Request):
         context = build_overview_context()
         context["company_config"] = company_config
+        context["current_project"] = build_default_project_payload(
+            context["operator_profile"].autopilot.project_slug,
+            "autopilot default",
+        ) or context.get("current_project")
         return templates.TemplateResponse(
             name="autopilot.html",
             request=request,
@@ -844,10 +860,19 @@ def create_app(storage: RunStorage) -> FastAPI:
             "total_count": total_count,
             "current_loop_card": current_loop_card,
         })
-        context["current_project"] = build_list_page_current_project(
-            loops=loops,
-            default_slug=context["operator_profile"].autopilot.project_slug,
-            default_source="autopilot default",
+        context["current_project"] = (
+            current_project_payload(
+                slug=current_loop_card["project_slug"],
+                name=current_loop_card.get("project_name"),
+                source="current loop",
+                entity_id=current_loop_card["loop_id"],
+            )
+            if current_loop_card and current_loop_card.get("project_slug")
+            else build_list_page_current_project(
+                loops=loops,
+                default_slug=context["operator_profile"].autopilot.project_slug,
+                default_source="autopilot default",
+            )
         )
 
         return templates.TemplateResponse(
@@ -888,9 +913,13 @@ def create_app(storage: RunStorage) -> FastAPI:
                         "name": loop_state.project_name or loop_state.project_slug,
                         "source": "current loop",
                         "entity_id": loop_state.loop_id,
+                        "reference_label": loop_state.loop_id,
                     }
                     if loop_state.project_slug
-                    else build_overview_context().get("current_project")
+                    else build_default_project_payload(
+                        build_overview_context()["operator_profile"].autopilot.project_slug,
+                        "autopilot default",
+                    )
                 ),
             },
         )
@@ -973,9 +1002,13 @@ def create_app(storage: RunStorage) -> FastAPI:
                         "name": run.project_name or run.project_slug,
                         "source": "current run",
                         "entity_id": run.run_id,
+                        "reference_label": run.run_id,
                     }
                     if run.project_slug
-                    else build_overview_context().get("current_project")
+                    else build_default_project_payload(
+                        build_overview_context()["operator_profile"].launch.project_slug,
+                        "launch default",
+                    )
                 ),
             },
         )
@@ -991,31 +1024,31 @@ def create_app(storage: RunStorage) -> FastAPI:
 
     @app.get("/console/launch", include_in_schema=False)
     def operator_launch():
-        return RedirectResponse(url="/launch", status_code=307)
+        return operator_shell()
 
     @app.get("/console/autopilot", include_in_schema=False)
     def operator_autopilot():
-        return RedirectResponse(url="/autopilot", status_code=307)
+        return operator_shell()
 
     @app.get("/console/runs", include_in_schema=False)
     def operator_runs():
-        return RedirectResponse(url="/runs", status_code=307)
+        return operator_shell()
 
     @app.get("/console/runs/{run_id}", include_in_schema=False)
     def operator_run_detail(run_id: str):
-        return RedirectResponse(url=f"/runs/{run_id}", status_code=307)
+        return operator_shell()
 
     @app.get("/console/loops", include_in_schema=False)
     def operator_loops():
-        return RedirectResponse(url="/loops", status_code=307)
+        return operator_shell()
 
     @app.get("/console/loops/{loop_id}", include_in_schema=False)
     def operator_loop_detail(loop_id: str):
-        return RedirectResponse(url=f"/loops/{loop_id}", status_code=307)
+        return operator_shell()
 
     @app.get("/console/settings", include_in_schema=False)
     def operator_settings():
-        return RedirectResponse(url="/settings", status_code=307)
+        return operator_shell()
 
     @app.get("/api/runs")
     def list_runs_api():

@@ -1166,153 +1166,6 @@ textarea {
   height: 100% !important;
 }
 
-.console-ops-dock {
-  position: absolute;
-  top: 24px;
-  left: 24px;
-  z-index: 12;
-  display: grid;
-  gap: 0.78rem;
-  width: min(280px, calc(100vw - 48px));
-  pointer-events: auto;
-  border: 1px solid rgba(138, 162, 184, 0.22);
-  background: rgba(9, 16, 26, 0.78);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.28);
-  border-radius: 18px;
-  padding: 0.82rem;
-}
-
-.console-world--day .console-ops-dock {
-  background: rgba(255, 255, 255, 0.84);
-  border-color: rgba(100, 116, 139, 0.18);
-  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.12);
-}
-
-.console-ops-dock__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.55rem;
-}
-
-.console-ops-dock__home,
-.console-ops-dock__toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  padding: 0.48rem 0.78rem;
-  background: rgba(8, 16, 25, 0.74);
-  border: 1px solid rgba(138, 162, 184, 0.18);
-  color: rgba(237, 247, 239, 0.92);
-  font-size: 0.78rem;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.console-ops-dock__home:hover,
-.console-ops-dock__toggle:hover {
-  border-color: rgba(255, 138, 42, 0.34);
-  color: #ffffff;
-}
-
-.console-world--day .console-ops-dock__home,
-.console-world--day .console-ops-dock__toggle {
-  background: rgba(255, 255, 255, 0.86);
-  border-color: rgba(100, 116, 139, 0.16);
-  color: rgba(15, 23, 42, 0.88);
-}
-
-.console-ops-dock__status {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  align-items: center;
-}
-
-.console-ops-dock__status span {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 0.26rem 0.56rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.05);
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.72);
-}
-
-.console-world--day .console-ops-dock__status span {
-  border-color: rgba(100, 116, 139, 0.14);
-  background: rgba(15, 23, 42, 0.04);
-  color: rgba(15, 23, 42, 0.72);
-}
-
-.console-ops-dock__mode--live {
-  color: rgba(122, 255, 210, 0.96) !important;
-}
-
-.console-ops-dock__mode--stopping {
-  color: rgba(255, 211, 160, 0.96) !important;
-}
-
-.console-ops-dock__crew {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.55rem;
-}
-
-.console-ops-dock__crew-card {
-  display: grid;
-  gap: 0.16rem;
-  padding: 0.7rem 0.72rem;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.console-ops-dock__crew-card small {
-  font-size: 0.66rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.44);
-}
-
-.console-ops-dock__crew-card strong {
-  font-size: 1.3rem;
-  line-height: 1;
-  color: rgba(255, 255, 255, 0.96);
-}
-
-.console-world--day .console-ops-dock__crew-card {
-  border-color: rgba(100, 116, 139, 0.12);
-  background: rgba(15, 23, 42, 0.04);
-}
-
-.console-world--day .console-ops-dock__crew-card small {
-  color: rgba(71, 85, 105, 0.7);
-}
-
-.console-world--day .console-ops-dock__crew-card strong {
-  color: rgba(15, 23, 42, 0.92);
-}
-
-.console-ops-dock__message {
-  margin: 0;
-  font-size: 0.78rem;
-  line-height: 1.55;
-  color: rgba(255, 255, 255, 0.72);
-}
-
-.console-world--day .console-ops-dock__message {
-  color: rgba(15, 23, 42, 0.74);
-}
-
-.console-ops-dock__editor {
-  display: grid;
-  gap: 0.55rem;
-}
-
 .console-overview-back {
   position: absolute;
   top: 16px;
@@ -1336,6 +1189,15 @@ textarea {
 .console-world--day .console-overview-back__button {
   background: rgba(255, 255, 255, 0.84);
   color: rgba(15, 23, 42, 0.88);
+}
+
+.layout-editor {
+  position: absolute;
+  top: 72px;
+  left: 28px;
+  z-index: 12;
+  width: min(240px, calc(100vw - 56px));
+  pointer-events: auto;
 }
 
 .layout-editor__header,
@@ -1917,6 +1779,68 @@ textarea {
   z-index: 11;
   display: grid;
   gap: 0.75rem;
+}
+
+.console-event-feed--collapsed {
+  width: auto;
+}
+
+.console-event-feed__ghost-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  justify-self: end;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  color: rgba(255, 255, 255, 0.34);
+  cursor: pointer;
+}
+
+.console-event-feed__ghost-label,
+.console-event-feed__ghost-action {
+  font-size: 0.72rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.console-event-feed__ghost-label {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.console-event-feed__ghost-action {
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.console-event-feed__ghost-sep {
+  color: rgba(255, 255, 255, 0.14);
+}
+
+.console-event-feed__ghost-toggle:hover .console-event-feed__ghost-action,
+.console-event-feed__ghost-toggle:hover .console-event-feed__count {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.console-world--day .console-event-feed__ghost-toggle {
+  color: rgba(15, 23, 42, 0.34);
+}
+
+.console-world--day .console-event-feed__ghost-label {
+  color: rgba(71, 85, 105, 0.42);
+}
+
+.console-world--day .console-event-feed__ghost-action {
+  color: rgba(15, 23, 42, 0.58);
+}
+
+.console-world--day .console-event-feed__ghost-sep {
+  color: rgba(15, 23, 42, 0.16);
+}
+
+.console-world--day .console-event-feed__ghost-toggle:hover .console-event-feed__ghost-action,
+.console-world--day .console-event-feed__ghost-toggle:hover .console-event-feed__count {
+  color: rgba(15, 23, 42, 0.84);
 }
 
 .console-focus-card {

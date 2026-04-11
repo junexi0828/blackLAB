@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% block title %}BlackLAB Factory{% endblock %}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/css/tabler.min.css" />
-    <link rel="stylesheet" href="/static/style.css?v=34" />
+    <link rel="stylesheet" href="/static/style.css?v=35" />
     <script defer src="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/js/tabler.min.js"></script>
     <script defer src="/static/app.js"></script>
   </head>
@@ -31,12 +31,10 @@
             <p class="project-signboard__label">Current Project</p>
             <strong>{{ current_project.name }}</strong>
             <p class="project-signboard__slug">{{ current_project.slug }}</p>
-            <p class="project-signboard__meta">
-              {{ current_project.source }}
-              {% if current_project.entity_id %}
-                · {{ current_project.entity_id }}
-              {% endif %}
-            </p>
+            <div class="project-signboard__meta">
+              <p class="project-signboard__source">{{ current_project.source }}</p>
+              <p class="project-signboard__reference">{{ current_project.reference_label }}</p>
+            </div>
           </div>
         {% endif %}
 

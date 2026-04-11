@@ -1,11 +1,5 @@
 # blackLAB Factory
 
-<p align="center">
-  <img src="docs/images/console_v2.png" alt="blackLAB 3D Campus Console" width="100%" />
-  <img width="1466" height="836" alt="image" src="https://github.com/user-attachments/assets/1fd163a6-aef1-4bb0-bf18-27411df28c83" />
-  <img width="1466" height="825" alt="image" src="https://github.com/user-attachments/assets/0f9caabe-8848-4154-aaeb-93a4c7e92867" />
-
-
 </p>
 
 <p align="center">
@@ -22,6 +16,11 @@
   <img alt="Codex CLI" src="https://img.shields.io/badge/Codex-CLI%20runtime-412991?style=for-the-badge" />
   <img alt="Local First" src="https://img.shields.io/badge/Local--First-no%20cloud%20required-BF6A02?style=for-the-badge" />
 </p>
+
+<p align="center">
+  <img src="docs/images/console_v2.png" alt="blackLAB 3D Campus Console" width="100%" />
+  <img width="1466" height="836" alt="image" src="https://github.com/user-attachments/assets/1fd163a6-aef1-4bb0-bf18-27411df28c83" />
+  <img width="1466" height="825" alt="image" src="https://github.com/user-attachments/assets/0f9caabe-8848-4154-aaeb-93a4c7e92867" />
 
 ## What This Is
 

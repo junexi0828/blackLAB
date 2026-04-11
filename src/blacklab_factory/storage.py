@@ -107,15 +107,20 @@ class RunStorage:
         state = RunState.model_validate_json(payload)
         return self._mark_stale_if_needed(state)
 
-    def list_runs(self) -> list[RunState]:
+    def list_runs(self, limit: int | None = None, offset: int = 0) -> tuple[list[RunState], int]:
+        all_paths = sorted(self.runs_dir.glob("*/state.json"), reverse=True)
+        total_count = len(all_paths)
+        
+        target_paths = all_paths[offset : offset + limit] if limit is not None else all_paths[offset:]
+        
         states: list[RunState] = []
-        for path in sorted(self.runs_dir.glob("*/state.json"), reverse=True):
+        for path in target_paths:
             try:
                 state = RunState.model_validate_json(path.read_text(encoding="utf-8"))
                 states.append(self._mark_stale_if_needed(state))
             except ValidationError:
                 continue
-        return states
+        return states, total_count
 
     def save_artifact(self, state: RunState, department_key: str, title: str, content: str) -> ArtifactRecord:
         filename = f"{department_key}-{slugify(title)}.md"
@@ -280,15 +285,20 @@ class LoopStorage:
         state = LoopState.model_validate_json(self.state_path(loop_id).read_text(encoding="utf-8"))
         return self._mark_inactive_if_needed(state)
 
-    def list_loops(self) -> list[LoopState]:
+    def list_loops(self, limit: int | None = None, offset: int = 0) -> tuple[list[LoopState], int]:
+        all_paths = sorted(self.loops_dir.glob("*/state.json"), reverse=True)
+        total_count = len(all_paths)
+        
+        target_paths = all_paths[offset : offset + limit] if limit is not None else all_paths[offset:]
+        
         loops: list[LoopState] = []
-        for path in sorted(self.loops_dir.glob("*/state.json"), reverse=True):
+        for path in target_paths:
             try:
                 state = LoopState.model_validate_json(path.read_text(encoding="utf-8"))
                 loops.append(self._mark_inactive_if_needed(state))
             except ValidationError:
                 continue
-        return loops
+        return loops, total_count
 
     def append_log(self, loop_id: str, message: str) -> None:
         with self.log_path(loop_id).open("a", encoding="utf-8") as handle:

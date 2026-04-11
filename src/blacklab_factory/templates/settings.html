@@ -1,59 +1,28 @@
 {% extends "base.html" %}
-{% block title %}Settings{% endblock %}
+{% block title %}Organization{% endblock %}
 {% block content %}
+  {% macro org_node(node, depth=0) %}
+    <div class="settings-org-node settings-org-node--depth-{{ depth if depth < 3 else 3 }}">
+      <article class="settings-org-card">
+        <span class="settings-org-card__group">{{ node.group_label }}</span>
+        <h3>{{ node.public_name }}</h3>
+        <p>{{ node.public_summary }}</p>
+      </article>
+      {% if node.children %}
+        <div class="settings-org-children settings-org-children--count-{{ node.children|length if node.children|length < 5 else 5 }}">
+          {% for child in node.children %}
+            {{ org_node(child, depth + 1) }}
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  {% endmacro %}
+
   <section class="hero">
     <div>
-      <h1>Runtime Settings</h1>
-      <p class="subhead">Current engine defaults, company wiring, and staged Codex runtime profiles.</p>
+      <h1>Organization</h1>
+      <p class="subhead">A simple view of who leads each team, which teams support each other, and what you can control.</p>
     </div>
-  </section>
-
-  <section class="three-column settings-top-grid">
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Company Config</h2>
-      </div>
-      <ul class="list">
-        <li><strong>Company</strong><p>{{ company_config.company_name }}</p></li>
-        <li><strong>Default Mode</strong><p>{{ company_config.default_mode }}</p></li>
-        <li><strong>Parallel Strategy</strong><p>{{ company_config.parallel_strategy }}</p></li>
-        <li><strong>Max Parallel Departments</strong><p>{{ company_config.max_parallel_departments }}</p></li>
-        <li><strong>Final Review</strong><p>{{ company_config.enable_final_review }} · {{ company_config.final_review_label }}</p></li>
-        <li><strong>Codex Timeout</strong><p>{{ company_config.codex_worker_timeout_seconds }}s</p></li>
-        <li><strong>Retry Attempts</strong><p>{{ company_config.codex_retry_attempts }}</p></li>
-        <li><strong>Core Runtime</strong><p>{{ default_settings.codex_model }} · {{ default_settings.codex_autonomy }}</p></li>
-        <li><strong>Review Runtime</strong><p>{{ default_settings.codex_review_model }} · {{ default_settings.codex_review_autonomy }}</p></li>
-      </ul>
-    </article>
-
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Resource Governor</h2>
-      </div>
-      <ul class="list">
-        <li><strong>CPU Cores</strong><p>{{ resource_snapshot.cpu_count }}</p></li>
-        <li><strong>Load 1m</strong><p>{{ resource_snapshot.load_1m if resource_snapshot.load_1m is not none else "-" }} · ratio {{ resource_snapshot.load_ratio if resource_snapshot.load_ratio is not none else "-" }}</p></li>
-        <li><strong>Available Memory</strong><p>{{ resource_snapshot.memory_available_mb if resource_snapshot.memory_available_mb is not none else "-" }} MB / {{ resource_snapshot.memory_total_mb if resource_snapshot.memory_total_mb is not none else "-" }} MB</p></li>
-        <li><strong>Requested Parallelism</strong><p>{{ resource_snapshot.requested_parallelism }}</p></li>
-        <li><strong>Effective Parallelism</strong><p>{{ resource_snapshot.effective_parallelism }}</p></li>
-        <li><strong>Governor Reason</strong><p>{{ resource_snapshot.reason }}</p></li>
-      </ul>
-    </article>
-
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Runtime Profiles</h2>
-      </div>
-      <ul class="list">
-        {% for profile in runtime_profiles %}
-          <li>
-            <strong>{{ profile.label }}</strong>
-            <p>{{ profile.description }}</p>
-            <small>{{ profile.value }} · {{ profile.codex_flag }}</small>
-          </li>
-        {% endfor %}
-      </ul>
-    </article>
   </section>
 
   <form id="operator-settings-form" class="control-form" hidden>
@@ -79,11 +48,52 @@
     <input type="hidden" name="autopilot_pause_between_departments" value="{{ operator_profile.autopilot.pause_between_departments }}" />
   </form>
 
+  <section class="panel settings-org-panel">
+    <div class="panel-header">
+      <div>
+        <h2>Organization Chart</h2>
+        <p>Read the company from top to bottom: leadership first, then the teams that report into each group.</p>
+      </div>
+    </div>
+    <div class="settings-org-map">
+      {% for node in organization_chart %}
+        {{ org_node(node) }}
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <div>
+        <h2>Teams at a Glance</h2>
+        <p>Quick summaries of what each team does, grouped the way most users expect to read an organization.</p>
+      </div>
+    </div>
+    <div class="settings-team-directory">
+      {% for group in organization_groups %}
+        <article class="settings-team-group">
+          <div class="settings-team-group__header">
+            <h3>{{ group.label }}</h3>
+            <p>{{ group.description }}</p>
+          </div>
+          <div class="settings-team-grid">
+            {% for team in group.teams %}
+              <article class="settings-team-card">
+                <h4>{{ team.public_name }}</h4>
+                <p>{{ team.public_summary }}</p>
+              </article>
+            {% endfor %}
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  </section>
+
   <section class="panel">
     <div class="panel-header">
       <div>
         <h2>Project Library</h2>
-        <p>Reuse an existing project without memorizing its internal key.</p>
+        <p>Reuse an existing project without memorizing an internal key.</p>
       </div>
     </div>
     <div class="project-library-list">
@@ -124,22 +134,22 @@
   <section class="panel">
     <div class="panel-header">
       <div>
-        <h2>Operational Roster</h2>
-        <p>Keep the developer-defined catalog intact, but choose which departments are active in new runs. Inactive departments stay out of new runs and disappear from the campus.</p>
+        <h2>Operational Controls</h2>
+        <p>Choose which teams appear in new runs and whether the central campus monument stays visible.</p>
       </div>
     </div>
     <div class="two-column">
       <article class="panel panel-muted">
         <div class="panel-header">
-          <h3>Department Activation</h3>
+          <h3>Active Teams</h3>
         </div>
         <div class="toggle-grid">
           {% for item in department_catalog %}
             <label class="toggle-card">
               <input type="checkbox" name="roster_active_department_keys" value="{{ item.key }}" form="operator-settings-form" {% if item.is_active %}checked{% endif %} />
               <div>
-                <strong>{{ item.label }}</strong>
-                <p>{{ item.key }} · {{ item.runtime_tier }} · {{ item.resource_lane }}</p>
+                <strong>{{ item.public_name }}</strong>
+                <p>{{ item.public_summary }}</p>
               </div>
             </label>
           {% endfor %}
@@ -147,14 +157,14 @@
       </article>
       <article class="panel panel-muted">
         <div class="panel-header">
-          <h3>Campus Surface</h3>
+          <h3>Campus Display</h3>
         </div>
         <div class="toggle-grid">
           <label class="toggle-card">
             <input type="checkbox" name="campus_item_monument_visible" value="1" form="operator-settings-form" {% if "monument" not in operator_profile.roster.hidden_campus_items %}checked{% endif %} />
             <div>
               <strong>Central Monument</strong>
-              <p>Show or hide the central plaza object without deleting it.</p>
+              <p>Show or hide the monument in the center of the 3D campus.</p>
             </div>
           </label>
         </div>
@@ -164,59 +174,5 @@
       <button type="submit" class="primary-button" form="operator-settings-form">Save</button>
       <button type="button" class="ghost-button settings-reset-button">Reset</button>
     </div>
-  </section>
-  <section class="panel">
-    <div class="panel-header">
-      <h2>Departments</h2>
-      <p>The final review sits after the department wave and produces the operator briefing.</p>
-    </div>
-    <table class="run-table">
-      <thead>
-        <tr>
-          <th>Key</th>
-          <th>Label</th>
-          <th>Purpose</th>
-          <th>Output</th>
-          <th>Lane</th>
-          <th>Priority</th>
-          <th>Runtime Tier</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for department in company_config.departments %}
-          <tr>
-            <td>{{ department.key }}</td>
-            <td>{{ department.label }}</td>
-            <td>{{ department.purpose }}</td>
-            <td>{{ department.output_title }}</td>
-            <td>{{ department.resource_lane }}</td>
-            <td>{{ department.priority }}</td>
-            <td>{{ department.runtime_tier }}</td>
-          </tr>
-        {% endfor %}
-        {% for department in company_config.review_departments %}
-          <tr>
-            <td>{{ department.key }}</td>
-            <td>{{ department.label }}</td>
-            <td>{{ department.purpose }}</td>
-            <td>{{ department.output_title }}</td>
-            <td>{{ department.resource_lane }}</td>
-            <td>{{ department.priority }}</td>
-            <td>{{ department.runtime_tier }}</td>
-          </tr>
-        {% endfor %}
-        {% if company_config.enable_final_review %}
-          <tr>
-            <td>board_review</td>
-            <td>{{ company_config.final_review_label }}</td>
-            <td>Synthesize all department outputs into one operator briefing.</td>
-            <td>{{ company_config.final_review_output_title }}</td>
-            <td>review</td>
-            <td>40</td>
-            <td>review</td>
-          </tr>
-        {% endif %}
-      </tbody>
-    </table>
   </section>
 {% endblock %}

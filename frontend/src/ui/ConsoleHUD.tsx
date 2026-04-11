@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { RoverCrewCounts } from './roverPersona'
 
 interface ConsoleHUDProps {
   mission: string | null
@@ -10,6 +11,8 @@ interface ConsoleHUDProps {
   timeTheme: 'day' | 'night'
   localClockLabel: string
   themeSource: 'location' | 'timezone'
+  crewCounts: RoverCrewCounts
+  systemMode: 'live' | 'stopping' | 'idle'
 }
 
 export function ConsoleHUD({
@@ -22,11 +25,14 @@ export function ConsoleHUD({
   timeTheme,
   localClockLabel,
   themeSource,
+  crewCounts,
+  systemMode,
 }: ConsoleHUDProps) {
-  const isLive = loopStatus === 'running' || activeRunCount > 0
+  const isLive = systemMode === 'live' || systemMode === 'stopping' || loopStatus === 'running'
   const phaseIcon = timeTheme === 'day' ? '☀' : '☾'
   const phaseLabel = timeTheme === 'day' ? 'DAY SHIFT' : 'NIGHT SHIFT'
   const phaseSource = themeSource === 'location' ? 'GPS SOLAR' : 'TIMEZONE ESTIMATE'
+  const systemLabel = systemMode === 'stopping' ? 'CONTROLLED STOP' : isLive ? 'OPERATING' : 'STANDBY'
 
   // Ticker clock
   const [clock, setClock] = useState(() => new Date().toISOString())
@@ -42,10 +48,10 @@ export function ConsoleHUD({
       {/* ── Top-left: company identity ── */}
       <div className="hud-brand">
         <span className="hud-phase-icon" aria-hidden="true">{phaseIcon}</span>
-        <span className={`hud-dot ${isLive ? 'hud-dot--live' : ''}`} />
+        <span className={`hud-dot ${isLive ? 'hud-dot--live' : ''} ${systemMode === 'stopping' ? 'hud-dot--hold' : ''}`} />
         <span className="hud-brand-name">blackLAB</span>
         <span className="hud-brand-sep">·</span>
-        <span className="hud-brand-status">{isLive ? 'OPERATING' : 'STANDBY'}</span>
+        <span className="hud-brand-status">{systemLabel}</span>
         <span className="hud-brand-sep">·</span>
         <span className="hud-phase-label">{phaseLabel}</span>
         <span className="hud-brand-sep">·</span>
@@ -66,6 +72,26 @@ export function ConsoleHUD({
             <span className="hud-ribbon-text">{displayText}</span>
           </div>
         )}
+        <div className="hud-crew-strip">
+          <span className="hud-crew-pill">
+            <small>HQ</small>
+            <strong>{String(crewCounts.hq).padStart(2, '0')}</strong>
+          </span>
+          <span className="hud-crew-pill">
+            <small>R&amp;D</small>
+            <strong>{String(crewCounts.rnd).padStart(2, '0')}</strong>
+          </span>
+          <span className="hud-crew-pill">
+            <small>OPERATIONS</small>
+            <strong>{String(crewCounts.operations).padStart(2, '0')}</strong>
+          </span>
+          {systemMode === 'stopping' && (
+            <span className="hud-crew-pill hud-crew-pill--hold">
+              <small>SYSTEM</small>
+              <strong>CONTROLLED STOP</strong>
+            </span>
+          )}
+        </div>
         <div className="hud-ribbon-meta">
           <span>{activeRunCount} run{activeRunCount !== 1 ? 's' : ''} active</span>
           <span className="hud-sep" />

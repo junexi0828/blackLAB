@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { StepRecord } from '../types'
+import { ACTIVE_ROVERS_PER_DEPARTMENT } from './roverPersona'
+import { getDepartmentOrganizationSpec, type RoverVisualArchetype } from '../config/organizationModel'
 
 interface AgentRoversProps {
   positions: Record<string, [number, number, number]>
@@ -13,25 +15,70 @@ interface AgentRoversProps {
 }
 
 const ROVER_COUNT = 60
-const ACTIVE_ROVERS_PER_DEPT = 6
 
 type RoverMode = 'moving' | 'sleeping'
+type HeadStyle = 'none' | 'cap' | 'halo' | 'antenna'
+
+interface RoverStyle {
+  shellColor: string
+  outfitColor: string
+  trimColor: string
+  badgeColor: string
+  accentColor: string
+  visorColor: string
+  bodyScale: [number, number, number]
+  outfitScale: [number, number, number]
+  scarfScale: [number, number, number]
+  capeScale: [number, number, number]
+  packScale: [number, number, number]
+  accentScale: [number, number, number]
+  headScale: [number, number, number]
+  headStyle: HeadStyle
+  badgeOffsetX: number
+  accentOffsetX: number
+  packOffsetX: number
+  scarfTilt: number
+  capeTilt: number
+  antennaLean: number
+}
 
 interface RoverDescriptor {
+  deptKey: string
   mode: RoverMode
   from: THREE.Vector3
   to: THREE.Vector3
   home: THREE.Vector3
   initialProgress: number
   speed: number
-  color: THREE.Color
   moveFirstAxis: 'x' | 'z'
   sleepPhase: number
+  style: RoverStyle
 }
 
 function seeded(seed: number) {
   const x = Math.sin(seed) * 10000
   return x - Math.floor(x)
+}
+
+function scale3(x: number, y: number, z: number): [number, number, number] {
+  return [x, y, z]
+}
+
+function hiddenScale(): [number, number, number] {
+  return [0.0001, 0.0001, 0.0001]
+}
+
+function dim(hex: string, factor: number) {
+  const color = new THREE.Color(hex).multiplyScalar(factor)
+  return `#${color.getHexString()}`
+}
+
+function hashKey(value: string) {
+  let total = 0
+  for (let i = 0; i < value.length; i++) {
+    total = (total * 33 + value.charCodeAt(i)) % 100000
+  }
+  return total
 }
 
 function buildOffsetPosition(
@@ -49,6 +96,215 @@ function buildOffsetPosition(
   )
 }
 
+function buildRoverStyle(
+  archetype: RoverVisualArchetype,
+  mode: RoverMode,
+  seed: number,
+): RoverStyle {
+  const style: RoverStyle = {
+    shellColor: '#edf3fb',
+    outfitColor: '#64748b',
+    trimColor: '#f8fafc',
+    badgeColor: '#ffffff',
+    accentColor: '#94a3b8',
+    visorColor: '#0f172a',
+    bodyScale: scale3(
+      0.98 + seeded(seed + 0.4) * 0.08,
+      0.98 + seeded(seed + 1.1) * 0.08,
+      0.96 + seeded(seed + 1.8) * 0.08,
+    ),
+    outfitScale: scale3(1.04, 1.0, 1.02),
+    scarfScale: hiddenScale(),
+    capeScale: hiddenScale(),
+    packScale: hiddenScale(),
+    accentScale: hiddenScale(),
+    headScale: hiddenScale(),
+    headStyle: 'none',
+    badgeOffsetX: 0.11,
+    accentOffsetX: 0,
+    packOffsetX: 0.19,
+    scarfTilt: 0,
+    capeTilt: 0,
+    antennaLean: 0,
+  }
+
+  if (archetype === 'executive_office') {
+    style.outfitColor = '#1f2937'
+    style.trimColor = '#f8fafc'
+    style.badgeColor = '#fbbf24'
+    style.accentColor = '#dc2626'
+    style.visorColor = '#111827'
+    style.outfitScale = scale3(1.08, 1.08, 1.02)
+    style.accentScale = scale3(0.95, 1.14, 1)
+    style.badgeOffsetX = 0.14
+  } else if (archetype === 'corporate_finance') {
+    style.outfitColor = '#1f2937'
+    style.trimColor = '#cbd5e1'
+    style.badgeColor = '#14b8a6'
+    style.accentColor = '#f59e0b'
+    style.visorColor = '#0f172a'
+    style.outfitScale = scale3(1.08, 0.98, 1.02)
+    style.accentScale = scale3(0.82, 1, 1)
+    style.badgeOffsetX = 0.13
+  } else if (archetype === 'research_lab') {
+    style.shellColor = '#f7fbff'
+    style.outfitColor = '#ffffff'
+    style.trimColor = '#dbeafe'
+    style.badgeColor = '#38bdf8'
+    style.accentColor = '#93c5fd'
+    style.visorColor = '#1d4ed8'
+    style.outfitScale = scale3(1.16, 1.14, 1.08)
+    style.accentScale = scale3(0.72, 0.86, 1)
+    style.headStyle = 'halo'
+    style.headScale = scale3(1.02, 1, 1.02)
+  } else if (archetype === 'product_experience') {
+    style.outfitColor = '#7c3aed'
+    style.trimColor = '#f9a8d4'
+    style.badgeColor = '#fb7185'
+    style.accentColor = '#22c55e'
+    style.visorColor = '#4c1d95'
+    style.scarfScale = scale3(1.14, 1, 1.08)
+    style.capeScale = scale3(1.02, 1.16, 1)
+    style.headStyle = 'halo'
+    style.headScale = scale3(1.08, 1, 1.08)
+    style.scarfTilt = -0.06
+    style.capeTilt = 0.04
+  } else if (archetype === 'engineering') {
+    style.outfitColor = '#ea580c'
+    style.trimColor = '#fed7aa'
+    style.badgeColor = '#67e8f9'
+    style.accentColor = '#22c55e'
+    style.visorColor = '#1f2937'
+    style.packScale = scale3(1, 1.02, 1)
+    style.headStyle = 'antenna'
+    style.headScale = scale3(1, 1.08, 1)
+    style.accentScale = scale3(0.88, 0.64, 1)
+    style.antennaLean = -0.12
+  } else if (archetype === 'quality_assurance') {
+    style.outfitColor = '#84cc16'
+    style.trimColor = '#ecfccb'
+    style.badgeColor = '#facc15'
+    style.accentColor = '#bef264'
+    style.visorColor = '#365314'
+    style.outfitScale = scale3(1.08, 0.96, 1.02)
+    style.headStyle = 'halo'
+    style.headScale = scale3(1.06, 1, 1.06)
+    style.accentScale = scale3(1.08, 0.58, 1)
+  } else if (archetype === 'growth_marketing') {
+    style.outfitColor = '#f59e0b'
+    style.trimColor = '#fde047'
+    style.badgeColor = '#fb7185'
+    style.accentColor = '#ef4444'
+    style.visorColor = '#92400e'
+    style.scarfScale = scale3(1.08, 1, 1.06)
+    style.headStyle = 'cap'
+    style.headScale = scale3(1, 1, 1)
+    style.scarfTilt = 0.08
+  }
+
+  if (mode === 'sleeping') {
+    style.shellColor = dim(style.shellColor, 0.82)
+    style.outfitColor = dim(style.outfitColor, 0.84)
+    style.trimColor = dim(style.trimColor, 0.9)
+    style.badgeColor = dim(style.badgeColor, 0.9)
+    style.accentColor = dim(style.accentColor, 0.88)
+    style.visorColor = dim(style.visorColor, 0.9)
+  }
+
+  return style
+}
+
+function isVisible(scale: [number, number, number]) {
+  return scale[0] > 0.001 || scale[1] > 0.001 || scale[2] > 0.001
+}
+
+function RoverMesh({ rover }: { rover: RoverDescriptor }) {
+  const style = rover.style
+
+  return (
+    <group>
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[0.5, 0.4, 0.4]} />
+        <meshPhysicalMaterial color={style.shellColor} roughness={0.32} metalness={0.16} clearcoat={0.48} />
+      </mesh>
+
+      <mesh castShadow receiveShadow position={[0, -0.01, 0]} scale={style.outfitScale}>
+        <boxGeometry args={[0.56, 0.28, 0.44]} />
+        <meshBasicMaterial color={style.outfitColor} toneMapped={false} />
+      </mesh>
+
+      {isVisible(style.scarfScale) && (
+        <mesh castShadow receiveShadow position={[0, 0.1, 0.02]} scale={style.scarfScale} rotation={[0, 0, style.scarfTilt]}>
+          <boxGeometry args={[0.62, 0.07, 0.5]} />
+          <meshBasicMaterial color={style.trimColor} toneMapped={false} />
+        </mesh>
+      )}
+
+      {isVisible(style.capeScale) && (
+        <mesh castShadow receiveShadow position={[0, -0.01, -0.23]} scale={style.capeScale} rotation={[0, style.capeTilt, 0]}>
+          <boxGeometry args={[0.34, 0.3, 0.05]} />
+          <meshBasicMaterial color={style.outfitColor} toneMapped={false} />
+        </mesh>
+      )}
+
+      {isVisible(style.packScale) && (
+        <mesh castShadow receiveShadow position={[style.packOffsetX, -0.02, -0.15]} scale={style.packScale}>
+          <boxGeometry args={[0.18, 0.18, 0.1]} />
+          <meshBasicMaterial color={style.trimColor} toneMapped={false} />
+        </mesh>
+      )}
+
+      <mesh position={[style.badgeOffsetX, 0.02, 0.215]}>
+        <boxGeometry args={[0.09, 0.07, 0.02]} />
+        <meshBasicMaterial color={style.badgeColor} toneMapped={false} />
+      </mesh>
+
+      {isVisible(style.accentScale) && (
+        <mesh position={[style.accentOffsetX, -0.02, 0.215]} scale={style.accentScale}>
+          <boxGeometry args={[0.08, 0.18, 0.02]} />
+          <meshBasicMaterial color={style.accentColor} toneMapped={false} />
+        </mesh>
+      )}
+
+      <mesh position={[0, 0.08, 0.216]}>
+        <boxGeometry args={[0.31, 0.13, 0.02]} />
+        <meshBasicMaterial color={style.visorColor} toneMapped={false} />
+      </mesh>
+
+      <mesh position={[-0.08, 0.08, 0.227]}>
+        <sphereGeometry args={[0.016, 8, 8]} />
+        <meshBasicMaterial color="#ffffff" toneMapped={false} />
+      </mesh>
+
+      <mesh position={[0.08, 0.08, 0.227]}>
+        <sphereGeometry args={[0.016, 8, 8]} />
+        <meshBasicMaterial color="#ffffff" toneMapped={false} />
+      </mesh>
+
+      {style.headStyle === 'cap' && (
+        <mesh castShadow receiveShadow position={[0, 0.24, 0]} scale={style.headScale}>
+          <cylinderGeometry args={[0.16, 0.22, 0.12, 12]} />
+          <meshBasicMaterial color={style.trimColor} toneMapped={false} />
+        </mesh>
+      )}
+
+      {style.headStyle === 'halo' && (
+        <mesh position={[0, 0.28, 0]} scale={style.headScale} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.17, 0.025, 8, 18]} />
+          <meshBasicMaterial color={style.badgeColor} toneMapped={false} />
+        </mesh>
+      )}
+
+      {style.headStyle === 'antenna' && (
+        <mesh position={[0, 0.28, -0.02]} scale={style.headScale} rotation={[style.antennaLean, 0, 0]}>
+          <cylinderGeometry args={[0.025, 0.03, 0.24, 8]} />
+          <meshBasicMaterial color={style.trimColor} toneMapped={false} />
+        </mesh>
+      )}
+    </group>
+  )
+}
+
 export function AgentRovers({
   positions,
   activeDepts,
@@ -57,10 +313,7 @@ export function AgentRovers({
   hasActiveRun,
   selectedBuilding = null,
 }: AgentRoversProps) {
-  const meshRef = useRef<THREE.InstancedMesh>(null)
-  const visorRef = useRef<THREE.InstancedMesh>(null)
-  const eyeLRef = useRef<THREE.InstancedMesh>(null)
-  const eyeRRef = useRef<THREE.InstancedMesh>(null)
+  const groupRefs = useRef<Array<THREE.Group | null>>([])
   const progressRef = useRef<number[]>([])
 
   const rovers = useMemo(() => {
@@ -84,42 +337,46 @@ export function AgentRovers({
       : runningKeys
 
     const movingCount = hasActiveRun
-      ? Math.min(ROVER_COUNT, Math.max(0, scopedRunningKeys.length * ACTIVE_ROVERS_PER_DEPT))
+      ? Math.min(ROVER_COUNT, Math.max(0, scopedRunningKeys.length * ACTIVE_ROVERS_PER_DEPARTMENT))
       : 0
 
     for (let i = 0; i < movingCount; i++) {
       const toKey = scopedRunningKeys[i % scopedRunningKeys.length]
       const choices = deptKeys.filter((key) => key !== toKey)
       const fromKey = choices[Math.floor(seeded(i * 4.13 + 1.9) * choices.length)] ?? toKey
-      const fromBase = positions[fromKey]
-      const toBase = positions[toKey]
+      const styleSeed = i * 14.7 + hashKey(toKey) * 0.19 + hashKey(fromKey) * 0.07
+      const archetype = getDepartmentOrganizationSpec(toKey).visualArchetype
+
       arr.push({
+        deptKey: toKey,
         mode: 'moving',
-        from: buildOffsetPosition(fromBase, i * 3.17 + 0.5, i * 9.77 + 1.1, 2.2),
-        to: buildOffsetPosition(toBase, i * 5.21 + 1.7, i * 7.03 + 2.4, 1.6),
-        home: buildOffsetPosition(toBase, i * 1.91 + 8.2, i * 6.51 + 0.4, 1.6),
+        from: buildOffsetPosition(positions[fromKey], i * 3.17 + 0.5, i * 9.77 + 1.1, 2.2),
+        to: buildOffsetPosition(positions[toKey], i * 5.21 + 1.7, i * 7.03 + 2.4, 1.6),
+        home: buildOffsetPosition(positions[toKey], i * 1.91 + 8.2, i * 6.51 + 0.4, 1.6),
         initialProgress: seeded(i * 5.5),
         speed: 0.2 + seeded(i * 1.1 + 0.3) * 0.18,
-        color: new THREE.Color(colors[toKey] || '#8899aa'),
         moveFirstAxis: seeded(i * 8.1) > 0.5 ? 'x' : 'z',
         sleepPhase: seeded(i * 11.3) * Math.PI * 2,
+        style: buildRoverStyle(archetype, 'moving', styleSeed),
       })
     }
 
     for (let i = movingCount; i < ROVER_COUNT; i++) {
       const homeKey = deptKeys[(i - movingCount) % deptKeys.length]
-      const homeBase = positions[homeKey]
-      const dimmedColor = new THREE.Color(colors[homeKey] || '#8899aa').multiplyScalar(0.42)
+      const styleSeed = i * 13.1 + hashKey(homeKey) * 0.17
+      const archetype = getDepartmentOrganizationSpec(homeKey).visualArchetype
+
       arr.push({
+        deptKey: homeKey,
         mode: 'sleeping',
         from: new THREE.Vector3(),
         to: new THREE.Vector3(),
-        home: buildOffsetPosition(homeBase, i * 2.71 + 4.4, i * 3.91 + 2.2, 2.1),
+        home: buildOffsetPosition(positions[homeKey], i * 2.71 + 4.4, i * 3.91 + 2.2, 2.1),
         initialProgress: 0,
         speed: 0,
-        color: dimmedColor,
         moveFirstAxis: 'x',
         sleepPhase: seeded(i * 4.7 + 2.9) * Math.PI * 2,
+        style: buildRoverStyle(archetype, 'sleeping', styleSeed),
       })
     }
 
@@ -128,37 +385,18 @@ export function AgentRovers({
 
   useEffect(() => {
     progressRef.current = rovers.map((rover) => rover.initialProgress)
+    groupRefs.current = groupRefs.current.slice(0, rovers.length)
   }, [rovers])
 
-  const { dummy, visorDummy, eyeLDummy, eyeRDummy } = useMemo(() => {
-    const dummy = new THREE.Object3D()
-
-    const visorDummy = new THREE.Object3D()
-    visorDummy.position.set(0, 0.08, 0.205)
-    dummy.add(visorDummy)
-
-    const eyeLDummy = new THREE.Object3D()
-    eyeLDummy.position.set(-0.08, 0.08, 0.215)
-    dummy.add(eyeLDummy)
-
-    const eyeRDummy = new THREE.Object3D()
-    eyeRDummy.position.set(0.08, 0.08, 0.215)
-    dummy.add(eyeRDummy)
-
-    return { dummy, visorDummy, eyeLDummy, eyeRDummy }
-  }, [])
-
-  const colorObj = useMemo(() => new THREE.Color(), [])
-
   useFrame((state, delta) => {
-    if (!meshRef.current) {
-      return
-    }
-
     const elapsed = state.clock.getElapsedTime()
 
     for (let i = 0; i < rovers.length; i++) {
       const rover = rovers[i]
+      const group = groupRefs.current[i]
+      if (!group) {
+        continue
+      }
 
       if (rover.mode === 'moving') {
         const nextProgress = (progressRef.current[i] ?? rover.initialProgress) + delta * rover.speed
@@ -192,94 +430,53 @@ export function AgentRovers({
         }
 
         const lift = 0.34 + Math.abs(Math.sin(progress * Math.PI * 10)) * 0.05
-        const prevX = dummy.position.x
-        const prevZ = dummy.position.z
-        dummy.position.set(curX, lift, curZ)
+        const prevX = group.position.x
+        const prevZ = group.position.z
+        group.position.set(curX, lift, curZ)
 
         const dx = curX - prevX
         const dz = curZ - prevZ
         const rotY = Math.abs(dx) > 0.0001 || Math.abs(dz) > 0.0001
           ? Math.atan2(dx, dz)
-          : dummy.rotation.y
+          : group.rotation.y
 
-        dummy.rotation.set(0, rotY, Math.sin(progress * Math.PI * 8) * 0.04)
-        dummy.scale.set(1, 1, 1)
-
-        colorObj.copy(rover.color)
-        colorObj.multiplyScalar(1 + Math.sin(progress * Math.PI * 10) * 0.35)
+        group.rotation.set(0, rotY, Math.sin(progress * Math.PI * 8) * 0.04)
+        group.scale.set(
+          rover.style.bodyScale[0],
+          rover.style.bodyScale[1],
+          rover.style.bodyScale[2],
+        )
       } else {
         const breathe = Math.sin(elapsed * 1.25 + rover.sleepPhase)
         const sway = Math.sin(elapsed * 0.55 + rover.sleepPhase)
 
-        dummy.position.set(
+        group.position.set(
           rover.home.x,
           0.16 + breathe * 0.018,
           rover.home.z,
         )
-        dummy.rotation.set(0.22 + breathe * 0.03, sway * 0.18, 0.08 + sway * 0.02)
-        dummy.scale.set(1.02, 0.72, 1.08)
-
-        colorObj.copy(rover.color)
-        colorObj.multiplyScalar(0.9 + breathe * 0.05)
+        group.rotation.set(0.22 + breathe * 0.03, sway * 0.18, 0.08 + sway * 0.02)
+        group.scale.set(
+          rover.style.bodyScale[0] * 1.01,
+          rover.style.bodyScale[1] * 0.82,
+          rover.style.bodyScale[2] * 1.04,
+        )
       }
-
-      dummy.updateMatrixWorld(true)
-      meshRef.current.setMatrixAt(i, dummy.matrixWorld)
-      if (visorRef.current) {
-        visorRef.current.setMatrixAt(i, visorDummy.matrixWorld)
-      }
-      if (eyeLRef.current) {
-        eyeLRef.current.setMatrixAt(i, eyeLDummy.matrixWorld)
-      }
-      if (eyeRRef.current) {
-        eyeRRef.current.setMatrixAt(i, eyeRDummy.matrixWorld)
-      }
-      meshRef.current.setColorAt(i, colorObj)
-    }
-
-    meshRef.current.instanceMatrix.needsUpdate = true
-    if (meshRef.current.instanceColor) {
-      meshRef.current.instanceColor.needsUpdate = true
-    }
-    if (visorRef.current) {
-      visorRef.current.instanceMatrix.needsUpdate = true
-    }
-    if (eyeLRef.current) {
-      eyeLRef.current.instanceMatrix.needsUpdate = true
-    }
-    if (eyeRRef.current) {
-      eyeRRef.current.instanceMatrix.needsUpdate = true
     }
   })
 
   return (
     <group>
-      <instancedMesh ref={meshRef} args={[undefined, undefined, ROVER_COUNT]} castShadow receiveShadow>
-        <boxGeometry args={[0.5, 0.4, 0.4]}>
-          <instancedBufferAttribute attach="attributes-color" args={[new Float32Array(ROVER_COUNT * 3), 3]} />
-        </boxGeometry>
-        <meshPhysicalMaterial
-          vertexColors
-          roughness={0.4}
-          metalness={0.6}
-          clearcoat={0.8}
-        />
-      </instancedMesh>
-
-      <instancedMesh ref={visorRef} args={[undefined, undefined, ROVER_COUNT]}>
-        <boxGeometry args={[0.35, 0.15, 0.02]} />
-        <meshBasicMaterial color="#000000" />
-      </instancedMesh>
-
-      <instancedMesh ref={eyeLRef} args={[undefined, undefined, ROVER_COUNT]}>
-        <sphereGeometry args={[0.025, 8, 8]} />
-        <meshBasicMaterial color="#ffffff" />
-      </instancedMesh>
-
-      <instancedMesh ref={eyeRRef} args={[undefined, undefined, ROVER_COUNT]}>
-        <sphereGeometry args={[0.025, 8, 8]} />
-        <meshBasicMaterial color="#ffffff" />
-      </instancedMesh>
+      {rovers.map((rover, index) => (
+        <group
+          key={`${rover.deptKey}-${index}`}
+          ref={(node) => {
+            groupRefs.current[index] = node
+          }}
+        >
+          <RoverMesh rover={rover} />
+        </group>
+      ))}
     </group>
   )
 }

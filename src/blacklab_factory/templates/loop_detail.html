@@ -117,36 +117,38 @@
       <h2>Iterations</h2>
       <p>Each cycle launches one company run and then feeds its briefing into the next cycle.</p>
     </div>
-    <table class="run-table">
-      <thead>
-        <tr>
-          <th>Iteration</th>
-          <th>Run</th>
-          <th>Status</th>
-          <th>Summary</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for iteration, linked_run in linked_runs %}
+    <div class="table-scroll table-scroll--compact">
+      <table class="run-table">
+        <thead>
           <tr>
-            <td>{{ iteration.iteration }}</td>
-            <td>
-              {% if iteration.run_id %}
-                <a href="/runs/{{ iteration.run_id }}">{{ iteration.run_id }}</a>
-              {% else %}
-                -
-              {% endif %}
-            </td>
-            <td><span class="badge status-{{ iteration.status or 'pending' }}">{{ iteration.status or "pending" }}</span></td>
-            <td>{{ linked_run.summary if linked_run else iteration.summary or "-" }}</td>
+            <th>Iteration</th>
+            <th>Run</th>
+            <th>Status</th>
+            <th>Summary</th>
           </tr>
-        {% else %}
-          <tr>
-            <td colspan="4">No iterations recorded yet.</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {% for iteration, linked_run in linked_runs %}
+            <tr>
+              <td>{{ iteration.iteration }}</td>
+              <td>
+                {% if iteration.run_id %}
+                  <a href="/runs/{{ iteration.run_id }}">{{ iteration.run_id }}</a>
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td><span class="badge status-{{ iteration.status or 'pending' }}">{{ iteration.status or "pending" }}</span></td>
+              <td>{{ linked_run.summary if linked_run else iteration.summary or "-" }}</td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="4">No iterations recorded yet.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </section>
 
   <section class="panel">

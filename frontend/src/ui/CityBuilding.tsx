@@ -37,7 +37,7 @@ function seeded(s: number): number {
   return x - Math.floor(x)
 }
 
-const WINDOW_ROWS = 5
+const WINDOW_ROWS = 6
 const WINDOW_COLS = 3
 
 // Pre-bake window lit state per slot using seed (not random per render)
@@ -46,11 +46,10 @@ function buildWindows(seed: number) {
   let si = seed * 1000
   for (let r = 0; r < WINDOW_ROWS; r++) {
     for (let c = 0; c < WINDOW_COLS; c++) {
-      const xOff = (c - 1) * 0.3
-      const yOff = -0.4 + (r / WINDOW_ROWS) * 0.8
-      // Fit firmly inside the slim pyramid top geometry
-      arr.push({ x: xOff,   y: yOff, z:  0.35, baseLit: seeded(si++) > 0.25 })
-      arr.push({ x: xOff,   y: yOff, z: -0.35, baseLit: seeded(si++) > 0.35 })
+      const xOff = (c - (WINDOW_COLS - 1) / 2) * 0.36
+      const yOff = -0.46 + (r / Math.max(WINDOW_ROWS - 1, 1)) * 0.92
+      arr.push({ x: xOff, y: yOff, z: 0.62, baseLit: seeded(si++) > 0.2 })
+      arr.push({ x: xOff, y: yOff, z: -0.62, baseLit: seeded(si++) > 0.3 })
     }
   }
   return arr
@@ -111,9 +110,11 @@ export function CityBuilding({
   // Use position hash as seed so each building is deterministic
   const seed = Math.abs(Math.floor(position[0] * 17 + position[2] * 31))
   const windows = useMemo(() => buildWindows(seed), [seed])
+  const windowGlowColor = useMemo(
+    () => col.clone().lerp(new THREE.Color('#f8fafc'), isNight ? 0.24 : 0.38),
+    [col, isNight],
+  )
 
-  const idleWindowIntensity = isNight ? 0.45 : 0.16
-  const idleWindowDimIntensity = isNight ? 0.14 : 0.05
   const idleCoreLightIntensity = isNight ? 0.18 : 0.06
 
   useFrame((state, delta) => {
@@ -190,21 +191,23 @@ export function CityBuilding({
       <group ref={windowsGroupRef} position={[0, target / 2, 0]}>
         {windows.map((w, i) => (
           <mesh key={i} position={[w.x, w.y, w.z]}>
-            <planeGeometry args={[0.2, 0.1]} />
-            <meshStandardMaterial
-              color={color}
-              emissive={col}
-              emissiveIntensity={
-                isDimmed
-                  ? idleWindowDimIntensity
-                  : isActive && w.baseLit
-                    ? (isNight ? 2.5 : 1.8)
-                    : w.baseLit
-                      ? idleWindowIntensity
-                      : idleWindowDimIntensity
-              }
+            <planeGeometry args={[0.24, 0.14]} />
+            <meshBasicMaterial
+              color={windowGlowColor}
               transparent={true}
-              opacity={isDimmed ? 0.2 : (isSelected ? 0 : 1)}
+              opacity={
+                isSelected
+                  ? 0
+                  : isDimmed
+                    ? 0.16
+                    : isActive && w.baseLit
+                      ? (isNight ? 0.96 : 0.88)
+                      : w.baseLit
+                        ? (isNight ? 0.58 : 0.44)
+                        : (isNight ? 0.12 : 0.08)
+              }
+              depthWrite={false}
+              toneMapped={false}
               side={THREE.DoubleSide}
             />
           </mesh>

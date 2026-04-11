@@ -101,6 +101,10 @@ export interface DepartmentConfig {
   output_title: string
   temperature: number
   runtime_tier: string
+  resource_lane?: string
+  priority?: number
+  depends_on?: string[]
+  requires_all_completed?: boolean
 }
 
 export interface CompanyConfig {

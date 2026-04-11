@@ -1,3 +1,6 @@
+from pathlib import Path
+
+from blacklab_factory import agents as agents_module
 from blacklab_factory.agents import CodexDepartmentAgent
 from blacklab_factory.models import DepartmentConfig, RunSettings
 
@@ -45,3 +48,40 @@ def test_codex_agent_resolves_core_profile_for_core_department() -> None:
     assert profile.tier == "core"
     assert profile.model == "gpt-5.4"
     assert profile.autonomy == "yolo"
+
+
+def test_codex_agent_resolves_common_homebrew_path_when_path_lookup_fails(monkeypatch) -> None:
+    agent = CodexDepartmentAgent()
+    monkeypatch.delenv("BLACKLAB_CODEX_BIN", raising=False)
+    monkeypatch.delenv("CODEX_BIN", raising=False)
+    monkeypatch.setattr(agents_module.shutil, "which", lambda _: None)
+
+    real_exists = Path.exists
+
+    def fake_exists(path: Path) -> bool:
+        return str(path) == "/opt/homebrew/bin/codex" or real_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fake_exists)
+    monkeypatch.setattr(agents_module.os, "access", lambda path, mode: str(path) == "/opt/homebrew/bin/codex")
+
+    assert agent._resolve_codex_bin() == "/opt/homebrew/bin/codex"
+
+
+def test_codex_agent_raises_clear_error_when_binary_cannot_be_resolved(monkeypatch) -> None:
+    agent = CodexDepartmentAgent()
+    monkeypatch.delenv("BLACKLAB_CODEX_BIN", raising=False)
+    monkeypatch.delenv("CODEX_BIN", raising=False)
+    monkeypatch.setenv("PATH", "/tmp/nowhere")
+    monkeypatch.setattr(agents_module.shutil, "which", lambda _: None)
+    monkeypatch.setattr(Path, "exists", lambda self: False)
+    monkeypatch.setattr(agents_module.os, "access", lambda path, mode: False)
+
+    try:
+        agent._resolve_codex_bin()
+    except RuntimeError as exc:
+        message = str(exc)
+    else:
+        raise AssertionError("expected RuntimeError")
+
+    assert "BLACKLAB_CODEX_BIN" in message
+    assert "PATH=/tmp/nowhere" in message

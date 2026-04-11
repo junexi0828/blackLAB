@@ -2,7 +2,9 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from blacklab_factory.autopilot import AutopilotSupervisor, LoopRunRequest
 from blacklab_factory.factory import FactoryRunner
+from blacklab_factory.models import RunSettings
 from blacklab_factory.web import create_app
 
 
@@ -42,7 +44,7 @@ def test_dashboard_routes_render(tmp_path: Path) -> None:
 
     settings_page = client.get("/settings")
     assert settings_page.status_code == 200
-    assert "Runtime Settings" in settings_page.text
+    assert "Organization" in settings_page.text
 
     detail_response = client.get(f"/runs/{state.run_id}")
     assert detail_response.status_code == 200
@@ -145,3 +147,96 @@ def test_run_stop_api_marks_run_stopping(tmp_path: Path) -> None:
     assert payload["run_id"] == state.run_id
     assert payload["status"] == "stopping"
     assert payload["stop_requested"] is True
+
+
+def test_runs_page_shows_useful_action_links(tmp_path: Path) -> None:
+    runner = FactoryRunner(storage_root=tmp_path)
+    state = runner.storage.create_run(
+        mission="Review action links",
+        company_name="blackLAB",
+        mode="mock",
+        steps=[],
+    )
+    state.status = "completed"
+    runner.storage.save_state(state)
+
+    client = TestClient(create_app(storage_root=tmp_path))
+    response = client.get("/runs")
+
+    assert response.status_code == 200
+    assert f'href="/runs/{state.run_id}"' in response.text
+    assert f'href="/runs/{state.run_id}/log"' in response.text
+    assert "Report" in response.text
+    assert "Log" in response.text
+
+
+def test_loops_page_sidebar_uses_loop_project_context(tmp_path: Path) -> None:
+    runner = FactoryRunner(storage_root=tmp_path)
+    run_state = runner.storage.create_run(
+        mission="Live run should not override loop sidebar context",
+        company_name="blackLAB",
+        mode="mock",
+        steps=[],
+    )
+    run_state.status = "running"
+    run_state.project_slug = "run-project"
+    run_state.project_name = "Run Project"
+    runner.storage.save_state(run_state)
+
+    supervisor = AutopilotSupervisor(storage_root=tmp_path)
+    loop_state = supervisor.start_loop(
+        LoopRunRequest(
+            objective="Live loop should own the loop ledger sidebar",
+            loop_mode="always_on",
+            run_mode="mock",
+            run_settings=RunSettings(),
+            project_slug="loop-project",
+        )
+    )
+    loop_state.status = "running"
+    loop_state.project_name = "Loop Project"
+    supervisor.loop_storage.save_state(loop_state)
+
+    client = TestClient(create_app(storage_root=tmp_path))
+    response = client.get("/loops")
+
+    assert response.status_code == 200
+    assert "Current Project" in response.text
+    assert "Loop Project" in response.text
+    assert "active loop" in response.text
+    assert "Current Loop" in response.text
+    assert "All Loops" in response.text
+
+
+def test_loops_page_sidebar_does_not_fall_back_to_recent_run_project(tmp_path: Path) -> None:
+    runner = FactoryRunner(storage_root=tmp_path)
+    run_state = runner.storage.create_run(
+        mission="Run project should stay scoped to runs page",
+        company_name="blackLAB",
+        mode="mock",
+        steps=[],
+    )
+    run_state.status = "completed"
+    run_state.project_slug = "run-project"
+    run_state.project_name = "Run Project"
+    runner.storage.save_state(run_state)
+
+    supervisor = AutopilotSupervisor(storage_root=tmp_path)
+    loop_state = supervisor.start_loop(
+        LoopRunRequest(
+            objective="Loop without linked project",
+            loop_mode="always_on",
+            run_mode="mock",
+            run_settings=RunSettings(),
+        )
+    )
+    loop_state.status = "completed"
+    supervisor.loop_storage.save_state(loop_state)
+
+    client = TestClient(create_app(storage_root=tmp_path))
+    response = client.get("/loops")
+
+    assert response.status_code == 200
+    assert "Current Loop" in response.text
+    assert "Run Project" not in response.text
+    assert "recent run" not in response.text

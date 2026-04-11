@@ -35,7 +35,7 @@ export function LoopsPage() {
   return (
     <>
       <PageHeader title="Loop Vault" description="Track every bounded experiment and always-on reactor the company has launched." />
-      <section className="panel">
+      <section className="panel" style={{ border: '2px solid blue' }}>
         <div className="panel-header">
           <h3>All Loops</h3>
           <input

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% block title %}BlackLAB Factory{% endblock %}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/css/tabler.min.css" />
-    <link rel="stylesheet" href="/static/style.css?v=28" />
+    <link rel="stylesheet" href="/static/style.css?v=34" />
     <script defer src="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/js/tabler.min.js"></script>
     <script defer src="/static/app.js"></script>
   </head>
@@ -24,7 +24,7 @@
           <a class="nav-link {% if request.url.path == '/operator' %}is-active{% endif %}" href="/operator">Operator Chat</a>
           <a class="nav-link {% if request.url.path == '/runs' %}is-active{% endif %}" href="/runs">Runs</a>
           <a class="nav-link {% if request.url.path == '/loops' %}is-active{% endif %}" href="/loops">Loops</a>
-          <a class="nav-link {% if request.url.path == '/settings' %}is-active{% endif %}" href="/settings">Settings</a>
+          <a class="nav-link {% if request.url.path == '/settings' %}is-active{% endif %}" href="/settings">Organization</a>
         </nav>
         {% if current_project %}
           <div class="project-signboard">

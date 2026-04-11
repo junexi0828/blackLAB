@@ -30,7 +30,7 @@ export function RunsPage() {
   return (
     <>
       <PageHeader title="Run Vault" description="Search the archive of company runs, active missions, and stored operator briefs." />
-      <section className="panel">
+      <section className="panel" style={{ border: '2px solid blue' }}>
         <div className="panel-header">
           <h3>All Runs</h3>
           <input

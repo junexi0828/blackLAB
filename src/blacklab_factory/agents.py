@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import subprocess
 import tempfile
 import time
@@ -289,6 +291,35 @@ class CodexDepartmentAgent(DepartmentAgent):
     def __init__(self, codex_bin: str = "codex") -> None:
         self.codex_bin = codex_bin
 
+    def _resolve_codex_bin(self) -> str:
+        explicit_override = os.environ.get("BLACKLAB_CODEX_BIN") or os.environ.get("CODEX_BIN")
+        candidate = explicit_override or self.codex_bin
+
+        if Path(candidate).expanduser().exists():
+            resolved = str(Path(candidate).expanduser().resolve())
+            if os.access(resolved, os.X_OK):
+                return resolved
+
+        discovered = shutil.which(candidate)
+        if discovered:
+            return discovered
+
+        fallback_candidates = [
+            "/opt/homebrew/bin/codex",
+            "/usr/local/bin/codex",
+            str(Path.home() / ".local" / "bin" / "codex"),
+        ]
+        for fallback in fallback_candidates:
+            if Path(fallback).exists() and os.access(fallback, os.X_OK):
+                return fallback
+
+        path_value = os.environ.get("PATH", "")
+        raise RuntimeError(
+            "Codex CLI was not found. Install `codex`, add it to PATH, or set "
+            "`BLACKLAB_CODEX_BIN` to the executable path. "
+            f"PATH={path_value}"
+        )
+
     def run(
         self,
         company: CompanyConfig,
@@ -391,9 +422,10 @@ class CodexDepartmentAgent(DepartmentAgent):
             # inside .factory/runs/<run_id>/workspace/ and never touches the
             # main blackLAB source tree (src/, frontend/, etc.).
             effective_cwd = str(workspace_path) if workspace_path else tempfile.mkdtemp(prefix="blacklab-cwd-")
+            codex_bin = self._resolve_codex_bin()
 
             command = [
-                self.codex_bin,
+                codex_bin,
                 "exec",
                 "-C",
                 effective_cwd,
@@ -418,17 +450,23 @@ class CodexDepartmentAgent(DepartmentAgent):
             if hooks and hooks.on_log:
                 hooks.on_log(
                     f"{department_label}: launching codex worker with tier={runtime_profile.tier} "
-                    f"model={runtime_profile.model} autonomy={runtime_profile.autonomy}."
+                    f"model={runtime_profile.model} autonomy={runtime_profile.autonomy} bin={codex_bin}."
                 )
 
             with stdout_path.open("w", encoding="utf-8") as stdout_handle, stderr_path.open("w", encoding="utf-8") as stderr_handle:
-                process = subprocess.Popen(
-                    command,
-                    stdout=stdout_handle,
-                    stderr=stderr_handle,
-                    text=True,
-                    stdin=subprocess.DEVNULL,
-                )
+                try:
+                    process = subprocess.Popen(
+                        command,
+                        stdout=stdout_handle,
+                        stderr=stderr_handle,
+                        text=True,
+                        stdin=subprocess.DEVNULL,
+                    )
+                except FileNotFoundError as exc:
+                    raise RuntimeError(
+                        "Codex CLI launch failed because the executable could not be found. "
+                        f"Resolved command: {command[0]}"
+                    ) from exc
                 if hooks and hooks.on_process_start:
                     hooks.on_process_start(process.pid, _preview_command(command))
 

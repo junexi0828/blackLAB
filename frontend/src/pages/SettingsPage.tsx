@@ -1,7 +1,72 @@
 import { getSettings } from '../api'
+import {
+  buildOrganizationDirectory,
+  buildOrganizationHierarchy,
+  getOrganizationDivision,
+  type OrganizationChartNode,
+  type OrganizationDirectoryGroup,
+} from '../config/organizationModel'
 import { useJsonResource } from '../hooks/useJsonResource'
 import { PageHeader } from '../ui/PageHeader'
 import { ResourceState } from '../ui/ResourceState'
+import type { DepartmentConfig } from '../types'
+
+function getBoardReviewStub(label: string, outputTitle: string): DepartmentConfig {
+  return {
+    key: 'board_review',
+    label,
+    purpose: 'Synthesize all department outputs into one operator briefing.',
+    output_title: outputTitle,
+    temperature: 0.1,
+    runtime_tier: 'review',
+    resource_lane: 'review',
+    priority: 40,
+    depends_on: [],
+    requires_all_completed: true,
+  }
+}
+
+function OrganizationNode({ node, depth = 0 }: { node: OrganizationChartNode; depth?: number }) {
+  const division = getOrganizationDivision(node.divisionKey)
+  const childCountLabel = node.children.length > 0 ? `${node.children.length} team${node.children.length > 1 ? 's' : ''}` : null
+
+  return (
+    <div className={`org-tree-node org-tree-node--depth-${Math.min(depth, 2)}`}>
+      <article className="org-visual-card">
+        <span className="org-visual-card__category">{division.label}</span>
+        <h4>{node.publicName}</h4>
+        <p>{node.publicSummary}</p>
+        {childCountLabel && <span className="org-visual-card__count">{childCountLabel}</span>}
+      </article>
+      {node.children.length > 0 && (
+        <div className={`org-tree-children org-tree-children--count-${Math.min(node.children.length, 4)}`}>
+          {node.children.map((child) => (
+            <OrganizationNode key={child.key} node={child} depth={depth + 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DirectoryGroup({ group }: { group: OrganizationDirectoryGroup }) {
+  return (
+    <article className="org-directory-group">
+      <div className="org-directory-group__header">
+        <h4>{group.label}</h4>
+        <p>{group.description}</p>
+      </div>
+      <div className="org-directory-grid">
+        {group.departments.map((department) => (
+          <article key={department.key} className="org-directory-card">
+            <h5>{department.publicName}</h5>
+            <p>{department.publicSummary}</p>
+          </article>
+        ))}
+      </div>
+    </article>
+  )
+}
 
 export function SettingsPage() {
   const settingsResource = useJsonResource(getSettings, [])
@@ -9,86 +74,47 @@ export function SettingsPage() {
   if (settingsResource.isLoading || settingsResource.error || !settingsResource.data) {
     return (
       <>
-        <PageHeader title="Runtime Settings" description="Backend engine defaults and staged department wiring." />
+        <PageHeader title="Organization" description="Simple view of who leads each team and how the company is structured." />
         <ResourceState isLoading={settingsResource.isLoading} error={settingsResource.error} />
       </>
     )
   }
 
   const settings = settingsResource.data
+  const departments = [
+    ...settings.departments,
+    ...settings.review_departments,
+    ...(settings.enable_final_review ? [getBoardReviewStub(settings.final_review_label, settings.final_review_output_title)] : []),
+  ]
+  const hierarchy = buildOrganizationHierarchy(departments.map((department) => department.key))
+  const directory = buildOrganizationDirectory(departments.map((department) => department.key))
 
   return (
     <>
-      <PageHeader title="Runtime Settings" description="Backend engine defaults and staged department wiring." />
+      <PageHeader title="Organization" description="Simple view of who leads each team and how the company is structured." />
 
-      <section className="two-column-grid">
-        <article className="panel">
-          <div className="panel-header"><h3>Engine Defaults</h3></div>
-          <ul className="stack-list">
-            <li><strong>Company</strong><p>{settings.company_name}</p></li>
-            <li><strong>Default Mode</strong><p>{settings.default_mode}</p></li>
-            <li><strong>Parallel Strategy</strong><p>{settings.parallel_strategy}</p></li>
-            <li><strong>Max Parallel Departments</strong><p>{settings.max_parallel_departments}</p></li>
-            <li><strong>Codex Timeout</strong><p>{settings.codex_worker_timeout_seconds}s</p></li>
-            <li><strong>Codex Retry Attempts</strong><p>{settings.codex_retry_attempts}</p></li>
-            <li><strong>Core Runtime</strong><p>{settings.default_run_settings.codex_model} · {settings.default_run_settings.codex_autonomy}</p></li>
-            <li><strong>Review Runtime</strong><p>{settings.default_run_settings.codex_review_model} · {settings.default_run_settings.codex_review_autonomy}</p></li>
-          </ul>
-        </article>
-
-        <article className="panel">
-          <div className="panel-header"><h3>Autonomy Profiles</h3></div>
-          <ul className="stack-list">
-            <li><strong>read_only</strong><p>`-s read-only`</p></li>
-            <li><strong>full_auto</strong><p>`--full-auto`</p></li>
-            <li><strong>yolo</strong><p>`--dangerously-bypass-approvals-and-sandbox`</p></li>
-          </ul>
-        </article>
+      <section className="panel organization-panel">
+        <div className="panel-header"><h3>Organization Chart</h3></div>
+        <p className="organization-panel__note">
+          This view shows the company the way a user expects to read it: one leadership group at the top, major teams below it,
+          and specialist teams nested under the groups they support.
+        </p>
+        <div className="organization-visual-map">
+          {hierarchy.map((node) => (
+            <OrganizationNode key={node.key} node={node} />
+          ))}
+        </div>
       </section>
 
-      <section className="panel">
-        <div className="panel-header"><h3>Departments</h3></div>
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Key</th>
-                <th>Label</th>
-                <th>Purpose</th>
-                <th>Output</th>
-                <th>Runtime Tier</th>
-              </tr>
-            </thead>
-            <tbody>
-              {settings.departments.map((department) => (
-                <tr key={department.key}>
-                  <td>{department.key}</td>
-                  <td>{department.label}</td>
-                  <td>{department.purpose}</td>
-                  <td>{department.output_title}</td>
-                  <td>{department.runtime_tier}</td>
-                </tr>
-              ))}
-              {settings.review_departments.map((department) => (
-                <tr key={department.key}>
-                  <td>{department.key}</td>
-                  <td>{department.label}</td>
-                  <td>{department.purpose}</td>
-                  <td>{department.output_title}</td>
-                  <td>{department.runtime_tier}</td>
-                </tr>
-              ))}
-              {settings.enable_final_review ? (
-                <tr>
-                  <td>board_review</td>
-                  <td>{settings.final_review_label}</td>
-                  <td>Synthesize all department outputs into one operator briefing.</td>
-                  <td>{settings.final_review_output_title}</td>
-                  <td>review</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
+      <section className="panel organization-directory-panel">
+        <div className="panel-header"><h3>Teams at a Glance</h3></div>
+        <p className="organization-panel__note">
+          Use this section when you want a simple summary of what each team does, without internal keys or system labels.
+        </p>
+        <div className="organization-directory">
+          {directory.map((group) => (
+            <DirectoryGroup key={group.key} group={group} />
+          ))}
         </div>
       </section>
     </>

@@ -11,6 +11,7 @@ import { AgentRovers } from './AgentRovers'
 import { DataBeams } from './DataBeams'
 import { GroundGrid } from './GroundGrid'
 import { CampusMonument } from './CampusMonument'
+import { resolveLiveDepartmentKeys } from './roverPersona'
 
 interface WorldCanvasProps {
   steps: StepRecord[]
@@ -112,23 +113,10 @@ export function WorldCanvas({
     [layout],
   )
   const { positions, shapes, colors, monument } = campusMaps
-  const activeDepts = useMemo(() => {
-    const tokens = new Set(
-      (currentDepartment ?? '')
-        .split(',')
-        .map((value) => value.trim().toLowerCase())
-        .filter(Boolean),
-    )
-    const active = new Set<string>()
-    for (const step of steps) {
-      const key = step.department_key.toLowerCase()
-      const label = step.department_label.toLowerCase()
-      if (step.status === 'running' || tokens.has(key) || tokens.has(label)) {
-        active.add(step.department_key)
-      }
-    }
-    return active
-  }, [currentDepartment, steps])
+  const activeDepts = useMemo(
+    () => resolveLiveDepartmentKeys(steps, currentDepartment),
+    [currentDepartment, steps],
+  )
 
   const stepMap = useMemo(() => {
     const map: Record<string, StepRecord> = {}

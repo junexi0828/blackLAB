@@ -6,7 +6,7 @@ from pathlib import Path
 import markdown
 from pydantic import BaseModel
 from fastapi import Body, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.cors import CORSMiddleware
@@ -85,6 +85,129 @@ class CampusMonumentPayload(BaseModel):
 class CampusLayoutPayload(BaseModel):
     buildings: dict[str, CampusBuildingPayload]
     monument: CampusMonumentPayload
+
+
+ORGANIZATION_GROUPS = {
+    "headquarters": {
+        "label": "Headquarters",
+        "description": "Company leadership, planning, and final approval.",
+        "order": 10,
+    },
+    "product_design": {
+        "label": "Product & Design",
+        "description": "Product planning, user experience, and product definition.",
+        "order": 20,
+    },
+    "research_engineering": {
+        "label": "Research & Engineering",
+        "description": "Research, software delivery, and technical execution.",
+        "order": 30,
+    },
+    "quality_testing": {
+        "label": "Quality & Testing",
+        "description": "Validation, testing, and release readiness.",
+        "order": 40,
+    },
+    "growth_marketing": {
+        "label": "Growth & Marketing",
+        "description": "Launch support, positioning, and audience growth.",
+        "order": 50,
+    },
+}
+
+ORGANIZATION_TEAM_SPECS = {
+    "ceo": {
+        "public_name": "CEO Office",
+        "public_summary": "Leads the company and coordinates the major team leads.",
+        "group": "headquarters",
+        "reports_to": None,
+        "order": 10,
+    },
+    "board_review": {
+        "public_name": "Executive Review Board",
+        "public_summary": "Reviews the final package before the operator update goes out.",
+        "group": "headquarters",
+        "reports_to": "ceo",
+        "order": 20,
+    },
+    "finance": {
+        "public_name": "Strategy & Finance Team",
+        "public_summary": "Handles planning, budgets, and business-level operating priorities.",
+        "group": "headquarters",
+        "reports_to": "ceo",
+        "order": 30,
+    },
+    "product": {
+        "public_name": "Product Planning Team",
+        "public_summary": "Defines what gets built, why it matters, and what ships next.",
+        "group": "product_design",
+        "reports_to": "ceo",
+        "order": 40,
+    },
+    "design": {
+        "public_name": "Design Team",
+        "public_summary": "Shapes the interface, user flows, and launch presentation.",
+        "group": "product_design",
+        "reports_to": "product",
+        "order": 50,
+    },
+    "research": {
+        "public_name": "Research Lab",
+        "public_summary": "Studies user needs, market timing, and technical directions before build-out.",
+        "group": "research_engineering",
+        "reports_to": "ceo",
+        "order": 60,
+    },
+    "dev_1": {
+        "public_name": "Development Team 1",
+        "public_summary": "Builds core systems, backend services, and production foundations.",
+        "group": "research_engineering",
+        "reports_to": "research",
+        "order": 70,
+    },
+    "dev_2": {
+        "public_name": "Development Team 2",
+        "public_summary": "Builds product features, operator screens, and delivery details.",
+        "group": "research_engineering",
+        "reports_to": "research",
+        "order": 80,
+    },
+    "dev_3": {
+        "public_name": "Development Team 3",
+        "public_summary": "Owns integrations, automation, and cross-system connections.",
+        "group": "research_engineering",
+        "reports_to": "research",
+        "order": 90,
+    },
+    "quality_gate": {
+        "public_name": "Quality Assurance Team",
+        "public_summary": "Checks release readiness and blocks weak output before sign-off.",
+        "group": "quality_testing",
+        "reports_to": "ceo",
+        "order": 100,
+    },
+    "validation": {
+        "public_name": "Validation Team",
+        "public_summary": "Confirms the plan is measurable, realistic, and aligned with the brief.",
+        "group": "quality_testing",
+        "reports_to": "quality_gate",
+        "order": 110,
+    },
+    "test_lab": {
+        "public_name": "Test Team",
+        "public_summary": "Stress-tests scenarios, edge cases, and rollout risks before release.",
+        "group": "quality_testing",
+        "reports_to": "quality_gate",
+        "order": 120,
+    },
+    "growth": {
+        "public_name": "Growth Marketing Team",
+        "public_summary": "Plans positioning, launch support, and post-release audience growth.",
+        "group": "growth_marketing",
+        "reports_to": "ceo",
+        "order": 130,
+    },
+}
 
 
 def create_app(storage: RunStorage) -> FastAPI:
@@ -314,6 +437,17 @@ def create_app(storage: RunStorage) -> FastAPI:
         hidden_campus = set(operator_profile.roster.hidden_campus_items)
         catalog = []
         for department in [*company_config.departments, *company_config.review_departments]:
+            spec = ORGANIZATION_TEAM_SPECS.get(
+                department.key,
+                {
+                    "public_name": department.label,
+                    "public_summary": department.purpose,
+                    "group": "research_engineering",
+                    "reports_to": "ceo",
+                    "order": 999,
+                },
+            )
+            group = ORGANIZATION_GROUPS.get(spec["group"], ORGANIZATION_GROUPS["research_engineering"])
             catalog.append(
                 {
                     "key": department.key,
@@ -323,11 +457,18 @@ def create_app(storage: RunStorage) -> FastAPI:
                     "resource_lane": department.resource_lane,
                     "priority": department.priority,
                     "runtime_tier": department.runtime_tier,
+                    "public_name": spec["public_name"],
+                    "public_summary": spec["public_summary"],
+                    "group_label": group["label"],
+                    "reports_to": spec["reports_to"],
+                    "display_order": spec["order"],
                     "is_active": department.key in active_keys,
                     "is_visible_on_campus": department.key not in hidden_campus and department.key in active_keys,
                 }
             )
         if company_config.enable_final_review:
+            spec = ORGANIZATION_TEAM_SPECS["board_review"]
+            group = ORGANIZATION_GROUPS[spec["group"]]
             catalog.append(
                 {
                     "key": "board_review",
@@ -337,11 +478,63 @@ def create_app(storage: RunStorage) -> FastAPI:
                     "resource_lane": "review",
                     "priority": 40,
                     "runtime_tier": "review",
+                    "public_name": spec["public_name"],
+                    "public_summary": spec["public_summary"],
+                    "group_label": group["label"],
+                    "reports_to": spec["reports_to"],
+                    "display_order": spec["order"],
                     "is_active": "board_review" in active_keys,
                     "is_visible_on_campus": "board_review" not in hidden_campus and "board_review" in active_keys,
                 }
             )
-        return catalog
+        return sorted(catalog, key=lambda item: item["display_order"])
+
+    def build_organization_chart(operator_profile: OperatorProfile) -> list[dict]:
+        active_teams = {item["key"]: item for item in build_department_catalog(operator_profile)}
+        nodes = {}
+        for key, item in active_teams.items():
+            nodes[key] = {
+                "key": key,
+                "public_name": item["public_name"],
+                "public_summary": item["public_summary"],
+                "group_label": item["group_label"],
+                "display_order": item["display_order"],
+                "children": [],
+            }
+
+        roots: list[dict] = []
+        for key, item in active_teams.items():
+            node = nodes[key]
+            parent_key = item["reports_to"]
+            if parent_key and parent_key in nodes:
+                nodes[parent_key]["children"].append(node)
+            else:
+                roots.append(node)
+
+        def sort_nodes(items: list[dict]) -> None:
+            items.sort(key=lambda item: item["display_order"])
+            for item in items:
+                sort_nodes(item["children"])
+
+        sort_nodes(roots)
+        return roots
+
+    def build_organization_directory(operator_profile: OperatorProfile) -> list[dict]:
+        catalog = build_department_catalog(operator_profile)
+        groups = []
+        for key, group in sorted(ORGANIZATION_GROUPS.items(), key=lambda entry: entry[1]["order"]):
+            teams = [item for item in catalog if ORGANIZATION_TEAM_SPECS.get(item["key"], {}).get("group", "research_engineering") == key]
+            if not teams:
+                continue
+            groups.append(
+                {
+                    "key": key,
+                    "label": group["label"],
+                    "description": group["description"],
+                    "teams": teams,
+                }
+            )
+        return groups
 
     def build_project_library() -> list[dict]:
         projects = sorted(
@@ -361,8 +554,8 @@ def create_app(storage: RunStorage) -> FastAPI:
         ]
 
     def build_overview_context() -> dict:
-        runs = storage.list_runs()
-        loops = loop_storage.list_loops()
+        runs, _ = storage.list_runs()
+        loops, _ = loop_storage.list_loops()
         operator_profile = operator.load_profile()
         operator_feed = build_operator_feed(runs, loops)
         resource_snapshot = resource_manager.snapshot(company_config.max_parallel_departments)
@@ -441,55 +634,114 @@ def create_app(storage: RunStorage) -> FastAPI:
             "detail": "No live run or loop is active. Messages act as orchestration commands unless they explicitly launch new work.",
         }
 
+    def current_project_payload(*, slug: str, name: str | None, source: str, entity_id: str | None) -> dict:
+        return {
+            "slug": slug,
+            "name": name or slug,
+            "source": source,
+            "entity_id": entity_id,
+        }
+
+    def build_default_project_payload(slug: str | None, source: str) -> dict | None:
+        if not slug:
+            return None
+        record = project_storage.get_project(slug)
+        return current_project_payload(
+            slug=slug,
+            name=record.name if record else slug.replace("-", " ").title(),
+            source=source,
+            entity_id=None,
+        )
+
+    def build_list_page_current_project(*, runs=None, loops=None, default_slug: str | None = None, default_source: str | None = None) -> dict | None:
+        runs = runs or []
+        loops = loops or []
+
+        for run in runs:
+            if run.status == "running" and run.project_slug:
+                return current_project_payload(
+                    slug=run.project_slug,
+                    name=run.project_name,
+                    source="active run",
+                    entity_id=run.run_id,
+                )
+        for loop_state in loops:
+            if loop_state.status in {"running", "stopping"} and loop_state.project_slug:
+                return current_project_payload(
+                    slug=loop_state.project_slug,
+                    name=loop_state.project_name,
+                    source="active loop",
+                    entity_id=loop_state.loop_id,
+                )
+        for run in runs:
+            if run.project_slug:
+                return current_project_payload(
+                    slug=run.project_slug,
+                    name=run.project_name,
+                    source="listed run",
+                    entity_id=run.run_id,
+                )
+        for loop_state in loops:
+            if loop_state.project_slug:
+                return current_project_payload(
+                    slug=loop_state.project_slug,
+                    name=loop_state.project_name,
+                    source="listed loop",
+                    entity_id=loop_state.loop_id,
+                )
+        if default_slug and default_source:
+            return build_default_project_payload(default_slug, default_source)
+        return None
+
     def build_current_project(runs, loops, operator_profile) -> dict | None:
         for run in runs:
             if run.status == "running" and run.project_slug:
-                return {
-                    "slug": run.project_slug,
-                    "name": run.project_name or run.project_slug,
-                    "source": "active run",
-                    "entity_id": run.run_id,
-                }
+                return current_project_payload(
+                    slug=run.project_slug,
+                    name=run.project_name,
+                    source="active run",
+                    entity_id=run.run_id,
+                )
         for loop_state in loops:
             if loop_state.status in {"running", "stopping"} and loop_state.project_slug:
-                return {
-                    "slug": loop_state.project_slug,
-                    "name": loop_state.project_name or loop_state.project_slug,
-                    "source": "active loop",
-                    "entity_id": loop_state.loop_id,
-                }
+                return current_project_payload(
+                    slug=loop_state.project_slug,
+                    name=loop_state.project_name,
+                    source="active loop",
+                    entity_id=loop_state.loop_id,
+                )
         for run in runs:
             if run.project_slug:
-                return {
-                    "slug": run.project_slug,
-                    "name": run.project_name or run.project_slug,
-                    "source": "recent run",
-                    "entity_id": run.run_id,
-                }
+                return current_project_payload(
+                    slug=run.project_slug,
+                    name=run.project_name,
+                    source="recent run",
+                    entity_id=run.run_id,
+                )
         for loop_state in loops:
             if loop_state.project_slug:
-                return {
-                    "slug": loop_state.project_slug,
-                    "name": loop_state.project_name or loop_state.project_slug,
-                    "source": "recent loop",
-                    "entity_id": loop_state.loop_id,
-                }
+                return current_project_payload(
+                    slug=loop_state.project_slug,
+                    name=loop_state.project_name,
+                    source="recent loop",
+                    entity_id=loop_state.loop_id,
+                )
         if operator_profile.launch.project_slug:
             slug = operator_profile.launch.project_slug
-            return {
-                "slug": slug,
-                "name": slug.replace("-", " ").title(),
-                "source": "launch default",
-                "entity_id": None,
-            }
+            return current_project_payload(
+                slug=slug,
+                name=slug.replace("-", " ").title(),
+                source="launch default",
+                entity_id=None,
+            )
         if operator_profile.autopilot.project_slug:
             slug = operator_profile.autopilot.project_slug
-            return {
-                "slug": slug,
-                "name": slug.replace("-", " ").title(),
-                "source": "autopilot default",
-                "entity_id": None,
-            }
+            return current_project_payload(
+                slug=slug,
+                name=slug.replace("-", " ").title(),
+                source="autopilot default",
+                entity_id=None,
+            )
         return None
 
     def frontend_index_response() -> HTMLResponse:
@@ -542,8 +794,27 @@ def create_app(storage: RunStorage) -> FastAPI:
         )
 
     @app.get("/runs")
-    def runs_page(request: Request):
+    def runs_page(request: Request, page: int = 1):
+        if page < 1:
+            page = 1
+        page_size = 15
+        offset = (page - 1) * page_size
+        runs, total_count = storage.list_runs(limit=page_size, offset=offset)
+        total_pages = (total_count + page_size - 1) // page_size
+        
         context = build_overview_context()
+        context.update({
+            "runs": runs,
+            "current_page": page,
+            "total_pages": total_pages,
+            "total_count": total_count,
+        })
+        context["current_project"] = build_list_page_current_project(
+            runs=runs,
+            default_slug=context["operator_profile"].launch.project_slug,
+            default_source="launch default",
+        )
+
         return templates.TemplateResponse(
             name="runs.html",
             request=request,
@@ -551,7 +822,14 @@ def create_app(storage: RunStorage) -> FastAPI:
         )
 
     @app.get("/loops")
-    def loops_page(request: Request):
+    def loops_page(request: Request, page: int = 1):
+        if page < 1:
+            page = 1
+        page_size = 15
+        offset = (page - 1) * page_size
+        loops, total_count = loop_storage.list_loops(limit=page_size, offset=offset)
+        total_pages = (total_count + page_size - 1) // page_size
+
         context = build_overview_context()
         current_loop_card = None
         if context["active_loops"]:
@@ -559,7 +837,19 @@ def create_app(storage: RunStorage) -> FastAPI:
             current_loop_card = build_loop_report(active_loop)
         elif context["recent_loop_reports"]:
             current_loop_card = context["recent_loop_reports"][0]
-        context["current_loop_card"] = current_loop_card
+        context.update({
+            "loops": loops,
+            "current_page": page,
+            "total_pages": total_pages,
+            "total_count": total_count,
+            "current_loop_card": current_loop_card,
+        })
+        context["current_project"] = build_list_page_current_project(
+            loops=loops,
+            default_slug=context["operator_profile"].autopilot.project_slug,
+            default_source="autopilot default",
+        )
+
         return templates.TemplateResponse(
             name="loops.html",
             request=request,
@@ -591,7 +881,7 @@ def create_app(storage: RunStorage) -> FastAPI:
                 "linked_runs": linked_runs,
                 "log_tail": loop_storage.read_log_tail(loop_id),
                 "loop_report": build_loop_report(loop_state),
-                "event_feed": build_operator_feed(storage.list_runs(), loop_storage.list_loops()),
+                "event_feed": build_operator_feed(storage.list_runs()[0], loop_storage.list_loops()[0]),
                 "current_project": (
                     {
                         "slug": loop_state.project_slug,
@@ -610,6 +900,8 @@ def create_app(storage: RunStorage) -> FastAPI:
         context = build_overview_context()
         context["company_config"] = company_config
         context["department_catalog"] = build_department_catalog(context["operator_profile"])
+        context["organization_chart"] = build_organization_chart(context["operator_profile"])
+        context["organization_groups"] = build_organization_directory(context["operator_profile"])
         context["runtime_profiles"] = [
             {
                 "label": "Read Only",
@@ -699,41 +991,43 @@ def create_app(storage: RunStorage) -> FastAPI:
 
     @app.get("/console/launch", include_in_schema=False)
     def operator_launch():
-        return operator_shell()
+        return RedirectResponse(url="/launch", status_code=307)
 
     @app.get("/console/autopilot", include_in_schema=False)
     def operator_autopilot():
-        return operator_shell()
+        return RedirectResponse(url="/autopilot", status_code=307)
 
     @app.get("/console/runs", include_in_schema=False)
     def operator_runs():
-        return operator_shell()
+        return RedirectResponse(url="/runs", status_code=307)
 
     @app.get("/console/runs/{run_id}", include_in_schema=False)
     def operator_run_detail(run_id: str):
-        return operator_shell()
+        return RedirectResponse(url=f"/runs/{run_id}", status_code=307)
 
     @app.get("/console/loops", include_in_schema=False)
     def operator_loops():
-        return operator_shell()
+        return RedirectResponse(url="/loops", status_code=307)
 
     @app.get("/console/loops/{loop_id}", include_in_schema=False)
     def operator_loop_detail(loop_id: str):
-        return operator_shell()
+        return RedirectResponse(url=f"/loops/{loop_id}", status_code=307)
 
     @app.get("/console/settings", include_in_schema=False)
     def operator_settings():
-        return operator_shell()
+        return RedirectResponse(url="/settings", status_code=307)
 
     @app.get("/api/runs")
     def list_runs_api():
-        runs = [run.model_dump(mode="json") for run in storage.list_runs()]
-        return JSONResponse({"runs": runs})
+        runs, _ = storage.list_runs()
+        runs_json = [run.model_dump(mode="json") for run in runs]
+        return JSONResponse({"runs": runs_json})
 
     @app.get("/api/loops")
     def list_loops_api():
-        loops = [loop.model_dump(mode="json") for loop in loop_storage.list_loops()]
-        return JSONResponse({"loops": loops})
+        loops, _ = loop_storage.list_loops()
+        loops_json = [loop.model_dump(mode="json") for loop in loops]
+        return JSONResponse({"loops": loops_json})
 
     @app.get("/api/runs/{run_id}")
     def run_detail_api(run_id: str):
@@ -764,8 +1058,8 @@ def create_app(storage: RunStorage) -> FastAPI:
 
     @app.get("/api/feed")
     def operator_feed_api():
-        runs = storage.list_runs()
-        loops = loop_storage.list_loops()
+        runs, _ = storage.list_runs()
+        loops, _ = loop_storage.list_loops()
         feed = build_operator_feed(runs, loops)
         bubbles = build_department_bubbles(runs)
         return JSONResponse(

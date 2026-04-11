@@ -4,6 +4,7 @@ interface EventFeedOverlayProps {
   events: EventEntry[]
   isCollapsed: boolean
   onDismiss: (eventId: string) => void
+  onHide: () => void
   onClearAll: () => void
   onExpand: () => void
 }
@@ -16,7 +17,7 @@ function formatTimestamp(value: string): string {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
-export function EventFeedOverlay({ events, isCollapsed, onDismiss, onClearAll, onExpand }: EventFeedOverlayProps) {
+export function EventFeedOverlay({ events, isCollapsed, onDismiss, onHide, onClearAll, onExpand }: EventFeedOverlayProps) {
   const visibleEvents = events.slice(0, 8)
 
   if (isCollapsed) {
@@ -41,6 +42,11 @@ export function EventFeedOverlay({ events, isCollapsed, onDismiss, onClearAll, o
           <span className="console-event-feed__count">{visibleEvents.length}</span>
           {visibleEvents.length > 0 && (
             <button type="button" className="console-event-feed__clear" onClick={onClearAll}>
+              Clear All
+            </button>
+          )}
+          {visibleEvents.length > 0 && (
+            <button type="button" className="console-event-feed__clear" onClick={onHide}>
               Hide
             </button>
           )}

@@ -1,10 +1,11 @@
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
 from blacklab_factory.autopilot import AutopilotSupervisor, LoopRunRequest
 from blacklab_factory.factory import FactoryRunner
-from blacklab_factory.models import RunSettings
+from blacklab_factory.models import ArtifactRecord, RunSettings, StepRecord
 from blacklab_factory.web import create_app
 
 
@@ -168,6 +169,83 @@ def test_runs_page_shows_useful_action_links(tmp_path: Path) -> None:
     assert f'href="/runs/{state.run_id}/log"' in response.text
     assert "Details" in response.text
     assert "Log" in response.text
+
+
+def test_overview_team_updates_use_existing_department_outputs(tmp_path: Path) -> None:
+    runner = FactoryRunner(storage_root=tmp_path)
+    state = runner.storage.create_run(
+        mission="Show recent team work",
+        company_name="blackLAB",
+        mode="mock",
+        steps=[],
+    )
+    state.status = "completed"
+    state.project_slug = "revenue-leak-auditor"
+    state.project_name = "Revenue Leak Auditor"
+    state.steps = [
+        StepRecord(
+            department_key="product",
+            department_label="Product Planning Team",
+            purpose="Define what ships next.",
+            status="completed",
+            summary="Outlined the next pricing test for finance teams.",
+            completed_at=datetime.now(timezone.utc),
+        )
+    ]
+    state.artifacts = [
+        ArtifactRecord(
+            department_key="product",
+            title="Pricing Test Plan",
+            path="pricing-test-plan.md",
+            preview="A practical pricing test plan for the next launch.",
+        )
+    ]
+    runner.storage.save_state(state)
+
+    client = TestClient(create_app(storage_root=tmp_path))
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "Recent Team Updates" in response.text
+    assert "Product Planning Team" in response.text
+    assert "Outlined the next pricing test for finance teams." in response.text
+
+
+def test_overview_recent_activity_is_paginated(tmp_path: Path) -> None:
+    runner = FactoryRunner(storage_root=tmp_path)
+    base_time = datetime.now(timezone.utc)
+    steps = []
+    for index in range(10):
+        steps.append(
+            StepRecord(
+                department_key=f"team_{index}",
+                department_label=f"Team {index}",
+                purpose=f"Purpose {index}",
+                status="completed",
+                summary=f"Update {index}",
+                completed_at=base_time + timedelta(minutes=index),
+            )
+        )
+    state = runner.storage.create_run(
+        mission="Generate many recent activity items",
+        company_name="blackLAB",
+        mode="mock",
+        steps=steps,
+    )
+    state.status = "completed"
+    state.current_status = "Finished all work."
+    runner.storage.save_state(state)
+
+    client = TestClient(create_app(storage_root=tmp_path))
+    first_page = client.get("/")
+    second_page = client.get("/?activity_page=2")
+
+    assert first_page.status_code == 200
+    assert second_page.status_code == 200
+    assert '/?activity_page=2' in first_page.text
+    assert "Update 0" not in first_page.text
+    assert "Update 0" in second_page.text
+    assert 'class="pagination-item is-active">2<' in second_page.text
 
 
 def test_loops_page_sidebar_uses_loop_project_context(tmp_path: Path) -> None:

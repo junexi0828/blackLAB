@@ -323,13 +323,15 @@ def create_app(storage: RunStorage) -> FastAPI:
             )
         ]
 
-    def build_operator_feed(runs, loops, limit: int = 18) -> list[EventEntry]:
+    def build_operator_feed(runs, loops, limit: int | None = 18) -> list[EventEntry]:
         feed: list[EventEntry] = []
         for run in runs[:6]:
             feed.extend(build_run_events(run)[:12])
         for loop_state in loops[:4]:
             feed.extend(build_loop_events(loop_state))
         feed.sort(key=lambda event: event.timestamp, reverse=True)
+        if limit is None:
+            return feed
         return feed[:limit]
 
     def build_department_bubbles(runs) -> dict[str, EventEntry]:
@@ -553,11 +555,20 @@ def create_app(storage: RunStorage) -> FastAPI:
             for record in projects
         ]
 
-    def build_overview_context() -> dict:
+    def build_overview_context(activity_page: int = 1) -> dict:
         runs, _ = storage.list_runs()
         loops, _ = loop_storage.list_loops()
         operator_profile = operator.load_profile()
-        operator_feed = build_operator_feed(runs, loops)
+        if activity_page < 1:
+            activity_page = 1
+        activity_page_size = 8
+        all_operator_feed = build_operator_feed(runs, loops, limit=None)
+        activity_total_count = len(all_operator_feed)
+        activity_total_pages = max(1, (activity_total_count + activity_page_size - 1) // activity_page_size)
+        if activity_page > activity_total_pages:
+            activity_page = activity_total_pages
+        activity_offset = (activity_page - 1) * activity_page_size
+        operator_feed = all_operator_feed[activity_offset : activity_offset + activity_page_size]
         resource_snapshot = resource_manager.snapshot(company_config.max_parallel_departments)
         active_runs = [run for run in runs if run.status == "running"]
         blocked_runs = [run for run in runs if run.status in {"failed", "stale"}]
@@ -566,13 +577,13 @@ def create_app(storage: RunStorage) -> FastAPI:
         operator_route = build_operator_route(active_runs, active_loops)
         project_library = build_project_library()
         latest_decisions = [
-            {"department": step.department_label, "summary": step.summary}
+            {"department": step.department_label, "summary": step.summary or step.purpose}
             for run in runs
             for step in run.steps
-            if step.summary
+            if step.status == "completed" and (step.summary or step.purpose)
         ][-8:]
         top_risks = [
-            {"severity": "medium", "summary": risk}
+            {"run_id": run.run_id, "summary": risk}
             for run in runs
             for risk in run.risks
         ][-8:]
@@ -599,6 +610,8 @@ def create_app(storage: RunStorage) -> FastAPI:
             "resource_snapshot": resource_snapshot,
             "current_project": current_project,
             "operator_route": operator_route,
+            "activity_current_page": activity_page,
+            "activity_total_pages": activity_total_pages,
         }
 
     def build_operator_route(active_runs, active_loops) -> dict:
@@ -788,11 +801,11 @@ def create_app(storage: RunStorage) -> FastAPI:
         return FileResponse(icons)
 
     @app.get("/")
-    def index(request: Request):
+    def index(request: Request, activity_page: int = 1):
         return templates.TemplateResponse(
             name="index.html",
             request=request,
-            context=build_overview_context(),
+            context=build_overview_context(activity_page=activity_page),
         )
 
     @app.get("/launch")
@@ -1128,6 +1141,18 @@ def create_app(storage: RunStorage) -> FastAPI:
     @app.get("/api/operator/profile")
     def operator_profile_api():
         return JSONResponse(operator.load_profile().model_dump(mode="json"))
+
+    @app.get("/api/projects")
+    def projects_api():
+        runs, _ = storage.list_runs()
+        loops, _ = loop_storage.list_loops()
+        operator_profile = operator.load_profile()
+        return JSONResponse(
+            {
+                "projects": build_project_library(),
+                "current_project": build_current_project(runs, loops, operator_profile),
+            }
+        )
 
     @app.post("/api/operator/profile")
     def save_operator_profile_api(profile: OperatorProfile = Body(...)):

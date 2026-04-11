@@ -44,12 +44,14 @@ export function ConsoleHUD({
   const displayText = loopNote ?? mission
 
   return (
-    <div className="console-hud" aria-hidden="true">
+    <div className="console-hud">
       {/* ── Top-left: company identity ── */}
       <div className="hud-brand">
         <span className="hud-phase-icon" aria-hidden="true">{phaseIcon}</span>
         <span className={`hud-dot ${isLive ? 'hud-dot--live' : ''} ${systemMode === 'stopping' ? 'hud-dot--hold' : ''}`} />
-        <span className="hud-brand-name">blackLAB</span>
+        <a className="hud-brand-home" href="/" aria-label="Go to dashboard home">
+          <span className="hud-brand-name">blackLAB</span>
+        </a>
         <span className="hud-brand-sep">·</span>
         <span className="hud-brand-status">{systemLabel}</span>
         <span className="hud-brand-sep">·</span>

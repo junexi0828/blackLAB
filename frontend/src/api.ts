@@ -1,4 +1,4 @@
-import type { CampusLayout, CompanyConfig, FeedPayload, LoopState, OperatorProfileData, RunState } from './types'
+import type { CampusLayout, CompanyConfig, FeedPayload, LoopState, OperatorProfileData, ProjectsPayload, RunState } from './types'
 
 const rawBase =
   import.meta.env.VITE_API_BASE ??
@@ -59,6 +59,10 @@ export async function getOperatorProfile(): Promise<OperatorProfileData> {
   return requestJson<OperatorProfileData>('/api/operator/profile')
 }
 
+export async function getProjects(): Promise<ProjectsPayload> {
+  return requestJson<ProjectsPayload>('/api/projects')
+}
+
 export async function launchRun(payload: Record<string, unknown>) {
   return requestJson<{ run_id: string; pid: number; log_path: string; status: string }>(
     '/api/launch/run',
@@ -68,6 +72,14 @@ export async function launchRun(payload: Record<string, unknown>) {
       body: JSON.stringify(payload),
     },
   )
+}
+
+export async function stopRun(runId: string) {
+  return requestJson<RunState>(`/api/runs/${runId}/stop`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  })
 }
 
 export async function launchLoop(payload: Record<string, unknown>) {

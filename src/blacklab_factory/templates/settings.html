@@ -6,7 +6,6 @@
       <article class="settings-org-card">
         <span class="settings-org-card__group">{{ node.group_label }}</span>
         <h3>{{ node.public_name }}</h3>
-        <p>{{ node.public_summary }}</p>
       </article>
       {% if node.children %}
         <div class="settings-org-children settings-org-children--count-{{ node.children|length if node.children|length < 5 else 5 }}">
@@ -51,8 +50,8 @@
   <section class="panel settings-org-panel">
     <div class="panel-header">
       <div>
-        <h2>Team Structure</h2>
-        <p>See how the teams are grouped and who supports each area.</p>
+        <h2>Structure</h2>
+        <p>See the full team hierarchy at a glance.</p>
       </div>
     </div>
     <div class="settings-org-map">

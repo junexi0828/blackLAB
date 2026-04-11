@@ -128,10 +128,48 @@ export interface OperatorRoster {
   hidden_campus_items: string[]
 }
 
+export interface OperatorLaunchProfile {
+  mode: string
+  project_slug: string | null
+  pause_between_departments: number
+  run_settings: RunSettings
+}
+
+export interface OperatorAutopilotProfile {
+  run_mode: string
+  project_slug: string | null
+  loop_mode: string
+  interval_seconds: number
+  max_iterations: number
+  pause_between_departments: number
+  run_settings: RunSettings
+}
+
 export interface OperatorProfileData {
-  launch: Record<string, unknown>
-  autopilot: Record<string, unknown>
+  launch: OperatorLaunchProfile
+  autopilot: OperatorAutopilotProfile
   roster: OperatorRoster
+}
+
+export interface ProjectLibraryEntry {
+  slug: string
+  name: string
+  brief: string
+  run_count: number
+  last_run_id: string | null
+}
+
+export interface CurrentProjectData {
+  slug: string
+  name: string
+  source: string
+  entity_id: string | null
+  reference_label: string
+}
+
+export interface ProjectsPayload {
+  projects: ProjectLibraryEntry[]
+  current_project: CurrentProjectData | null
 }
 
 export interface EventEntry {

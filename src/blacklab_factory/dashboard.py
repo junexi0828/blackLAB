@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import markdown
@@ -238,6 +239,31 @@ def create_app(storage: RunStorage) -> FastAPI:
     operator = OperatorCommander(base_root)
     resource_manager = RuntimeResourceManager()
 
+    def format_exact_timestamp(value: datetime | None) -> str:
+        if value is None:
+            return "-"
+        return value.astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+
+    def format_relative_timestamp(value: datetime | None) -> str:
+        if value is None:
+            return "-"
+        now = datetime.now(timezone.utc)
+        delta = now - value.astimezone(timezone.utc)
+        seconds = max(0, int(delta.total_seconds()))
+        if seconds < 60:
+            return "just now"
+        if seconds < 3600:
+            minutes = seconds // 60
+            return f"{minutes} min ago"
+        if seconds < 86400:
+            hours = seconds // 3600
+            return f"{hours} hr ago"
+        days = seconds // 86400
+        return f"{days} day ago" if days == 1 else f"{days} days ago"
+
+    templates.env.globals["format_exact_timestamp"] = format_exact_timestamp
+    templates.env.globals["format_relative_timestamp"] = format_relative_timestamp
+
     def load_campus_layout() -> dict:
         if not CAMPUS_LAYOUT_PATH.exists():
             raise HTTPException(status_code=404, detail="Campus layout not found")
@@ -337,6 +363,7 @@ def create_app(storage: RunStorage) -> FastAPI:
     def build_latest_decisions(runs, limit: int = 8) -> list[dict]:
         updates = [
             {
+                "run_id": run.run_id,
                 "department": step.department_label,
                 "summary": step.summary or step.purpose,
                 "timestamp": step.completed_at or run.updated_at,

@@ -4,7 +4,7 @@
   <section class="hero">
     <div>
       <h1>Overview</h1>
-      <p class="subhead">See what is running, what finished, and what needs attention.</p>
+      <p class="subhead">Start here. See what is moving, what just finished, and what needs attention now.</p>
     </div>
     <div class="button-row">
       <a class="primary-button" href="/console">Open 3D Campus</a>
@@ -85,10 +85,51 @@
     </article>
   </section>
 
+  <section class="two-column">
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Recent Team Updates</h2>
+        <p>Latest completed work by team, shown from the original run output.</p>
+      </div>
+      <ul class="list">
+        {% for decision in latest_decisions %}
+          <li>
+            <div class="timeline-head">
+              <strong>{{ decision.department }}</strong>
+              <small><a href="/runs/{{ decision.run_id }}">{{ decision.run_id }}</a></small>
+            </div>
+            <p>{{ decision.summary }}</p>
+            <small>{{ format_exact_timestamp(decision.timestamp) }} · {{ format_relative_timestamp(decision.timestamp) }}</small>
+          </li>
+        {% else %}
+          <li>No finished updates yet.</li>
+        {% endfor %}
+      </ul>
+    </article>
+
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Open Issues</h2>
+        <p>Unresolved problems from recent runs. Use this list to see what still needs action.</p>
+      </div>
+      <ul class="list">
+        {% for risk in top_risks %}
+          <li>
+            <strong><a href="/runs/{{ risk.run_id }}#open-issues">{{ risk.run_id }}</a></strong>
+            <p>{{ risk.summary }}</p>
+            <small>{{ format_exact_timestamp(risk.timestamp) }} · {{ format_relative_timestamp(risk.timestamp) }}</small>
+          </li>
+        {% else %}
+          <li>No open issues.</li>
+        {% endfor %}
+      </ul>
+    </article>
+  </section>
+
   <section class="panel">
     <div class="panel-header">
       <h2>Recent Activity</h2>
-      <p>Latest updates from runs and loops.</p>
+      <p>Newest updates across runs and loops.</p>
     </div>
     <ul class="timeline">
       {% for event in operator_feed %}
@@ -98,7 +139,7 @@
             <span class="badge status-{{ event.status }}">{{ event.status }}</span>
           </div>
           <p>{{ event.message }}</p>
-          <small>{{ event.department_label or event.scope }} · {{ event.timestamp.isoformat() }}</small>
+          <small>{{ event.department_label or event.scope }} · {{ format_exact_timestamp(event.timestamp) }} · {{ format_relative_timestamp(event.timestamp) }}</small>
         </li>
         {% else %}
           <li>No recent events.</li>
@@ -115,41 +156,5 @@
           <a href="/?activity_page={{ activity_current_page + 1 }}" class="pagination-item {% if activity_current_page == activity_total_pages %}is-disabled{% endif %}">Next &rarr;</a>
         </div>
       {% endif %}
-  </section>
-
-  <section class="two-column">
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Recent Team Updates</h2>
-        <a href="/runs">Open Runs</a>
-      </div>
-      <ul class="list">
-        {% for decision in latest_decisions %}
-          <li>
-            <strong>{{ decision.department }}</strong>
-            <p>{{ decision.summary }}</p>
-          </li>
-        {% else %}
-          <li>No finished updates yet.</li>
-        {% endfor %}
-      </ul>
-    </article>
-
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Open Issues</h2>
-        <a href="/runs">Open Runs</a>
-      </div>
-      <ul class="list">
-        {% for risk in top_risks %}
-          <li>
-            <strong><a href="/runs/{{ risk.run_id }}#open-issues">{{ risk.run_id }}</a></strong>
-            <p>{{ risk.summary }}</p>
-          </li>
-        {% else %}
-          <li>No open issues.</li>
-        {% endfor %}
-      </ul>
-    </article>
   </section>
 {% endblock %}

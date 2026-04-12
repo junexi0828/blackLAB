@@ -192,6 +192,30 @@ class RunStorage:
         self.append_log(run_id, "Run stop requested.")
         return state
 
+    def attach_controller_pid(self, run_id: str, pid: int) -> RunState:
+        state = self.load_state(run_id)
+        state.controller_pid = pid
+        self.save_state(state)
+        self.append_log(run_id, f"Run controller pid registered: {pid}")
+        return state
+
+    def mark_force_stopped(self, run_id: str, reason: str) -> RunState:
+        state = self.load_state(run_id)
+        state.stop_requested = True
+        state.status = "failed"
+        state.current_department = None
+        state.current_processes = []
+        state.current_status = "Run force stopped by operator."
+        state.next_action = "Current work may be incomplete. Inspect partial artifacts or start a fresh run."
+        state.summary = reason
+        if reason not in state.risks:
+            state.risks.append(reason)
+        state.metrics["open_risks"] = len(state.risks)
+        state.metrics["open_risk_count"] = len(state.risks)
+        self.save_state(state)
+        self.append_log(run_id, reason)
+        return state
+
     def _mark_stale_if_needed(self, state: RunState) -> RunState:
         if state.status not in {"running", "stopping"}:
             return state
@@ -339,6 +363,34 @@ class LoopStorage:
             directive.consumed_at = consumed_at
         self._save_inbox(path, inbox)
         return pending
+
+    def attach_controller_pid(self, loop_id: str, pid: int) -> LoopState:
+        state = self.load_state(loop_id)
+        state.controller_pid = pid
+        self.save_state(state)
+        self.append_log(loop_id, f"Loop controller pid registered: {pid}")
+        return state
+
+    def request_stop(self, loop_id: str) -> LoopState:
+        state = self.load_state(loop_id)
+        state.stop_requested = True
+        if state.status == "running":
+            state.status = "stopping"
+        state.latest_note = "Operator requested the loop to stop after the current cycle."
+        self.save_state(state)
+        self.append_log(loop_id, "Stop requested.")
+        return state
+
+    def mark_force_stopped(self, loop_id: str, reason: str) -> LoopState:
+        state = self.load_state(loop_id)
+        state.stop_requested = True
+        state.status = "failed"
+        state.current_run_id = None
+        state.latest_note = "Loop force stopped by operator. Current work may be incomplete."
+        state.summary = reason
+        self.save_state(state)
+        self.append_log(loop_id, reason)
+        return state
 
     def _mark_inactive_if_needed(self, state: LoopState) -> LoopState:
         if state.status not in {"running", "stopping"}:
@@ -612,6 +664,32 @@ class ProjectStorage:
         entries = [e.strip() for e in text.split("---") if e.strip()]
         recent = entries[-last_n:]
         return "\n\n---\n\n".join(recent)
+
+    def read_latest_memory_snapshot(self, slug: str) -> dict[str, object] | None:
+        """Return parsed fields from the latest memory entry for quick dashboard display."""
+        entry = self.read_memory(slug, last_n=1).strip()
+        if not entry:
+            return None
+
+        run_id_match = re.search(r"\*\*Run ID\*\*: `([^`]+)`", entry)
+        summary_match = re.search(r"\*\*Summary\*\*: (.+)", entry)
+        next_hint_match = re.search(r"\*\*Next Run Hint\*\*: (.+)", entry)
+        risks_match = re.search(r"\*\*Open Risks\*\*:\n(.*?)(?:\n\n\*\*Next Run Hint\*\*:|\Z)", entry, re.DOTALL)
+
+        risks: list[str] = []
+        if risks_match:
+            risks = [
+                line.strip()[2:].strip()
+                for line in risks_match.group(1).splitlines()
+                if line.strip().startswith("- ")
+            ]
+
+        return {
+            "run_id": run_id_match.group(1).strip() if run_id_match else None,
+            "summary": summary_match.group(1).strip() if summary_match else "",
+            "next_run_hint": next_hint_match.group(1).strip() if next_hint_match else "",
+            "risks": risks,
+        }
 
     def _trim_memory(self, slug: str) -> None:
         path = self.memory_path(self.normalize_slug(slug))

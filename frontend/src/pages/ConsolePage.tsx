@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { getCampusLayout, getFeed, getOperatorProfile, getProjects, launchLoop, launchRun, listLoops, listRuns, saveCampusLayout, stopLoop, stopRun } from '../api'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { forceStopLoop, forceStopRun, getCampusLayout, getFeed, getOperatorProfile, getProjects, getSettings, launchLoop, launchRun, listLoops, listRuns, saveCampusLayout, stopLoop, stopRun } from '../api'
 import { useJsonResource } from '../hooks/useJsonResource'
 import { useLiveRefresh } from '../hooks/useLiveRefresh'
 import { useSolarTheme } from '../hooks/useSolarTheme'
@@ -10,6 +10,7 @@ import { WorldCanvas } from '../ui/WorldCanvas'
 import { buildCrewCounts, resolveLiveDepartmentKeys } from '../ui/roverPersona'
 
 const BUBBLE_TTL_MS = 14000
+const EMPTY_STEPS: StepRecord[] = []
 
 function prettifyDepartmentKey(value: string): string {
   return value
@@ -61,10 +62,10 @@ export function ConsolePage() {
   const layoutResource = useJsonResource(getCampusLayout, [])
   const profileResource = useJsonResource(getOperatorProfile, [])
   const projectsResource = useJsonResource(getProjects, [])
+  const settingsResource = useJsonResource(getSettings, [])
   const [dismissedFeedIds, setDismissedFeedIds] = useState<string[]>([])
   const [dismissedBubbleIds, setDismissedBubbleIds] = useState<string[]>([])
   const [feedCollapsed, setFeedCollapsed] = useState(false)
-  const [clockNow, setClockNow] = useState(() => Date.now())
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null)
   const [utilityDockTab, setUtilityDockTab] = useState<'runtime' | 'layout' | null>(null)
   const [editTarget, setEditTarget] = useState<string | 'monument' | null>(null)
@@ -75,15 +76,6 @@ export function ConsolePage() {
   const [selectedProjectSlug, setSelectedProjectSlug] = useState('')
   const [runtimeBusy, setRuntimeBusy] = useState(false)
   const [runtimeNotice, setRuntimeNotice] = useState<string | null>(null)
-
-  useLiveRefresh(async () => {
-    await Promise.all([runsResource.refresh(), loopsResource.refresh(), feedResource.refresh(), profileResource.refresh(), projectsResource.refresh()])
-  }, 4000)
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setClockNow(Date.now()), 1000)
-    return () => window.clearInterval(timer)
-  }, [])
 
   useEffect(() => {
     if (layoutResource.data) {
@@ -99,6 +91,11 @@ export function ConsolePage() {
   const feedEvents = useMemo(() => feedData?.events ?? [], [feedData])
   const rawBubbleEvents = useMemo(() => feedData?.bubbles ?? {}, [feedData])
   const currentProject = projectsPayload?.current_project ?? null
+  const refreshRuns = runsResource.refresh
+  const refreshLoops = loopsResource.refresh
+  const refreshFeed = feedResource.refresh
+  const refreshProfile = profileResource.refresh
+  const refreshProjects = projectsResource.refresh
   const projectLibrary = useMemo(() => {
     const items = projectsPayload?.projects ?? []
     if (!currentProject || items.some((project) => project.slug === currentProject.slug)) {
@@ -133,6 +130,7 @@ export function ConsolePage() {
     [loops],
   )
   const activeRun = activeRuns[0] ?? null
+  const activeRunSteps = activeRun?.steps ?? EMPTY_STEPS
   const latestRun = runs[0] ?? null
   const activeRunCount = activeRuns.length
   const systemMode: 'live' | 'stopping' | 'idle' =
@@ -141,9 +139,11 @@ export function ConsolePage() {
       : activeLoop?.status === 'running' || activeRunCount > 0
         ? 'live'
         : 'idle'
+  const refreshIntervalMs = systemMode === 'idle' ? 12000 : 4000
+  const hiddenRefreshIntervalMs = systemMode === 'idle' ? 30000 : 12000
   const liveDepartmentKeys = useMemo(
-    () => resolveLiveDepartmentKeys(activeRun?.steps ?? [], activeRun?.current_department ?? null),
-    [activeRun?.current_department, activeRun?.steps],
+    () => resolveLiveDepartmentKeys(activeRunSteps, activeRun?.current_department ?? null),
+    [activeRun?.current_department, activeRunSteps],
   )
   const crewCounts = useMemo(
     () => buildCrewCounts(liveDepartmentKeys),
@@ -151,21 +151,21 @@ export function ConsolePage() {
   )
 
   const bubbleEvents = useMemo(() => {
+    const bubbleCutoff = Date.now() - BUBBLE_TTL_MS
     const visible = Object.values(rawBubbleEvents)
       .filter((event) => !dismissedBubbleIds.includes(event.event_id))
-      .filter((event) => clockNow - new Date(event.timestamp).getTime() < BUBBLE_TTL_MS)
+      .filter((event) => new Date(event.timestamp).getTime() >= bubbleCutoff)
       .sort((left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime())
       .slice(0, 6)
     return Object.fromEntries(visible.map((event) => [event.department_key ?? event.event_id, event]))
-  }, [rawBubbleEvents, dismissedBubbleIds, clockNow])
+  }, [rawBubbleEvents, dismissedBubbleIds])
 
   const visibleFeedEvents = useMemo(
     () => feedEvents.filter((event) => !dismissedFeedIds.includes(event.event_id)),
     [feedEvents, dismissedFeedIds],
   )
 
-  const localDate = useMemo(() => new Date(clockNow), [clockNow])
-  const { timeTheme, themeSource } = useSolarTheme(clockNow)
+  const { timeTheme, themeSource } = useSolarTheme()
   const activeDepartmentKeys = useMemo(
     () => new Set(operatorProfile?.roster.active_department_keys ?? []),
     [operatorProfile],
@@ -192,28 +192,19 @@ export function ConsolePage() {
     }
   }, [layoutDraft, operatorProfile, activeDepartmentKeys, hiddenCampusItems])
   const buildingKeys = useMemo(
-    () => Object.keys(layoutDraft?.buildings ?? {}).filter((key) => key !== 'engineering'),
+    () => Object.keys(layoutDraft?.buildings ?? {}),
     [layoutDraft],
   )
   const selectedBuildingPosition =
     editTarget && editTarget !== 'monument' ? layoutDraft?.buildings[editTarget]?.position ?? null : null
   const monumentPosition = layoutDraft?.monument.position ?? null
-  const localClockLabel = useMemo(
-    () =>
-      localDate.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      }),
-    [localDate],
-  )
   const selectedStep = useMemo<StepRecord | null>(() => {
     if (!selectedBuilding) {
       return null
     }
-    const sourceSteps = activeRun?.steps ?? latestRun?.steps ?? []
+    const sourceSteps = activeRunSteps.length > 0 ? activeRunSteps : latestRun?.steps ?? EMPTY_STEPS
     return sourceSteps.find((step) => step.department_key === selectedBuilding) ?? null
-  }, [selectedBuilding, activeRun?.steps, latestRun?.steps])
+  }, [selectedBuilding, activeRunSteps, latestRun?.steps])
   const selectedEvent = useMemo<EventEntry | null>(() => {
     if (!selectedBuilding) {
       return null
@@ -244,6 +235,23 @@ export function ConsolePage() {
     liveLoop ? 'Loop active' : activeRun ? 'Run active' : selectedProject?.name ?? currentProject?.name ?? 'Ready'
   const layoutBookmarkMeta = editMode ? describeLayoutTarget(editTarget) : layoutNotice ?? 'Adjust campus'
 
+  const refreshConsoleRuntime = useCallback(async () => {
+    await Promise.all([
+      refreshRuns(),
+      refreshLoops(),
+      refreshFeed(),
+      refreshProfile(),
+      refreshProjects(),
+    ])
+  }, [refreshFeed, refreshLoops, refreshProfile, refreshProjects, refreshRuns])
+
+  useLiveRefresh(
+    refreshConsoleRuntime,
+    refreshIntervalMs,
+    true,
+    hiddenRefreshIntervalMs,
+  )
+
   useEffect(() => {
     if (selectedProjectSlug && projectLibrary.some((project) => project.slug === selectedProjectSlug)) {
       return
@@ -265,19 +273,19 @@ export function ConsolePage() {
     selectedProjectSlug,
   ])
 
-  function dismissBubble(eventId: string) {
+  const dismissBubble = useCallback((eventId: string) => {
     setDismissedBubbleIds((current) => (current.includes(eventId) ? current : [...current, eventId]))
-  }
+  }, [])
 
-  function dismissFeedEvent(eventId: string) {
+  const dismissFeedEvent = useCallback((eventId: string) => {
     setDismissedFeedIds((current) => (current.includes(eventId) ? current : [...current, eventId]))
-  }
+  }, [])
 
-  function clearFeedEvents() {
+  const clearFeedEvents = useCallback(() => {
     setFeedCollapsed(true)
-  }
+  }, [])
 
-  function dismissAllFeedEvents() {
+  const dismissAllFeedEvents = useCallback(() => {
     setDismissedFeedIds((current) => {
       const next = new Set(current)
       for (const event of feedEvents) {
@@ -286,11 +294,11 @@ export function ConsolePage() {
       return [...next]
     })
     setFeedCollapsed(true)
-  }
+  }, [feedEvents])
 
-  function reopenFeedEvents() {
+  const reopenFeedEvents = useCallback(() => {
     setFeedCollapsed(false)
-  }
+  }, [])
 
   function setUtilityDock(nextTab: 'runtime' | 'layout' | null) {
     setUtilityDockTab(nextTab)
@@ -310,15 +318,14 @@ export function ConsolePage() {
     setUtilityDock(utilityDockTab ? null : 'runtime')
   }
 
-  async function refreshConsoleRuntime() {
-    await Promise.all([
-      runsResource.refresh(),
-      loopsResource.refresh(),
-      feedResource.refresh(),
-      profileResource.refresh(),
-      projectsResource.refresh(),
-    ])
-  }
+  const handleSelectBuilding = useCallback((next: string | null) => {
+    if (editMode) {
+      setEditTarget(next ?? 'monument')
+      setSelectedBuilding(null)
+      return
+    }
+    setSelectedBuilding(next)
+  }, [editMode])
 
   async function handleLaunchRun() {
     if (!selectedProject || !operatorProfile) {
@@ -397,6 +404,31 @@ export function ConsolePage() {
       await refreshConsoleRuntime()
     } catch (error) {
       setRuntimeNotice(error instanceof Error ? error.message : 'Stop request failed.')
+    } finally {
+      setRuntimeBusy(false)
+    }
+  }
+
+  async function handleForceStopRuntime() {
+    setRuntimeBusy(true)
+    setRuntimeNotice(
+      liveLoop
+        ? `Force stopping loop ${liveLoop.loop_id}...`
+        : activeRun
+          ? `Force stopping run ${activeRun.run_id}...`
+          : 'Nothing is running right now.',
+    )
+    try {
+      if (liveLoop) {
+        await forceStopLoop(liveLoop.loop_id)
+        setRuntimeNotice(`Loop ${liveLoop.loop_id} force stopped. In-flight work may be incomplete.`)
+      } else if (activeRun) {
+        await forceStopRun(activeRun.run_id)
+        setRuntimeNotice(`Run ${activeRun.run_id} force stopped. In-flight work may be incomplete.`)
+      }
+      await refreshConsoleRuntime()
+    } catch (error) {
+      setRuntimeNotice(error instanceof Error ? error.message : 'Force stop failed.')
     } finally {
       setRuntimeBusy(false)
     }
@@ -590,14 +622,24 @@ export function ConsolePage() {
                 </div>
                 <div className="console-project-dock__actions">
                   {liveLoop || activeRun ? (
-                    <button
-                      type="button"
-                      className="console-project-dock__button console-project-dock__button--danger"
-                      onClick={() => void handleStopRuntime()}
-                      disabled={runtimeBusy}
-                    >
-                      {runtimeBusy ? 'Stopping…' : liveLoop ? 'Stop Loop' : 'Stop Run'}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="console-project-dock__button console-project-dock__button--danger"
+                        onClick={() => void handleStopRuntime()}
+                        disabled={runtimeBusy}
+                      >
+                        {runtimeBusy ? 'Stopping…' : liveLoop ? 'Stop Loop' : 'Stop Run'}
+                      </button>
+                      <button
+                        type="button"
+                        className="console-project-dock__button console-project-dock__button--force"
+                        onClick={() => void handleForceStopRuntime()}
+                        disabled={runtimeBusy}
+                      >
+                        Force Stop
+                      </button>
+                    </>
                   ) : (
                     <>
                       <button
@@ -774,23 +816,17 @@ export function ConsolePage() {
         )}
       </div>
       <WorldCanvas
-        steps={activeRun?.steps ?? []}
+        steps={activeRunSteps}
         currentDepartment={activeRun?.current_department ?? null}
         hasActiveRun={Boolean(activeRun)}
         bubbleEvents={bubbleEvents}
         onDismissBubble={dismissBubble}
         selectedBuilding={canvasSelectedBuilding}
-        onSelectBuilding={(next) => {
-          if (editMode) {
-            setEditTarget(next ?? 'monument')
-            setSelectedBuilding(null)
-            return
-          }
-          setSelectedBuilding(next)
-        }}
+        onSelectBuilding={handleSelectBuilding}
         timeTheme={timeTheme}
         layout={visibleLayout}
         showMonument={!hiddenCampusItems.has('monument')}
+        workflowConfig={settingsResource.data ?? null}
       />
       <ConsoleHUD
         mission={activeRun?.mission ?? activeLoop?.objective ?? latestRun?.mission ?? null}
@@ -800,7 +836,6 @@ export function ConsolePage() {
         activeRunCount={activeRunCount}
         loopNote={activeLoop?.latest_note ?? null}
         timeTheme={timeTheme}
-        localClockLabel={localClockLabel}
         themeSource={themeSource}
         crewCounts={crewCounts}
         systemMode={systemMode}

@@ -2,15 +2,17 @@
 {% block title %}Loop {{ loop_state.loop_id }}{% endblock %}
 {% block content %}
   <section class="hero">
-    <div>
+    <div class="hero-copy">
       <h1>{{ loop_state.display_title }}</h1>
       <p class="subhead">Loop {{ loop_state.loop_id }} · {{ "Run until stopped" if loop_state.loop_mode == "always_on" else "Fixed cycles" if loop_state.loop_mode == "full_auto" else loop_state.loop_mode }}</p>
       {% if loop_state.project_slug %}
         <p class="hero-project">PROJECT // {{ loop_state.project_name or loop_state.project_slug }} · {{ loop_state.project_slug }}</p>
       {% endif %}
-      <p class="subhead">Current run {{ loop_state.current_run_id or "-" }} · latest update {{ loop_state.latest_note }}</p>
-      <p class="subhead">{{ loop_report.headline }}</p>
-      <p class="subhead">Goal preview {{ loop_state.objective_preview }}</p>
+      <div class="detail-meta-list">
+        <p><strong>Current run</strong> {{ loop_state.current_run_id or "-" }} · <strong>Latest update</strong> {{ loop_state.latest_note }}</p>
+        <p><strong>Summary</strong> {{ loop_report.headline }}</p>
+        <p><strong>Goal</strong> {{ loop_state.objective_preview }}</p>
+      </div>
     </div>
     <div class="hero-metrics">
       <span class="badge status-{{ loop_state.status }}">{{ loop_state.status }}</span>
@@ -22,153 +24,222 @@
     </div>
   </section>
 
-  <section class="three-column">
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Run Settings</h2>
-      </div>
-      <ul class="list">
-        <li><strong>Main model</strong><p>{{ loop_state.run_settings.codex_model }} · {{ loop_state.run_settings.codex_autonomy }}</p></li>
-        <li><strong>Review model</strong><p>{{ loop_state.run_settings.codex_review_model }} · {{ loop_state.run_settings.codex_review_autonomy }}</p></li>
-        <li><strong>Teams at once</strong><p>{{ loop_state.run_settings.max_parallel_departments or "-" }}</p></li>
-      </ul>
-    </article>
-
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Loop Summary</h2>
-      </div>
-      <ul class="list">
-        <li>
-          <strong>Latest update</strong>
-          <p class="scroll-block scroll-block-md">{{ loop_state.latest_note }}</p>
-        </li>
-        <li>
-          <strong>Summary</strong>
-          <p class="scroll-block scroll-block-md">{{ loop_state.summary or "No summary yet." }}</p>
-        </li>
-        <li>
-          <strong>Recovery</strong>
-          <p>
-            failures in a row {{ loop_state.consecutive_failures }} ·
-            recoveries {{ loop_state.total_recovery_activations }} ·
-            limit {{ loop_state.max_recovery_attempts }}
-          </p>
-        </li>
-        <li>
-          <strong>Original Goal</strong>
-          {% if loop_state.objective_is_long %}
-            <button
-              type="button"
-              class="ghost-button"
-              data-toggle-target="loop-objective-raw"
-              data-toggle-label-open="Hide full goal"
-              data-toggle-label-closed="Show full goal"
-            >
-              Show full goal
-            </button>
-            <div id="loop-objective-raw" class="toggle-panel" hidden>
+  <section class="report-cluster">
+    <div class="report-cluster__header">
+      <p class="report-cluster__eyebrow">At a glance</p>
+      <h2>Current status, latest result, and linked run</h2>
+    </div>
+    <div class="two-column">
+      <article class="panel detail-focus-panel">
+        <div class="panel-header">
+          <h2>Loop Summary</h2>
+        </div>
+        <ul class="list">
+          <li>
+            <strong>Latest update</strong>
+            <p class="scroll-block scroll-block-md">{{ loop_state.latest_note }}</p>
+          </li>
+          <li>
+            <strong>Summary</strong>
+            <p class="scroll-block scroll-block-md">{{ loop_state.summary or "No summary yet." }}</p>
+          </li>
+          <li>
+            <strong>Original Goal</strong>
+            {% if loop_state.objective_is_long %}
+              <button
+                type="button"
+                class="ghost-button"
+                data-toggle-target="loop-objective-raw"
+                data-toggle-label-open="Hide full goal"
+                data-toggle-label-closed="Show full goal"
+              >
+                Show full goal
+              </button>
+              <div id="loop-objective-raw" class="toggle-panel" hidden>
+                <pre class="log-view">{{ loop_state.objective }}</pre>
+              </div>
+            {% else %}
               <pre class="log-view">{{ loop_state.objective }}</pre>
-            </div>
-          {% else %}
-            <pre class="log-view">{{ loop_state.objective }}</pre>
-          {% endif %}
-        </li>
-      </ul>
-    </article>
+            {% endif %}
+          </li>
+        </ul>
+      </article>
 
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Loop Log</h2>
-        <p><a href="/loops/{{ loop_state.loop_id }}/log">Open full log</a></p>
-      </div>
-      <pre class="log-view">{{ log_tail or "No log yet." }}</pre>
-    </article>
+      <article class="panel detail-focus-panel">
+        <div class="panel-header">
+          <h2>Current Status</h2>
+        </div>
+        <ul class="list">
+          <li>
+            <strong>Status</strong>
+            <p><span class="badge status-{{ loop_state.status }}">{{ loop_state.status }}</span></p>
+          </li>
+          <li>
+            <strong>Current run</strong>
+            <p>
+              {% if loop_state.current_run_id %}
+                <a href="/runs/{{ loop_state.current_run_id }}">{{ loop_state.current_run_id }}</a>
+              {% else %}
+                -
+              {% endif %}
+            </p>
+          </li>
+          <li>
+            <strong>Cycles complete</strong>
+            <p>{{ loop_state.iterations_completed }}</p>
+          </li>
+          <li>
+            <strong>Run cadence</strong>
+            <p>every {{ loop_state.interval_seconds }}s</p>
+          </li>
+          <li>
+            <strong>Recovery</strong>
+            <p>
+              failures in a row {{ loop_state.consecutive_failures }} ·
+              recoveries {{ loop_state.total_recovery_activations }} ·
+              limit {{ loop_state.max_recovery_attempts }}
+            </p>
+          </li>
+        </ul>
+      </article>
+    </div>
   </section>
 
-  <section class="panel">
-    <div class="panel-header">
-      <h2>Recovery History</h2>
-      <p>Shown only when the loop had to recover from a failed run.</p>
+  <section class="report-cluster">
+    <div class="report-cluster__header">
+      <p class="report-cluster__eyebrow">Activity</p>
+      <h2>Cycle history and recent updates</h2>
     </div>
-    <ul class="timeline panel-scroll panel-scroll-lg">
-      {% for incident in loop_state.incidents | reverse %}
-        <li class="timeline-item">
-          <div class="timeline-head">
-            <strong>{{ incident.headline }}</strong>
-            <span class="badge status-failed">{{ incident.failure_type }}</span>
+    <div class="stack-column">
+      <article class="panel detail-support-panel">
+        <div class="panel-header">
+          <h2>Cycles</h2>
+          <p>One row per cycle.</p>
+        </div>
+        <div class="table-scroll table-scroll--compact">
+          <table class="run-table">
+            <thead>
+              <tr>
+                <th>Cycle</th>
+                <th>Run</th>
+                <th>Status</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for iteration, linked_run in linked_runs %}
+                <tr>
+                  <td>{{ iteration.iteration }}</td>
+                  <td>
+                    {% if iteration.run_id %}
+                      <a href="/runs/{{ iteration.run_id }}">{{ iteration.run_id }}</a>
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                  <td><span class="badge status-{{ iteration.status or 'pending' }}">{{ iteration.status or "pending" }}</span></td>
+                  <td>
+                    {% if iteration.completed_at %}
+                      {{ format_relative_timestamp(iteration.completed_at) }}
+                      <br />
+                      <small>{{ format_exact_timestamp(iteration.completed_at) }}</small>
+                    {% else %}
+                      {{ format_relative_timestamp(iteration.created_at) }}
+                      <br />
+                      <small>{{ format_exact_timestamp(iteration.created_at) }}</small>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="4">No cycles yet.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if cycles_total_pages > 1 %}
+          <div class="pagination-bar">
+            <a href="/loops/{{ loop_state.loop_id }}?cycles_page={{ cycles_current_page - 1 }}" class="pagination-item {% if cycles_current_page == 1 %}is-disabled{% endif %}">&larr; Previous</a>
+            {% for p in range(1, cycles_total_pages + 1) %}
+              <a href="/loops/{{ loop_state.loop_id }}?cycles_page={{ p }}" class="pagination-item {% if p == cycles_current_page %}is-active{% endif %}">{{ p }}</a>
+            {% endfor %}
+            <a href="/loops/{{ loop_state.loop_id }}?cycles_page={{ cycles_current_page + 1 }}" class="pagination-item {% if cycles_current_page == cycles_total_pages %}is-disabled{% endif %}">Next &rarr;</a>
           </div>
-          {% if incident.wait_seconds %}
-            <p><strong>Pause</strong> wait about {{ (incident.wait_seconds // 60) or 1 }} minutes before retry.</p>
-          {% endif %}
-          <p><strong>Follow-up plan</strong> {{ incident.task_force }}</p>
-          <p><strong>Immediate fix</strong> {{ incident.rapid_response }}</p>
-          <p><strong>Recovery step</strong> {{ incident.recovery_ops }}</p>
-          <small>{{ incident.failed_run_id }} · attempt {{ incident.attempt }} · {{ incident.created_at.isoformat() }}</small>
-        </li>
-      {% else %}
-        <li>No recovery incidents recorded.</li>
-      {% endfor %}
-    </ul>
-  </section>
+        {% endif %}
+      </article>
 
-  <section class="panel">
-    <div class="panel-header">
-      <h2>Cycles</h2>
-      <p>Each cycle starts one run and uses the result for the next cycle.</p>
-    </div>
-    <div class="table-scroll table-scroll--compact">
-      <table class="run-table">
-        <thead>
-          <tr>
-            <th>Iteration</th>
-            <th>Run</th>
-            <th>Status</th>
-            <th>Summary</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for iteration, linked_run in linked_runs %}
-            <tr>
-              <td>{{ iteration.iteration }}</td>
-              <td>
-                {% if iteration.run_id %}
-                  <a href="/runs/{{ iteration.run_id }}">{{ iteration.run_id }}</a>
-                {% else %}
-                  -
-                {% endif %}
-              </td>
-              <td><span class="badge status-{{ iteration.status or 'pending' }}">{{ iteration.status or "pending" }}</span></td>
-              <td>{{ linked_run.summary if linked_run else iteration.summary or "-" }}</td>
-            </tr>
+      <article class="panel detail-support-panel">
+        <div class="panel-header">
+          <h2>Recent Updates</h2>
+        </div>
+        <ul class="timeline panel-scroll panel-scroll-xl">
+          {% for event in event_feed %}
+            <li class="timeline-item">
+              <div class="timeline-head">
+                <strong>{{ event.title }}</strong>
+                <span class="badge status-{{ event.status }}">{{ event.status }}</span>
+              </div>
+              <p>{{ event.message }}</p>
+              <small>{{ event.department_label or event.scope }} · {{ format_exact_timestamp(event.timestamp) }} · {{ format_relative_timestamp(event.timestamp) }}</small>
+            </li>
           {% else %}
-            <tr>
-              <td colspan="4">No cycles yet.</td>
-            </tr>
+            <li>No events recorded yet.</li>
           {% endfor %}
-        </tbody>
-      </table>
+        </ul>
+      </article>
     </div>
   </section>
 
-  <section class="panel">
-    <div class="panel-header">
-      <h2>Recent Updates</h2>
-      <p>Latest updates from this loop.</p>
+  <section class="report-cluster">
+    <div class="report-cluster__header">
+      <p class="report-cluster__eyebrow">Behind the scenes</p>
+      <h2>Run settings, recovery history, and log</h2>
     </div>
-    <ul class="timeline">
-      {% for event in event_feed %}
-        <li class="timeline-item">
-          <div class="timeline-head">
-            <strong>{{ event.title }}</strong>
-            <span class="badge status-{{ event.status }}">{{ event.status }}</span>
-          </div>
-          <p>{{ event.message }}</p>
-          <small>{{ event.department_label or event.scope }} · {{ event.timestamp.isoformat() }}</small>
-        </li>
-      {% else %}
-        <li>No events recorded yet.</li>
-      {% endfor %}
-    </ul>
+    <div class="three-column">
+      <article class="panel detail-support-panel">
+        <div class="panel-header">
+          <h2>Run Settings</h2>
+        </div>
+        <ul class="list">
+          <li><strong>Main model</strong><p>{{ loop_state.run_settings.codex_model }} · {{ loop_state.run_settings.codex_autonomy }}</p></li>
+          <li><strong>Review model</strong><p>{{ loop_state.run_settings.codex_review_model }} · {{ loop_state.run_settings.codex_review_autonomy }}</p></li>
+          <li><strong>Teams at once</strong><p>{{ loop_state.run_settings.max_parallel_departments or "-" }}</p></li>
+        </ul>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header">
+          <h2>Recovery History</h2>
+        </div>
+        <ul class="timeline panel-scroll panel-scroll-lg">
+          {% for incident in loop_state.incidents | reverse %}
+            <li class="timeline-item">
+              <div class="timeline-head">
+                <strong>{{ incident.headline }}</strong>
+                <span class="badge status-failed">{{ incident.failure_type }}</span>
+              </div>
+              {% if incident.wait_seconds %}
+                <p><strong>Pause</strong> wait about {{ (incident.wait_seconds // 60) or 1 }} minutes before retry.</p>
+              {% endif %}
+              <p><strong>Follow-up plan</strong> {{ incident.task_force }}</p>
+              <p><strong>Immediate fix</strong> {{ incident.rapid_response }}</p>
+              <p><strong>Recovery step</strong> {{ incident.recovery_ops }}</p>
+              <small>{{ incident.failed_run_id }} · attempt {{ incident.attempt }} · {{ format_exact_timestamp(incident.created_at) }} · {{ format_relative_timestamp(incident.created_at) }}</small>
+            </li>
+          {% else %}
+            <li>No recovery incidents recorded.</li>
+          {% endfor %}
+        </ul>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header">
+          <h2>Loop Log</h2>
+          <p><a href="/loops/{{ loop_state.loop_id }}/log">Open full log</a></p>
+        </div>
+        <pre class="log-view">{{ log_tail or "No log yet." }}</pre>
+      </article>
+    </div>
   </section>
 {% endblock %}

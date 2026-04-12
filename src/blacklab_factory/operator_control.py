@@ -79,7 +79,7 @@ class OperatorCommander:
             return directive
 
         return (
-            "이 채팅은 메인 제어면이자 live directive 채널입니다. 활성 run/loop가 있으면 기본적으로 그 인스턴스에 지시를 전달합니다. 가능한 작업은 현재 상태 요약, 새 런 시작, 24/7 루프 시작, 루프 중지, core/review 모델과 자율도 변경입니다.",
+            "이 채널은 운영 명령 채널입니다. 활성 run이나 loop가 있으면 메시지는 해당 작업의 지시로 전달됩니다. 가능한 작업은 현재 상태 확인, 새 run 시작, 24/7 loop 시작, loop 중지, 기본 실행 설정 변경입니다.",
             {"type": "help"},
         )
 
@@ -136,6 +136,7 @@ class OperatorCommander:
             codex_review_model=profile.launch.run_settings.codex_review_model,
             codex_review_autonomy=profile.launch.run_settings.codex_review_autonomy,
         )
+        self.run_storage.attach_controller_pid(launch.entity_id, launch.pid)
         return (
             (
                 f"새 런 {launch.entity_id}를 시작했습니다. 미션은 '{mission}' 입니다."
@@ -183,6 +184,7 @@ class OperatorCommander:
             codex_review_model=profile.autopilot.run_settings.codex_review_model,
             codex_review_autonomy=profile.autopilot.run_settings.codex_review_autonomy,
         )
+        self.loop_supervisor.loop_storage.attach_controller_pid(launch.entity_id, launch.pid)
         return (
             (
                 f"루프 {launch.entity_id}를 시작했습니다. 목표는 '{objective}' 입니다."

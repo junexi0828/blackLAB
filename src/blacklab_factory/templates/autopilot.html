@@ -2,7 +2,7 @@
 {% block title %}Autopilot{% endblock %}
 {% block content %}
   <section class="hero">
-    <div>
+    <div class="hero-copy">
       <h1>Autopilot</h1>
       <p class="subhead">Keep improving one project over time.</p>
     </div>
@@ -69,73 +69,95 @@
             {% endfor %}
           </div>
         </div>
-        <div class="form-grid">
-          <label>
-            <span>How long to run</span>
-            <select name="loop_mode">
-              <option value="full_auto" {% if operator_profile.autopilot.loop_mode == "full_auto" %}selected{% endif %}>Fixed number of cycles</option>
-              <option value="always_on" {% if operator_profile.autopilot.loop_mode == "always_on" %}selected{% endif %}>Run until stopped</option>
-            </select>
-          </label>
-          <label>
-            <span>How each run works</span>
-            <select name="run_mode">
-              <option value="codex" {% if operator_profile.autopilot.run_mode == "codex" %}selected{% endif %}>AI execution</option>
-              <option value="mock" {% if operator_profile.autopilot.run_mode == "mock" %}selected{% endif %}>Demo mode</option>
-              <option value="openai" {% if operator_profile.autopilot.run_mode == "openai" %}selected{% endif %}>OpenAI API</option>
-            </select>
-          </label>
-          <label>
-            <span>Main model</span>
-            <select name="codex_model">
-              <option value="gpt-5.4" {% if operator_profile.autopilot.run_settings.codex_model == "gpt-5.4" %}selected{% endif %}>gpt-5.4</option>
-              <option value="gpt-5.3-codex" {% if operator_profile.autopilot.run_settings.codex_model == "gpt-5.3-codex" %}selected{% endif %}>gpt-5.3-codex</option>
-              <option value="gpt-5.4-mini" {% if operator_profile.autopilot.run_settings.codex_model == "gpt-5.4-mini" %}selected{% endif %}>gpt-5.4-mini</option>
-            </select>
-          </label>
-          <label>
-            <span>Main access</span>
-            <select name="codex_autonomy">
-              <option value="full_auto" {% if operator_profile.autopilot.run_settings.codex_autonomy == "full_auto" %}selected{% endif %}>Automatic</option>
-              <option value="yolo" {% if operator_profile.autopilot.run_settings.codex_autonomy == "yolo" %}selected{% endif %}>High access</option>
-              <option value="read_only" {% if operator_profile.autopilot.run_settings.codex_autonomy == "read_only" %}selected{% endif %}>Read only</option>
-            </select>
-          </label>
-          <label>
-            <span>Review model</span>
-            <select name="codex_review_model">
-              <option value="gpt-5.4-mini" {% if operator_profile.autopilot.run_settings.codex_review_model == "gpt-5.4-mini" %}selected{% endif %}>gpt-5.4-mini</option>
-              <option value="gpt-5.4" {% if operator_profile.autopilot.run_settings.codex_review_model == "gpt-5.4" %}selected{% endif %}>gpt-5.4</option>
-              <option value="gpt-5.3-codex" {% if operator_profile.autopilot.run_settings.codex_review_model == "gpt-5.3-codex" %}selected{% endif %}>gpt-5.3-codex</option>
-            </select>
-          </label>
-          <label>
-            <span>Review access</span>
-            <select name="codex_review_autonomy">
-              <option value="read_only" {% if operator_profile.autopilot.run_settings.codex_review_autonomy == "read_only" %}selected{% endif %}>Read only</option>
-              <option value="full_auto" {% if operator_profile.autopilot.run_settings.codex_review_autonomy == "full_auto" %}selected{% endif %}>Automatic</option>
-              <option value="yolo" {% if operator_profile.autopilot.run_settings.codex_review_autonomy == "yolo" %}selected{% endif %}>High access</option>
-            </select>
-          </label>
-          <label>
-            <span>Teams at once</span>
-            <input type="number" name="max_parallel_departments" min="1" max="16" value="{{ operator_profile.autopilot.run_settings.max_parallel_departments or company_config.max_parallel_departments }}" />
-          </label>
-          <label>
-            <span>Number of cycles</span>
-            <input type="number" name="max_iterations" min="1" max="100" value="{{ operator_profile.autopilot.max_iterations }}" />
-          </label>
-          <label>
-            <span>Wait between cycles (seconds)</span>
-            <input type="number" name="interval_seconds" min="0" max="86400" value="{{ operator_profile.autopilot.interval_seconds }}" />
-          </label>
+        <div class="saved-setup-note">
+          <strong>Uses your saved setup by default.</strong>
+          <p>
+            {{ operator_profile.autopilot.loop_mode }} ·
+            {{ operator_profile.autopilot.run_mode }} ·
+            every {{ operator_profile.autopilot.interval_seconds }}s ·
+            main {{ operator_profile.autopilot.run_settings.codex_model }}/{{ operator_profile.autopilot.run_settings.codex_autonomy }} ·
+            review {{ operator_profile.autopilot.run_settings.codex_review_model }}/{{ operator_profile.autopilot.run_settings.codex_review_autonomy }} ·
+            {{ operator_profile.autopilot.run_settings.max_parallel_departments or company_config.max_parallel_departments }} teams at once
+          </p>
         </div>
-        <div class="form-grid form-grid-timing">
-          <label>
-            <span>Pause between teams (seconds)</span>
-            <input type="number" step="0.5" min="0" name="pause_between_departments" value="{{ operator_profile.autopilot.pause_between_departments }}" />
-            <small class="field-hint">Use `0` to keep each run moving without a pause.</small>
-          </label>
+        <button
+          type="button"
+          class="ghost-button"
+          data-toggle-target="autopilot-advanced-settings"
+          data-toggle-label-open="Hide advanced settings"
+          data-toggle-label-closed="Show advanced settings"
+        >
+          Show advanced settings
+        </button>
+        <div id="autopilot-advanced-settings" class="toggle-panel" hidden>
+          <div class="form-grid">
+            <label>
+              <span>How long to run</span>
+              <select name="loop_mode">
+                <option value="full_auto" {% if operator_profile.autopilot.loop_mode == "full_auto" %}selected{% endif %}>Fixed number of cycles</option>
+                <option value="always_on" {% if operator_profile.autopilot.loop_mode == "always_on" %}selected{% endif %}>Run until stopped</option>
+              </select>
+            </label>
+            <label>
+              <span>How each run works</span>
+              <select name="run_mode">
+                <option value="codex" {% if operator_profile.autopilot.run_mode == "codex" %}selected{% endif %}>AI execution</option>
+                <option value="mock" {% if operator_profile.autopilot.run_mode == "mock" %}selected{% endif %}>Demo mode</option>
+                <option value="openai" {% if operator_profile.autopilot.run_mode == "openai" %}selected{% endif %}>OpenAI API</option>
+              </select>
+            </label>
+            <label>
+              <span>Main model</span>
+              <select name="codex_model">
+                <option value="gpt-5.4" {% if operator_profile.autopilot.run_settings.codex_model == "gpt-5.4" %}selected{% endif %}>gpt-5.4</option>
+                <option value="gpt-5.3-codex" {% if operator_profile.autopilot.run_settings.codex_model == "gpt-5.3-codex" %}selected{% endif %}>gpt-5.3-codex</option>
+                <option value="gpt-5.4-mini" {% if operator_profile.autopilot.run_settings.codex_model == "gpt-5.4-mini" %}selected{% endif %}>gpt-5.4-mini</option>
+              </select>
+            </label>
+            <label>
+              <span>Main access</span>
+              <select name="codex_autonomy">
+                <option value="full_auto" {% if operator_profile.autopilot.run_settings.codex_autonomy == "full_auto" %}selected{% endif %}>Automatic</option>
+                <option value="yolo" {% if operator_profile.autopilot.run_settings.codex_autonomy == "yolo" %}selected{% endif %}>High access</option>
+                <option value="read_only" {% if operator_profile.autopilot.run_settings.codex_autonomy == "read_only" %}selected{% endif %}>Read only</option>
+              </select>
+            </label>
+            <label>
+              <span>Review model</span>
+              <select name="codex_review_model">
+                <option value="gpt-5.4-mini" {% if operator_profile.autopilot.run_settings.codex_review_model == "gpt-5.4-mini" %}selected{% endif %}>gpt-5.4-mini</option>
+                <option value="gpt-5.4" {% if operator_profile.autopilot.run_settings.codex_review_model == "gpt-5.4" %}selected{% endif %}>gpt-5.4</option>
+                <option value="gpt-5.3-codex" {% if operator_profile.autopilot.run_settings.codex_review_model == "gpt-5.3-codex" %}selected{% endif %}>gpt-5.3-codex</option>
+              </select>
+            </label>
+            <label>
+              <span>Review access</span>
+              <select name="codex_review_autonomy">
+                <option value="read_only" {% if operator_profile.autopilot.run_settings.codex_review_autonomy == "read_only" %}selected{% endif %}>Read only</option>
+                <option value="full_auto" {% if operator_profile.autopilot.run_settings.codex_review_autonomy == "full_auto" %}selected{% endif %}>Automatic</option>
+                <option value="yolo" {% if operator_profile.autopilot.run_settings.codex_review_autonomy == "yolo" %}selected{% endif %}>High access</option>
+              </select>
+            </label>
+            <label>
+              <span>Teams at once</span>
+              <input type="number" name="max_parallel_departments" min="1" max="16" value="{{ operator_profile.autopilot.run_settings.max_parallel_departments or company_config.max_parallel_departments }}" />
+            </label>
+            <label>
+              <span>Number of cycles</span>
+              <input type="number" name="max_iterations" min="1" max="100" value="{{ operator_profile.autopilot.max_iterations }}" />
+            </label>
+            <label>
+              <span>Wait between cycles (seconds)</span>
+              <input type="number" name="interval_seconds" min="0" max="86400" value="{{ operator_profile.autopilot.interval_seconds }}" />
+            </label>
+          </div>
+          <div class="form-grid form-grid-timing">
+            <label>
+              <span>Pause between teams (seconds)</span>
+              <input type="number" step="0.5" min="0" name="pause_between_departments" value="{{ operator_profile.autopilot.pause_between_departments }}" />
+              <small class="field-hint">Use `0` to keep each run moving without a pause.</small>
+            </label>
+          </div>
         </div>
         <div class="button-row">
           <button type="submit" class="primary-button">Start Autopilot</button>

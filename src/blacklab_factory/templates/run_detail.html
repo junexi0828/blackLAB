@@ -2,15 +2,17 @@
 {% block title %}Run {{ run.run_id }}{% endblock %}
 {% block content %}
   <section class="hero">
-    <div>
+    <div class="hero-copy">
       <h1>{{ run.display_title }}</h1>
       <p class="subhead">Run {{ run.run_id }} · {{ run.mode }}</p>
       {% if run.project_slug %}
         <p class="hero-project">PROJECT // {{ run.project_name or run.project_slug }} · {{ run.project_slug }}</p>
       {% endif %}
-      <p class="subhead">Current team {{ run.current_department or "-" }} · next step {{ run.next_action }}</p>
-      <p class="subhead">{{ run_report.headline }}</p>
-      <p class="subhead">Request preview {{ run.mission_preview }}</p>
+      <div class="detail-meta-list">
+        <p><strong>Current team</strong> {{ run.current_department or "-" }} · <strong>Next step</strong> {{ run.next_action }}</p>
+        <p><strong>Summary</strong> {{ run_report.headline }}</p>
+        <p><strong>Request</strong> {{ run.mission_preview }}</p>
+      </div>
     </div>
     <div class="hero-metrics">
       <span class="badge status-{{ run.status }}">{{ run.status }}</span>
@@ -28,11 +30,12 @@
 
   <section class="report-cluster">
     <div class="report-cluster__header">
-      <p class="report-cluster__eyebrow">Summary</p>
-      <h2>What happened and what comes next</h2>
+      <p class="report-cluster__eyebrow">At a glance</p>
+      <h2>What happened, what shipped, and what needs attention</h2>
     </div>
-    <div class="two-column">
-      <article class="panel">
+    <div class="two-column detail-preview-grid">
+      <div class="stack-column">
+        <article class="panel detail-focus-panel">
         <div class="panel-header">
           <h2>Run Summary</h2>
           {% if run.autopilot_iteration %}
@@ -56,46 +59,55 @@
             <strong>Coverage</strong>
             <p>{{ run_report.completed_departments_count }} / {{ run_report.total_departments_count }} teams complete, {{ run_report.artifact_count }} outputs, {{ run_report.risk_count }} open issues.</p>
           </li>
+          <li>
+            <strong>Original Request</strong>
+            {% if run.mission_is_long %}
+              <button
+                type="button"
+                class="ghost-button"
+                data-toggle-target="run-mission-raw"
+                data-toggle-label-open="Hide full request"
+                data-toggle-label-closed="Show full request"
+              >
+                Show full request
+              </button>
+              <div id="run-mission-raw" class="toggle-panel" hidden>
+                <pre class="log-view">{{ run.mission }}</pre>
+              </div>
+            {% else %}
+              <pre class="log-view">{{ run.mission }}</pre>
+            {% endif %}
+          </li>
         </ul>
-      </article>
+        </article>
 
-      <article class="panel">
+        <article id="open-issues" class="panel detail-focus-panel">
+          <div class="panel-header">
+            <h2>Open Issues</h2>
+            <p>Items from this run that are still unresolved or need a decision.</p>
+          </div>
+          <ul class="list panel-scroll panel-scroll-md">
+            {% for risk in run.risks %}
+              <li>
+                <p>{{ risk }}</p>
+              </li>
+            {% else %}
+              <li>No open issues.</li>
+            {% endfor %}
+          </ul>
+        </article>
+      </div>
+
+      <article class="panel detail-focus-panel">
         <div class="panel-header">
-          <h2>Live Details</h2>
+          <h2>Selected Output</h2>
+          {% if selected_artifact %}
+            <p>{{ selected_artifact.department_key }} · {{ selected_artifact.title }}</p>
+          {% endif %}
         </div>
-        <ul class="list">
-          <li>
-            <strong>Current worker</strong>
-            <p>{{ run.current_process.label if run.current_process else "-" }}</p>
-          </li>
-          <li>
-            <strong>Process ID</strong>
-            <p>{{ run.current_process.pid if run.current_process else "-" }}</p>
-          </li>
-          <li>
-            <strong>Current command</strong>
-            <p class="scroll-block scroll-block-sm">{{ run.current_process.command_preview if run.current_process else "No active worker." }}</p>
-          </li>
-          <li>
-            <strong>Team progress</strong>
-            <p>{{ run.completed_departments_count }} / {{ run.total_departments_count }} completed</p>
-          </li>
-          <li>
-            <strong>Teams at once</strong>
-            <p>
-              requested {{ run.metrics.get("requested_parallel_departments", run.settings.max_parallel_departments or "-") }}
-              · current {{ run.metrics.get("effective_parallel_departments", run.settings.max_parallel_departments or "-") }}
-            </p>
-          </li>
-          <li>
-            <strong>Resource note</strong>
-            <p class="scroll-block scroll-block-sm">{{ run.metrics.get("resource_governor_reason", "No resource note yet.") }}</p>
-          </li>
-          <li>
-            <strong>Last finished team</strong>
-            <p>{{ run.last_completed_department or "-" }}</p>
-          </li>
-        </ul>
+        <div class="markdown-body panel-scroll panel-scroll-xl">
+          {{ preview_html | safe }}
+        </div>
       </article>
     </div>
   </section>
@@ -135,79 +147,11 @@
 
   <section class="report-cluster">
     <div class="report-cluster__header">
-      <p class="report-cluster__eyebrow">Notes</p>
-      <h2>Main output and supporting notes</h2>
-    </div>
-    <div class="two-column detail-preview-grid">
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Selected Output</h2>
-        {% if selected_artifact %}
-          <p>{{ selected_artifact.department_key }} · {{ selected_artifact.title }}</p>
-        {% endif %}
-      </div>
-      <div class="markdown-body panel-scroll panel-scroll-xl">
-        {{ preview_html | safe }}
-      </div>
-    </article>
-
-    <div class="stack-column">
-      <article class="panel">
-        <div class="panel-header">
-          <h2>Notes</h2>
-        </div>
-        <ul class="list">
-          <li>
-            <strong>Next step</strong>
-            <p>{{ run.next_action }}</p>
-          </li>
-          <li>
-            <strong>Original Request</strong>
-            {% if run.mission_is_long %}
-              <button
-                type="button"
-                class="ghost-button"
-                data-toggle-target="run-mission-raw"
-                data-toggle-label-open="Hide full request"
-                data-toggle-label-closed="Show full request"
-              >
-                Show full request
-              </button>
-              <div id="run-mission-raw" class="toggle-panel" hidden>
-                <pre class="log-view">{{ run.mission }}</pre>
-              </div>
-            {% else %}
-              <pre class="log-view">{{ run.mission }}</pre>
-            {% endif %}
-          </li>
-        </ul>
-      </article>
-
-      <article id="open-issues" class="panel">
-        <div class="panel-header">
-          <h2>Open Issues</h2>
-        </div>
-        <ul class="list panel-scroll panel-scroll-md">
-          {% for risk in run.risks %}
-            <li>
-              <p>{{ risk }}</p>
-            </li>
-          {% else %}
-            <li>No open issues.</li>
-          {% endfor %}
-        </ul>
-      </article>
-    </div>
-    </div>
-  </section>
-
-  <section class="report-cluster">
-    <div class="report-cluster__header">
       <p class="report-cluster__eyebrow">Activity</p>
-      <h2>Timeline, updates, logs, and worker history</h2>
+      <h2>Team progress and recent updates</h2>
     </div>
     <div class="two-column">
-      <article class="panel">
+      <article class="panel detail-support-panel">
         <div class="panel-header">
           <h2>Team Timeline</h2>
         </div>
@@ -225,7 +169,7 @@
         </ul>
       </article>
 
-      <article class="panel">
+      <article class="panel detail-support-panel">
         <div class="panel-header">
           <h2>Recent Updates</h2>
           <p>Latest updates from this run.</p>
@@ -239,7 +183,7 @@
               </div>
               <p>{{ event.message }}</p>
               <small>
-                {{ event.department_label or event.scope }} · {{ event.timestamp.isoformat() }}
+                {{ event.department_label or event.scope }} · {{ format_exact_timestamp(event.timestamp) }} · {{ format_relative_timestamp(event.timestamp) }}
               </small>
             </li>
           {% else %}
@@ -248,8 +192,53 @@
         </ul>
       </article>
     </div>
+  </section>
 
-    <div class="two-column">
+  <section class="report-cluster">
+    <div class="report-cluster__header">
+      <p class="report-cluster__eyebrow">Behind the scenes</p>
+      <h2>Live details, full log, and worker history</h2>
+    </div>
+    <div class="three-column">
+      <article class="panel detail-support-panel">
+        <div class="panel-header">
+          <h2>Live Details</h2>
+        </div>
+        <ul class="list">
+          <li>
+            <strong>Current worker</strong>
+            <p>{{ run.current_process.label if run.current_process else "-" }}</p>
+          </li>
+          <li>
+            <strong>Process ID</strong>
+            <p>{{ run.current_process.pid if run.current_process else "-" }}</p>
+          </li>
+          <li>
+            <strong>Current command</strong>
+            <p class="scroll-block scroll-block-sm">{{ run.current_process.command_preview if run.current_process else "No active worker." }}</p>
+          </li>
+          <li>
+            <strong>Team progress</strong>
+            <p>{{ run.completed_departments_count }} / {{ run.total_departments_count }} completed</p>
+          </li>
+          <li>
+            <strong>Teams at once</strong>
+            <p>
+              requested {{ run.metrics.get("requested_parallel_departments", run.settings.max_parallel_departments or "-") }}
+              · current {{ run.metrics.get("effective_parallel_departments", run.settings.max_parallel_departments or "-") }}
+            </p>
+          </li>
+          <li>
+            <strong>Resource note</strong>
+            <p class="scroll-block scroll-block-sm">{{ run.metrics.get("resource_governor_reason", "No resource note yet.") }}</p>
+          </li>
+          <li>
+            <strong>Last finished team</strong>
+            <p>{{ run.last_completed_department or "-" }}</p>
+          </li>
+        </ul>
+      </article>
+
       <article class="panel">
         <div class="panel-header">
           <h2>Run Log</h2>

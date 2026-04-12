@@ -1,4 +1,4 @@
-export type RunStatus = 'queued' | 'running' | 'completed' | 'failed' | 'stale'
+export type RunStatus = 'queued' | 'running' | 'stopping' | 'completed' | 'failed' | 'stale'
 export type LoopStatus = 'queued' | 'running' | 'stopping' | 'completed' | 'failed'
 
 export interface RunSettings {

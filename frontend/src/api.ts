@@ -82,6 +82,14 @@ export async function stopRun(runId: string) {
   })
 }
 
+export async function forceStopRun(runId: string) {
+  return requestJson<RunState>(`/api/runs/${runId}/force-stop`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  })
+}
+
 export async function launchLoop(payload: Record<string, unknown>) {
   return requestJson<{ loop_id: string; pid: number; log_path: string; status: string }>(
     '/api/launch/loop',
@@ -95,6 +103,14 @@ export async function launchLoop(payload: Record<string, unknown>) {
 
 export async function stopLoop(loopId: string) {
   return requestJson<LoopState>(`/api/loops/${loopId}/stop`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  })
+}
+
+export async function forceStopLoop(loopId: string) {
+  return requestJson<LoopState>(`/api/loops/${loopId}/force-stop`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({}),

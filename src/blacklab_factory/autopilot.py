@@ -210,14 +210,7 @@ class AutopilotSupervisor:
             self._sleep_between_cycles(loop_state)
 
     def request_stop(self, loop_id: str) -> LoopState:
-        loop_state = self.loop_storage.load_state(loop_id)
-        loop_state.stop_requested = True
-        if loop_state.status == "running":
-            loop_state.status = "stopping"
-        loop_state.latest_note = "Operator requested the loop to stop after the current cycle."
-        self.loop_storage.save_state(loop_state)
-        self.loop_storage.append_log(loop_id, "Stop requested.")
-        return loop_state
+        return self.loop_storage.request_stop(loop_id)
 
     def _build_iteration_mission(
         self,

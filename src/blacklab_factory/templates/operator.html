@@ -2,9 +2,9 @@
 {% block title %}Live Chat{% endblock %}
 {% block content %}
   <section class="hero">
-    <div>
+    <div class="hero-copy">
       <h1>Live Chat</h1>
-      <p class="subhead">Send a message to the work that is running right now.</p>
+      <p class="subhead">This is the live control channel. Send a direct instruction to the work that is running now.</p>
     </div>
     <div class="button-row">
       <a class="primary-button" href="/settings">Open Organization</a>
@@ -17,7 +17,7 @@
       <div class="panel-header">
         <div>
           <h2>Message Box</h2>
-          <p id="action-feedback">Your message goes to the current run first. If no run is active, it goes to the current loop.</p>
+          <p id="action-feedback">Use short instructions. This is an operating channel, not a general chatbot.</p>
         </div>
       </div>
       <div class="operator-route operator-route-{{ operator_route.mode }}">
@@ -27,7 +27,7 @@
       <div id="operator-chat-log" class="chat-log">
         {% for message in chat_messages %}
           <article class="chat-message chat-{{ message.role }}">
-            <div class="chat-meta">{{ message.role }} · {{ message.created_at }}</div>
+            <div class="chat-meta">{{ message.role }} · {{ format_exact_timestamp(message.created_at) }} · {{ format_relative_timestamp(message.created_at) }}</div>
             <div class="chat-body">{{ message.content }}</div>
           </article>
         {% else %}
@@ -51,67 +51,84 @@
       </form>
     </article>
 
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Saved Setup</h2>
-        <a href="/settings">Open</a>
-      </div>
-      <ul class="list">
-        <li><strong>Run Mode</strong><p>{{ operator_profile.launch.mode }}</p></li>
-        <li><strong>Run Project</strong><p>{{ operator_profile.launch.project_slug or "-" }}</p></li>
-        <li><strong>Run Setup</strong><p>main {{ operator_profile.launch.run_settings.codex_model }}/{{ operator_profile.launch.run_settings.codex_autonomy }} · review {{ operator_profile.launch.run_settings.codex_review_model }}/{{ operator_profile.launch.run_settings.codex_review_autonomy }}</p></li>
-        <li><strong>Autopilot Mode</strong><p>{{ operator_profile.autopilot.loop_mode }} · {{ operator_profile.autopilot.run_mode }}</p></li>
-        <li><strong>Loop Project</strong><p>{{ operator_profile.autopilot.project_slug or "-" }}</p></li>
-        <li><strong>Autopilot Setup</strong><p>main {{ operator_profile.autopilot.run_settings.codex_model }}/{{ operator_profile.autopilot.run_settings.codex_autonomy }} · review {{ operator_profile.autopilot.run_settings.codex_review_model }}/{{ operator_profile.autopilot.run_settings.codex_review_autonomy }}</p></li>
-      </ul>
-    </article>
+    <div class="stack-column">
+      <article class="panel">
+        <div class="panel-header">
+          <h2>Active Runs</h2>
+          <a href="/runs">Open</a>
+        </div>
+        <ul class="list">
+          {% for run in active_runs %}
+            <li>
+              <strong><a href="/runs/{{ run.run_id }}">{{ run.run_id }}</a></strong>
+              <p class="scroll-block scroll-block-sm">{{ run.current_status }}</p>
+            </li>
+          {% else %}
+            <li>No runs in progress.</li>
+          {% endfor %}
+        </ul>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header">
+          <h2>Active Loops</h2>
+          <a href="/loops">Open</a>
+        </div>
+        <ul class="list">
+          {% for loop_state in active_loops %}
+            <li>
+              <strong><a href="/loops/{{ loop_state.loop_id }}">{{ loop_state.loop_id }}</a></strong>
+              <p class="scroll-block scroll-block-sm">{{ loop_state.latest_note }}</p>
+              <button type="button" class="danger-button" data-stop-loop="{{ loop_state.loop_id }}">Stop</button>
+            </li>
+          {% else %}
+            <li>No loops in progress.</li>
+          {% endfor %}
+        </ul>
+      </article>
+    </div>
   </section>
 
-  <section class="three-column">
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Quick Guide</h2>
+  <section class="panel">
+    <div class="panel-header">
+      <h2>Saved Setup</h2>
+      <div class="button-row">
+        <button
+          type="button"
+          class="ghost-button"
+          data-toggle-target="operator-saved-setup"
+          data-toggle-label-open="Hide saved setup"
+          data-toggle-label-closed="Show saved setup"
+        >
+          Show saved setup
+        </button>
+        <a href="/settings">Open Organization</a>
       </div>
-      <ul class="list">
-        <li><strong>Run</strong><p>A run is one focused pass for one goal.</p></li>
-        <li><strong>Loop</strong><p>A loop keeps starting new runs until it finishes or you stop it.</p></li>
-        <li><strong>Chat</strong><p>Your message goes to the work that is running now.</p></li>
-      </ul>
-    </article>
+    </div>
+    <div id="operator-saved-setup" class="toggle-panel" hidden>
+      <div class="two-column">
+        <article class="panel panel-muted">
+          <div class="panel-header">
+            <h2>Run Defaults</h2>
+          </div>
+          <ul class="list">
+            <li><strong>Mode</strong><p>{{ operator_profile.launch.mode }}</p></li>
+            <li><strong>Project</strong><p>{{ operator_profile.launch.project_slug or "-" }}</p></li>
+            <li><strong>Setup</strong><p>main {{ operator_profile.launch.run_settings.codex_model }}/{{ operator_profile.launch.run_settings.codex_autonomy }} · review {{ operator_profile.launch.run_settings.codex_review_model }}/{{ operator_profile.launch.run_settings.codex_review_autonomy }}</p></li>
+          </ul>
+        </article>
 
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Active Runs</h2>
-        <a href="/runs">Open</a>
+        <article class="panel panel-muted">
+          <div class="panel-header">
+            <h2>Autopilot Defaults</h2>
+          </div>
+          <ul class="list">
+            <li><strong>Mode</strong><p>{{ operator_profile.autopilot.loop_mode }} · {{ operator_profile.autopilot.run_mode }}</p></li>
+            <li><strong>Project</strong><p>{{ operator_profile.autopilot.project_slug or "-" }}</p></li>
+            <li><strong>Setup</strong><p>main {{ operator_profile.autopilot.run_settings.codex_model }}/{{ operator_profile.autopilot.run_settings.codex_autonomy }} · review {{ operator_profile.autopilot.run_settings.codex_review_model }}/{{ operator_profile.autopilot.run_settings.codex_review_autonomy }}</p></li>
+          </ul>
+        </article>
       </div>
-      <ul class="list">
-        {% for run in active_runs %}
-          <li>
-            <strong><a href="/runs/{{ run.run_id }}">{{ run.run_id }}</a></strong>
-            <p class="scroll-block scroll-block-sm">{{ run.current_status }}</p>
-          </li>
-        {% else %}
-          <li>No runs in progress.</li>
-        {% endfor %}
-      </ul>
-    </article>
-
-    <article class="panel">
-      <div class="panel-header">
-        <h2>Active Loops</h2>
-        <a href="/loops">Open</a>
-      </div>
-      <ul class="list">
-        {% for loop_state in active_loops %}
-          <li>
-            <strong><a href="/loops/{{ loop_state.loop_id }}">{{ loop_state.loop_id }}</a></strong>
-            <p class="scroll-block scroll-block-sm">{{ loop_state.latest_note }}</p>
-            <button type="button" class="danger-button" data-stop-loop="{{ loop_state.loop_id }}">Stop</button>
-          </li>
-        {% else %}
-          <li>No loops in progress.</li>
-        {% endfor %}
-      </ul>
-    </article>
+    </div>
   </section>
 {% endblock %}

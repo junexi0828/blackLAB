@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useState } from 'react'
+import { startTransition, useCallback, useEffect, useState } from 'react'
 
 interface ResourceState<T> {
   data: T | null
@@ -15,7 +15,7 @@ export function useJsonResource<T>(
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  async function runLoader() {
+  const runLoader = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     try {
@@ -32,12 +32,11 @@ export function useJsonResource<T>(
         setIsLoading(false)
       })
     }
-  }
+  }, [loader])
 
   useEffect(() => {
     void runLoader()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, dependencies)
+  }, [runLoader, ...dependencies])
 
   return { data, error, isLoading, refresh: runLoader }
 }

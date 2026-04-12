@@ -95,8 +95,9 @@ function writeStoredCoords(coords: StoredCoords) {
   }
 }
 
-export function useSolarTheme(clockNow: number): SolarThemeState {
+export function useSolarTheme(): SolarThemeState {
   const [coords, setCoords] = useState<StoredCoords | null>(null)
+  const [sampleTime, setSampleTime] = useState(() => Date.now())
 
   useEffect(() => {
     const stored = readStoredCoords()
@@ -129,8 +130,13 @@ export function useSolarTheme(clockNow: number): SolarThemeState {
     )
   }, [])
 
+  useEffect(() => {
+    const id = window.setInterval(() => setSampleTime(Date.now()), 30000)
+    return () => window.clearInterval(id)
+  }, [])
+
   return useMemo(() => {
-    const date = new Date(clockNow)
+    const date = new Date(sampleTime)
     if (coords) {
       return {
         timeTheme: getSolarThemeForCoords(date, coords.lat, coords.lon),
@@ -141,5 +147,5 @@ export function useSolarTheme(clockNow: number): SolarThemeState {
       timeTheme: getFallbackTheme(date),
       themeSource: 'timezone',
     } satisfies SolarThemeState
-  }, [clockNow, coords])
+  }, [sampleTime, coords])
 }

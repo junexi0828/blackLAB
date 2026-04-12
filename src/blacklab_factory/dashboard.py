@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import markdown
@@ -13,7 +14,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from .autopilot import AutopilotSupervisor
 from .config import load_company_config, repo_root
-from .launcher import launch_detached_loop, launch_detached_run
+from .launcher import launch_detached_loop, launch_detached_run, terminate_process_group
 from .models import (
     DEFAULT_CORE_CODEX_MODEL,
     DEFAULT_REVIEW_CODEX_AUTONOMY,
@@ -24,7 +25,7 @@ from .models import (
 )
 from .operator_control import OperatorCommander
 from .resources import RuntimeResourceManager
-from .storage import ProjectStorage, RunStorage
+from .storage import LoopStorage, ProjectStorage, RunStorage
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -85,6 +86,69 @@ class CampusMonumentPayload(BaseModel):
 class CampusLayoutPayload(BaseModel):
     buildings: dict[str, CampusBuildingPayload]
     monument: CampusMonumentPayload
+
+
+def _collect_force_stop_candidates(*pids: int | None) -> list[int]:
+    seen: set[int] = set()
+    ordered: list[int] = []
+    for pid in pids:
+        if pid is None or pid <= 0 or pid in seen:
+            continue
+        seen.add(pid)
+        ordered.append(pid)
+    return ordered
+
+
+def _force_stop_run_state(storage: RunStorage, run_id: str):
+    run_state = storage.load_state(run_id)
+    pid_candidates = _collect_force_stop_candidates(
+        run_state.controller_pid,
+        *(process.pid for process in run_state.current_processes),
+    )
+    if not pid_candidates:
+        raise HTTPException(status_code=409, detail="No live controller or worker PID is registered for this run.")
+
+    killed_any = False
+    for pid in pid_candidates:
+        killed_any = terminate_process_group(pid) or killed_any
+
+    reason = (
+        "Run force stopped by operator. Current in-flight work may be incomplete."
+        if killed_any
+        else "Force stop was requested, but no live process could be terminated. Current work may already have exited."
+    )
+    return storage.mark_force_stopped(run_id, reason)
+
+
+def _force_stop_loop_state(loop_storage: LoopStorage, run_storage: RunStorage, loop_id: str):
+    loop_state = loop_storage.load_state(loop_id)
+    linked_run = None
+    if loop_state.current_run_id:
+        try:
+            linked_run = run_storage.load_state(loop_state.current_run_id)
+        except FileNotFoundError:
+            linked_run = None
+
+    pid_candidates = _collect_force_stop_candidates(
+        loop_state.controller_pid,
+        linked_run.controller_pid if linked_run else None,
+        *(process.pid for process in linked_run.current_processes) if linked_run else (),
+    )
+    if not pid_candidates:
+        raise HTTPException(status_code=409, detail="No live controller or worker PID is registered for this loop.")
+
+    killed_any = False
+    for pid in pid_candidates:
+        killed_any = terminate_process_group(pid) or killed_any
+
+    reason = (
+        "Loop force stopped by operator. Current in-flight work may be incomplete."
+        if killed_any
+        else "Force stop was requested, but no live process could be terminated. Current work may already have exited."
+    )
+    if linked_run is not None:
+        run_storage.mark_force_stopped(linked_run.run_id, "Run force stopped because its parent loop was force stopped.")
+    return loop_storage.mark_force_stopped(loop_id, reason)
 
 
 ORGANIZATION_GROUPS = {
@@ -238,6 +302,31 @@ def create_app(storage: RunStorage) -> FastAPI:
     operator = OperatorCommander(base_root)
     resource_manager = RuntimeResourceManager()
 
+    def format_exact_timestamp(value: datetime | None) -> str:
+        if value is None:
+            return "-"
+        return value.astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+
+    def format_relative_timestamp(value: datetime | None) -> str:
+        if value is None:
+            return "-"
+        now = datetime.now(timezone.utc)
+        delta = now - value.astimezone(timezone.utc)
+        seconds = max(0, int(delta.total_seconds()))
+        if seconds < 60:
+            return "just now"
+        if seconds < 3600:
+            minutes = seconds // 60
+            return f"{minutes} min ago"
+        if seconds < 86400:
+            hours = seconds // 3600
+            return f"{hours} hr ago"
+        days = seconds // 86400
+        return f"{days} day ago" if days == 1 else f"{days} days ago"
+
+    templates.env.globals["format_exact_timestamp"] = format_exact_timestamp
+    templates.env.globals["format_relative_timestamp"] = format_relative_timestamp
+
     def load_campus_layout() -> dict:
         if not CAMPUS_LAYOUT_PATH.exists():
             raise HTTPException(status_code=404, detail="Campus layout not found")
@@ -337,6 +426,7 @@ def create_app(storage: RunStorage) -> FastAPI:
     def build_latest_decisions(runs, limit: int = 8) -> list[dict]:
         updates = [
             {
+                "run_id": run.run_id,
                 "department": step.department_label,
                 "summary": step.summary or step.purpose,
                 "timestamp": step.completed_at or run.updated_at,
@@ -582,6 +672,36 @@ def create_app(storage: RunStorage) -> FastAPI:
             for record in projects
         ]
 
+    def build_current_project_memory(current_project: dict | None) -> dict | None:
+        if not current_project:
+            return None
+        slug = current_project.get("slug")
+        if not slug:
+            return None
+
+        record = project_storage.get_project(slug)
+        snapshot = project_storage.read_latest_memory_snapshot(slug)
+        if not record and not snapshot:
+            return None
+
+        if snapshot and snapshot.get("summary"):
+            sentence = snapshot["summary"].strip()
+            next_hint = str(snapshot.get("next_run_hint") or "").strip()
+            summary = f"The project is now at: {sentence}"
+            if next_hint:
+                summary = f"{summary} Next up: {next_hint}"
+        else:
+            summary = "No saved run summary yet. Start a run to build project memory."
+
+        return {
+            "slug": slug,
+            "name": (record.name if record and record.name else current_project.get("name") or slug),
+            "run_id": snapshot.get("run_id") if snapshot else (record.last_run_id if record else None),
+            "summary": summary,
+            "risk_count": len(snapshot.get("risks", [])) if snapshot else 0,
+            "last_run_at": record.last_run_at if record else None,
+        }
+
     def build_overview_context(activity_page: int = 1) -> dict:
         runs, _ = storage.list_runs()
         loops, _ = loop_storage.list_loops()
@@ -606,6 +726,7 @@ def create_app(storage: RunStorage) -> FastAPI:
         latest_decisions = build_latest_decisions(runs)
         top_risks = build_top_risks(runs)
         current_project = build_current_project(runs, loops, operator_profile)
+        current_project_memory = build_current_project_memory(current_project)
         return {
             "runs": runs,
             "loops": loops,
@@ -627,6 +748,7 @@ def create_app(storage: RunStorage) -> FastAPI:
             "recent_projects": project_library[:3],
             "resource_snapshot": resource_snapshot,
             "current_project": current_project,
+            "current_project_memory": current_project_memory,
             "operator_route": operator_route,
             "activity_current_page": activity_page,
             "activity_total_pages": activity_total_pages,
@@ -935,21 +1057,35 @@ def create_app(storage: RunStorage) -> FastAPI:
         )
 
     @app.get("/loops/{loop_id}")
-    def loop_detail(request: Request, loop_id: str):
+    def loop_detail(request: Request, loop_id: str, cycles_page: int = 1):
         try:
             loop_state = loop_storage.load_state(loop_id)
         except FileNotFoundError as exc:
             raise HTTPException(status_code=404, detail="Loop not found") from exc
 
-        linked_runs = []
-        for iteration in loop_state.runs:
+        if cycles_page < 1:
+            cycles_page = 1
+
+        all_linked_runs = []
+        linked_run_states = []
+        for iteration in reversed(loop_state.runs):
             if not iteration.run_id:
-                linked_runs.append((iteration, None))
+                all_linked_runs.append((iteration, None))
                 continue
             try:
-                linked_runs.append((iteration, storage.load_state(iteration.run_id)))
+                linked_run = storage.load_state(iteration.run_id)
+                all_linked_runs.append((iteration, linked_run))
+                linked_run_states.append(linked_run)
             except FileNotFoundError:
-                linked_runs.append((iteration, None))
+                all_linked_runs.append((iteration, None))
+
+        cycles_page_size = 18
+        cycles_total_count = len(all_linked_runs)
+        cycles_total_pages = max(1, (cycles_total_count + cycles_page_size - 1) // cycles_page_size)
+        if cycles_page > cycles_total_pages:
+            cycles_page = cycles_total_pages
+        cycles_offset = (cycles_page - 1) * cycles_page_size
+        linked_runs = all_linked_runs[cycles_offset : cycles_offset + cycles_page_size]
 
         return templates.TemplateResponse(
             name="loop_detail.html",
@@ -957,9 +1093,11 @@ def create_app(storage: RunStorage) -> FastAPI:
             context={
                 "loop_state": loop_state,
                 "linked_runs": linked_runs,
+                "cycles_current_page": cycles_page,
+                "cycles_total_pages": cycles_total_pages,
                 "log_tail": loop_storage.read_log_tail(loop_id),
                 "loop_report": build_loop_report(loop_state),
-                "event_feed": build_operator_feed(storage.list_runs()[0], loop_storage.list_loops()[0]),
+                "event_feed": build_operator_feed(linked_run_states, [loop_state]),
                 "current_project": (
                     {
                         "slug": loop_state.project_slug,
@@ -1209,6 +1347,7 @@ def create_app(storage: RunStorage) -> FastAPI:
             codex_review_model=payload.codex_review_model,
             codex_review_autonomy=payload.codex_review_autonomy,
         )
+        storage.attach_controller_pid(launch.entity_id, launch.pid)
         return JSONResponse(
             {
                 "run_id": launch.entity_id,
@@ -1221,6 +1360,11 @@ def create_app(storage: RunStorage) -> FastAPI:
     @app.post("/api/runs/{run_id}/stop")
     def stop_run_api(run_id: str):
         run_state = storage.request_stop(run_id)
+        return JSONResponse(run_state.model_dump(mode="json"))
+
+    @app.post("/api/runs/{run_id}/force-stop")
+    def force_stop_run_api(run_id: str):
+        run_state = _force_stop_run_state(storage, run_id)
         return JSONResponse(run_state.model_dump(mode="json"))
 
     @app.post("/api/launch/loop")
@@ -1243,6 +1387,7 @@ def create_app(storage: RunStorage) -> FastAPI:
             codex_review_model=payload.codex_review_model,
             codex_review_autonomy=payload.codex_review_autonomy,
         )
+        loop_storage.attach_controller_pid(launch.entity_id, launch.pid)
         return JSONResponse(
             {
                 "loop_id": launch.entity_id,
@@ -1256,6 +1401,11 @@ def create_app(storage: RunStorage) -> FastAPI:
     def stop_loop_api(loop_id: str):
         supervisor = AutopilotSupervisor(storage_root=base_root)
         loop_state = supervisor.request_stop(loop_id)
+        return JSONResponse(loop_state.model_dump(mode="json"))
+
+    @app.post("/api/loops/{loop_id}/force-stop")
+    def force_stop_loop_api(loop_id: str):
+        loop_state = _force_stop_loop_state(loop_storage, storage, loop_id)
         return JSONResponse(loop_state.model_dump(mode="json"))
 
     @app.get("/runs/{run_id}/artifacts/{filename}")

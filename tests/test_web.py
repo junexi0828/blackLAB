@@ -50,6 +50,7 @@ def test_dashboard_routes_render(tmp_path: Path) -> None:
     detail_response = client.get(f"/runs/{state.run_id}")
     assert detail_response.status_code == 200
     assert "Run Summary" in detail_response.text
+    assert 'id="open-issues"' in detail_response.text
     assert "PROJECT // Revenue Leak Auditor" in detail_response.text
 
     console_response = client.get("/console")
@@ -246,6 +247,59 @@ def test_overview_recent_activity_is_paginated(tmp_path: Path) -> None:
     assert "Update 0" not in first_page.text
     assert "Update 0" in second_page.text
     assert 'class="pagination-item is-active">2<' in second_page.text
+
+
+def test_overview_team_updates_and_issues_prefer_latest_runs(tmp_path: Path) -> None:
+    runner = FactoryRunner(storage_root=tmp_path)
+
+    older = runner.storage.create_run(
+        mission="Older run",
+        company_name="blackLAB",
+        mode="mock",
+        steps=[],
+    )
+    older.status = "completed"
+    older.updated_at = datetime(2026, 4, 11, 0, 0, tzinfo=timezone.utc)
+    older.steps = [
+        StepRecord(
+            department_key="finance",
+            department_label="Finance",
+            purpose="Older purpose",
+            status="completed",
+            summary="Older team update",
+            completed_at=datetime(2026, 4, 11, 0, 0, tzinfo=timezone.utc),
+        )
+    ]
+    older.risks = ["Older issue"]
+    runner.storage.save_state(older)
+
+    newer = runner.storage.create_run(
+        mission="Newer run",
+        company_name="blackLAB",
+        mode="mock",
+        steps=[],
+    )
+    newer.status = "completed"
+    newer.updated_at = datetime(2026, 4, 12, 0, 0, tzinfo=timezone.utc)
+    newer.steps = [
+        StepRecord(
+            department_key="design",
+            department_label="Design",
+            purpose="Newer purpose",
+            status="completed",
+            summary="Newer team update",
+            completed_at=datetime(2026, 4, 12, 0, 0, tzinfo=timezone.utc),
+        )
+    ]
+    newer.risks = ["Newer issue"]
+    runner.storage.save_state(newer)
+
+    client = TestClient(create_app(storage_root=tmp_path))
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.text.index("Newer team update") < response.text.index("Older team update")
+    assert response.text.index("Newer issue") < response.text.index("Older issue")
 
 
 def test_loops_page_sidebar_uses_loop_project_context(tmp_path: Path) -> None:

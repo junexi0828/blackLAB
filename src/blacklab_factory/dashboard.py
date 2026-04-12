@@ -334,6 +334,33 @@ def create_app(storage: RunStorage) -> FastAPI:
             return feed
         return feed[:limit]
 
+    def build_latest_decisions(runs, limit: int = 8) -> list[dict]:
+        updates = [
+            {
+                "department": step.department_label,
+                "summary": step.summary or step.purpose,
+                "timestamp": step.completed_at or run.updated_at,
+            }
+            for run in runs
+            for step in run.steps
+            if step.status == "completed" and (step.summary or step.purpose)
+        ]
+        updates.sort(key=lambda item: item["timestamp"], reverse=True)
+        return updates[:limit]
+
+    def build_top_risks(runs, limit: int = 8) -> list[dict]:
+        risks = [
+            {
+                "run_id": run.run_id,
+                "summary": risk,
+                "timestamp": run.updated_at,
+            }
+            for run in runs
+            for risk in run.risks
+        ]
+        risks.sort(key=lambda item: item["timestamp"], reverse=True)
+        return risks[:limit]
+
     def build_department_bubbles(runs) -> dict[str, EventEntry]:
         bubbles: dict[str, EventEntry] = {}
         max_departments = len(company_config.departments) + len(company_config.review_departments) + 1
@@ -576,17 +603,8 @@ def create_app(storage: RunStorage) -> FastAPI:
         active_loops = [loop for loop in loops if loop.status in {"running", "stopping"}]
         operator_route = build_operator_route(active_runs, active_loops)
         project_library = build_project_library()
-        latest_decisions = [
-            {"department": step.department_label, "summary": step.summary or step.purpose}
-            for run in runs
-            for step in run.steps
-            if step.status == "completed" and (step.summary or step.purpose)
-        ][-8:]
-        top_risks = [
-            {"run_id": run.run_id, "summary": risk}
-            for run in runs
-            for risk in run.risks
-        ][-8:]
+        latest_decisions = build_latest_decisions(runs)
+        top_risks = build_top_risks(runs)
         current_project = build_current_project(runs, loops, operator_profile)
         return {
             "runs": runs,
@@ -599,8 +617,8 @@ def create_app(storage: RunStorage) -> FastAPI:
             "blocked_runs": blocked_runs,
             "completed_runs": completed_runs,
             "active_loops": active_loops,
-            "latest_decisions": list(reversed(latest_decisions)),
-            "top_risks": list(reversed(top_risks)),
+            "latest_decisions": latest_decisions,
+            "top_risks": top_risks,
             "stale_runs": [run for run in runs if run.status == "stale"],
             "default_settings": RunSettings(),
             "operator_profile": operator_profile,
@@ -792,6 +810,13 @@ def create_app(storage: RunStorage) -> FastAPI:
         if not favicon.exists():
             raise HTTPException(status_code=404, detail="Asset not found")
         return FileResponse(favicon)
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    def frontend_favicon_legacy():
+        favicon = FRONTEND_DIST_DIR / "favicon.svg"
+        if not favicon.exists():
+            raise HTTPException(status_code=404, detail="Asset not found")
+        return FileResponse(favicon, media_type="image/svg+xml")
 
     @app.get("/icons.svg")
     def frontend_icons():

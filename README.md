@@ -73,7 +73,7 @@ chmod +x ./blacklab.sh
 ### 2. Start the local control plane
 
 ```bash
-./blacklab.sh start
+./blacklab.sh
 ```
 
 ### 3. Open the product

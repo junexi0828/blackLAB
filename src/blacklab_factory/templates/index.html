@@ -143,7 +143,7 @@
       <ul class="list">
         {% for risk in top_risks %}
           <li>
-            <strong><a href="/runs/{{ risk.run_id }}">{{ risk.run_id }}</a></strong>
+            <strong><a href="/runs/{{ risk.run_id }}#open-issues">{{ risk.run_id }}</a></strong>
             <p>{{ risk.summary }}</p>
           </li>
         {% else %}

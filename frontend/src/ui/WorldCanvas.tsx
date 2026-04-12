@@ -216,7 +216,8 @@ export function WorldCanvas({
         ref={controlsRef}
         enableDamping
         dampingFactor={0.06}
-        autoRotate={false}
+        autoRotate={!selectedBuilding}
+        autoRotateSpeed={-0.42}
         maxPolarAngle={Math.PI / 2.1}
         minDistance={6}
         maxDistance={40}

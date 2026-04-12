@@ -2,15 +2,17 @@
 {% block title %}Run {{ run.run_id }}{% endblock %}
 {% block content %}
   <section class="hero">
-    <div>
+    <div class="hero-copy">
       <h1>{{ run.display_title }}</h1>
       <p class="subhead">Run {{ run.run_id }} · {{ run.mode }}</p>
       {% if run.project_slug %}
         <p class="hero-project">PROJECT // {{ run.project_name or run.project_slug }} · {{ run.project_slug }}</p>
       {% endif %}
-      <p class="subhead">Current team {{ run.current_department or "-" }} · next step {{ run.next_action }}</p>
-      <p class="subhead">{{ run_report.headline }}</p>
-      <p class="subhead">Request preview {{ run.mission_preview }}</p>
+      <div class="detail-meta-list">
+        <p><strong>Current team</strong> {{ run.current_department or "-" }} · <strong>Next step</strong> {{ run.next_action }}</p>
+        <p><strong>Summary</strong> {{ run_report.headline }}</p>
+        <p><strong>Request</strong> {{ run.mission_preview }}</p>
+      </div>
     </div>
     <div class="hero-metrics">
       <span class="badge status-{{ run.status }}">{{ run.status }}</span>
@@ -33,7 +35,7 @@
     </div>
     <div class="two-column detail-preview-grid">
       <div class="stack-column">
-        <article class="panel">
+        <article class="panel detail-focus-panel">
         <div class="panel-header">
           <h2>Run Summary</h2>
           {% if run.autopilot_iteration %}
@@ -79,7 +81,7 @@
         </ul>
         </article>
 
-        <article id="open-issues" class="panel">
+        <article id="open-issues" class="panel detail-focus-panel">
           <div class="panel-header">
             <h2>Open Issues</h2>
             <p>Items from this run that are still unresolved or need a decision.</p>
@@ -96,7 +98,7 @@
         </article>
       </div>
 
-      <article class="panel">
+      <article class="panel detail-focus-panel">
         <div class="panel-header">
           <h2>Selected Output</h2>
           {% if selected_artifact %}
@@ -149,7 +151,7 @@
       <h2>Team progress and recent updates</h2>
     </div>
     <div class="two-column">
-      <article class="panel">
+      <article class="panel detail-support-panel">
         <div class="panel-header">
           <h2>Team Timeline</h2>
         </div>
@@ -167,7 +169,7 @@
         </ul>
       </article>
 
-      <article class="panel">
+      <article class="panel detail-support-panel">
         <div class="panel-header">
           <h2>Recent Updates</h2>
           <p>Latest updates from this run.</p>
@@ -198,7 +200,7 @@
       <h2>Live details, full log, and worker history</h2>
     </div>
     <div class="three-column">
-      <article class="panel">
+      <article class="panel detail-support-panel">
         <div class="panel-header">
           <h2>Live Details</h2>
         </div>

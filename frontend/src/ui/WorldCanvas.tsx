@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { Sky, Environment, OrbitControls, Stars } from '@react-three/drei'
@@ -28,6 +28,125 @@ interface WorldCanvasProps {
 
 const DEFAULT_CAMERA_POSITION = new THREE.Vector3(18, 14, 18)
 const DEFAULT_CAMERA_TARGET = new THREE.Vector3(0, 0, 0)
+const AUTO_ROTATE_RESUME_DELAY_MS = 2600
+
+function vectorsEqual(left: [number, number, number], right: [number, number, number]) {
+  return left[0] === right[0] && left[1] === right[1] && left[2] === right[2]
+}
+
+function areStepRecordsEqual(left: StepRecord[], right: StepRecord[]) {
+  if (left === right) {
+    return true
+  }
+  if (left.length !== right.length) {
+    return false
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    const leftStep = left[index]
+    const rightStep = right[index]
+    if (
+      leftStep.department_key !== rightStep.department_key ||
+      leftStep.department_label !== rightStep.department_label ||
+      leftStep.purpose !== rightStep.purpose ||
+      leftStep.status !== rightStep.status ||
+      leftStep.started_at !== rightStep.started_at ||
+      leftStep.completed_at !== rightStep.completed_at ||
+      leftStep.summary !== rightStep.summary ||
+      leftStep.artifact_filename !== rightStep.artifact_filename
+    ) {
+      return false
+    }
+  }
+  return true
+}
+
+function areBubbleEventsEqual(left: Record<string, EventEntry>, right: Record<string, EventEntry>) {
+  if (left === right) {
+    return true
+  }
+  const leftKeys = Object.keys(left)
+  const rightKeys = Object.keys(right)
+  if (leftKeys.length !== rightKeys.length) {
+    return false
+  }
+  for (const key of leftKeys) {
+    const leftEvent = left[key]
+    const rightEvent = right[key]
+    if (
+      !rightEvent ||
+      leftEvent.event_id !== rightEvent.event_id ||
+      leftEvent.scope !== rightEvent.scope ||
+      leftEvent.title !== rightEvent.title ||
+      leftEvent.message !== rightEvent.message ||
+      leftEvent.status !== rightEvent.status ||
+      leftEvent.timestamp !== rightEvent.timestamp ||
+      leftEvent.run_id !== rightEvent.run_id ||
+      leftEvent.loop_id !== rightEvent.loop_id ||
+      leftEvent.department_key !== rightEvent.department_key ||
+      leftEvent.department_label !== rightEvent.department_label ||
+      leftEvent.is_live !== rightEvent.is_live
+    ) {
+      return false
+    }
+  }
+  return true
+}
+
+function areLayoutsEqual(left: CampusLayout | null | undefined, right: CampusLayout | null | undefined) {
+  if (left === right) {
+    return true
+  }
+  if (!left || !right) {
+    return left === right
+  }
+
+  const leftKeys = Object.keys(left.buildings)
+  const rightKeys = Object.keys(right.buildings)
+  if (leftKeys.length !== rightKeys.length) {
+    return false
+  }
+
+  for (const key of leftKeys) {
+    const leftBuilding = left.buildings[key]
+    const rightBuilding = right.buildings[key]
+    if (
+      !rightBuilding ||
+      !vectorsEqual(leftBuilding.position, rightBuilding.position) ||
+      leftBuilding.shape !== rightBuilding.shape ||
+      leftBuilding.color !== rightBuilding.color
+    ) {
+      return false
+    }
+  }
+
+  return (
+    vectorsEqual(left.monument.position, right.monument.position) &&
+    left.monument.baseInnerRadius === right.monument.baseInnerRadius &&
+    left.monument.baseOuterRadius === right.monument.baseOuterRadius &&
+    left.monument.ringInnerRadius === right.monument.ringInnerRadius &&
+    left.monument.ringOuterRadius === right.monument.ringOuterRadius &&
+    left.monument.torusRadius === right.monument.torusRadius &&
+    left.monument.torusTube === right.monument.torusTube &&
+    left.monument.orbRadius === right.monument.orbRadius &&
+    left.monument.torusHeight === right.monument.torusHeight &&
+    left.monument.orbHeight === right.monument.orbHeight
+  )
+}
+
+function areWorldCanvasPropsEqual(left: WorldCanvasProps, right: WorldCanvasProps) {
+  return (
+    left.currentDepartment === right.currentDepartment &&
+    left.hasActiveRun === right.hasActiveRun &&
+    left.selectedBuilding === right.selectedBuilding &&
+    left.timeTheme === right.timeTheme &&
+    left.showMonument === right.showMonument &&
+    left.onDismissBubble === right.onDismissBubble &&
+    left.onSelectBuilding === right.onSelectBuilding &&
+    areStepRecordsEqual(left.steps, right.steps) &&
+    areBubbleEventsEqual(left.bubbleEvents, right.bubbleEvents) &&
+    areLayoutsEqual(left.layout, right.layout)
+  )
+}
 
 function CameraFocusController({
   selectedBuilding,
@@ -67,7 +186,7 @@ function CameraFocusController({
   return null
 }
 
-export function WorldCanvas({
+function WorldCanvasComponent({
   steps,
   currentDepartment,
   hasActiveRun,
@@ -80,6 +199,7 @@ export function WorldCanvas({
   showMonument = true,
 }: WorldCanvasProps) {
   const isNight = timeTheme === 'night'
+  const [autoRotateEnabled, setAutoRotateEnabled] = useState(() => !selectedBuilding)
   const campusMaps = useMemo(
     () => buildCampusMaps(layout ?? DEFAULT_CAMPUS_LAYOUT),
     [layout],
@@ -102,10 +222,63 @@ export function WorldCanvas({
   }, [steps])
 
   const visibleKeys = useMemo(
-    () => Object.keys(positions).filter((key) => key !== 'engineering'),
+    () => Object.keys(positions),
     [positions],
   )
   const controlsRef = useRef<OrbitControlsImpl | null>(null)
+  const autoRotateTimerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (autoRotateTimerRef.current !== null) {
+        window.clearTimeout(autoRotateTimerRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (autoRotateTimerRef.current !== null) {
+      window.clearTimeout(autoRotateTimerRef.current)
+      autoRotateTimerRef.current = null
+    }
+    setAutoRotateEnabled(!selectedBuilding)
+  }, [selectedBuilding])
+
+  useEffect(() => {
+    const controls = controlsRef.current
+    if (!controls) {
+      return
+    }
+
+    const handleStart = () => {
+      if (autoRotateTimerRef.current !== null) {
+        window.clearTimeout(autoRotateTimerRef.current)
+        autoRotateTimerRef.current = null
+      }
+      setAutoRotateEnabled(false)
+    }
+
+    const handleEnd = () => {
+      if (selectedBuilding) {
+        return
+      }
+      if (autoRotateTimerRef.current !== null) {
+        window.clearTimeout(autoRotateTimerRef.current)
+      }
+      autoRotateTimerRef.current = window.setTimeout(() => {
+        setAutoRotateEnabled(true)
+        autoRotateTimerRef.current = null
+      }, AUTO_ROTATE_RESUME_DELAY_MS)
+    }
+
+    controls.addEventListener('start', handleStart)
+    controls.addEventListener('end', handleEnd)
+
+    return () => {
+      controls.removeEventListener('start', handleStart)
+      controls.removeEventListener('end', handleEnd)
+    }
+  }, [selectedBuilding])
 
   return (
     <Canvas
@@ -216,7 +389,7 @@ export function WorldCanvas({
         ref={controlsRef}
         enableDamping
         dampingFactor={0.06}
-        autoRotate={!selectedBuilding}
+        autoRotate={autoRotateEnabled && !selectedBuilding}
         autoRotateSpeed={-0.42}
         maxPolarAngle={Math.PI / 2.1}
         minDistance={6}
@@ -229,3 +402,5 @@ export function WorldCanvas({
     </Canvas>
   )
 }
+
+export const WorldCanvas = memo(WorldCanvasComponent, areWorldCanvasPropsEqual)

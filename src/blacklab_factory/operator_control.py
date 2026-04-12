@@ -136,6 +136,7 @@ class OperatorCommander:
             codex_review_model=profile.launch.run_settings.codex_review_model,
             codex_review_autonomy=profile.launch.run_settings.codex_review_autonomy,
         )
+        self.run_storage.attach_controller_pid(launch.entity_id, launch.pid)
         return (
             (
                 f"새 런 {launch.entity_id}를 시작했습니다. 미션은 '{mission}' 입니다."
@@ -183,6 +184,7 @@ class OperatorCommander:
             codex_review_model=profile.autopilot.run_settings.codex_review_model,
             codex_review_autonomy=profile.autopilot.run_settings.codex_review_autonomy,
         )
+        self.loop_supervisor.loop_storage.attach_controller_pid(launch.entity_id, launch.pid)
         return (
             (
                 f"루프 {launch.entity_id}를 시작했습니다. 목표는 '{objective}' 입니다."

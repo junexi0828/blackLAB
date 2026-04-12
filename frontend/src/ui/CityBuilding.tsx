@@ -49,6 +49,13 @@ type WindowSlot = {
   baseLit: boolean
 }
 
+type WindowInstances = {
+  allHaloMatrices: THREE.Matrix4[]
+  litHaloMatrices: THREE.Matrix4[]
+  litPaneMatrices: THREE.Matrix4[]
+  darkPaneMatrices: THREE.Matrix4[]
+}
+
 function getWindowNormal(window: WindowSlot) {
   if (typeof window.rotationY === 'number') {
     return new THREE.Vector3(Math.sin(window.rotationY), 0, Math.cos(window.rotationY))
@@ -157,10 +164,10 @@ const BUILDING_FACADES: Record<string, FacadeProfile> = {
   growth: {
     kind: 'pyramid',
     rows: [
-      { y: -0.42, cols: 4, z: 0.88, width: 0.16, height: 0.11 },
-      { y: -0.16, cols: 3, z: 0.78, width: 0.14, height: 0.1 },
-      { y: 0.1, cols: 2, z: 0.66, width: 0.12, height: 0.09 },
-      { y: 0.34, cols: 1, z: 0.56, width: 0.1, height: 0.08 },
+      { y: -0.42, cols: 4, z: 0.9, width: 0.18, height: 0.125 },
+      { y: -0.16, cols: 3, z: 0.8, width: 0.16, height: 0.11 },
+      { y: 0.1, cols: 2, z: 0.68, width: 0.14, height: 0.1 },
+      { y: 0.34, cols: 1, z: 0.58, width: 0.12, height: 0.09 },
     ],
     xSpacing: 0.26,
     frontThreshold: 0.18,
@@ -180,10 +187,10 @@ const BUILDING_FACADES: Record<string, FacadeProfile> = {
   dev_1: {
     kind: 'pyramid',
     rows: [
-      { y: -0.42, cols: 4, z: 0.9, width: 0.17, height: 0.11 },
-      { y: -0.18, cols: 3, z: 0.8, width: 0.15, height: 0.1 },
-      { y: 0.08, cols: 2, z: 0.68, width: 0.13, height: 0.09 },
-      { y: 0.32, cols: 1, z: 0.58, width: 0.11, height: 0.08 },
+      { y: -0.42, cols: 4, z: 0.92, width: 0.19, height: 0.125 },
+      { y: -0.18, cols: 3, z: 0.82, width: 0.17, height: 0.11 },
+      { y: 0.08, cols: 2, z: 0.7, width: 0.145, height: 0.1 },
+      { y: 0.32, cols: 1, z: 0.6, width: 0.12, height: 0.09 },
     ],
     xSpacing: 0.28,
     frontThreshold: 0.2,
@@ -192,10 +199,10 @@ const BUILDING_FACADES: Record<string, FacadeProfile> = {
   dev_2: {
     kind: 'pyramid',
     rows: [
-      { y: -0.4, cols: 3, z: 0.9, width: 0.2, height: 0.11 },
-      { y: -0.15, cols: 3, z: 0.78, width: 0.15, height: 0.09 },
-      { y: 0.1, cols: 2, z: 0.66, width: 0.13, height: 0.09 },
-      { y: 0.33, cols: 1, z: 0.56, width: 0.1, height: 0.08 },
+      { y: -0.4, cols: 3, z: 0.92, width: 0.22, height: 0.125 },
+      { y: -0.15, cols: 3, z: 0.8, width: 0.17, height: 0.105 },
+      { y: 0.1, cols: 2, z: 0.68, width: 0.145, height: 0.1 },
+      { y: 0.33, cols: 1, z: 0.58, width: 0.12, height: 0.09 },
     ],
     xSpacing: 0.3,
     frontThreshold: 0.2,
@@ -204,10 +211,10 @@ const BUILDING_FACADES: Record<string, FacadeProfile> = {
   dev_3: {
     kind: 'pyramid',
     rows: [
-      { y: -0.44, cols: 4, z: 0.9, width: 0.16, height: 0.1 },
-      { y: -0.2, cols: 2, z: 0.78, width: 0.14, height: 0.11 },
-      { y: 0.06, cols: 2, z: 0.68, width: 0.12, height: 0.09 },
-      { y: 0.31, cols: 1, z: 0.58, width: 0.1, height: 0.08 },
+      { y: -0.44, cols: 4, z: 0.92, width: 0.18, height: 0.115 },
+      { y: -0.2, cols: 2, z: 0.8, width: 0.16, height: 0.12 },
+      { y: 0.06, cols: 2, z: 0.7, width: 0.14, height: 0.1 },
+      { y: 0.31, cols: 1, z: 0.6, width: 0.12, height: 0.09 },
     ],
     xSpacing: 0.26,
     frontThreshold: 0.18,
@@ -242,10 +249,10 @@ const BUILDING_FACADES: Record<string, FacadeProfile> = {
   test_lab: {
     kind: 'pyramid',
     rows: [
-      { y: -0.42, cols: 4, z: 0.9, width: 0.14, height: 0.1 },
-      { y: -0.16, cols: 2, z: 0.8, width: 0.14, height: 0.11 },
-      { y: 0.08, cols: 2, z: 0.68, width: 0.12, height: 0.09 },
-      { y: 0.32, cols: 1, z: 0.58, width: 0.1, height: 0.08 },
+      { y: -0.42, cols: 4, z: 0.92, width: 0.17, height: 0.115 },
+      { y: -0.16, cols: 2, z: 0.82, width: 0.16, height: 0.12 },
+      { y: 0.08, cols: 2, z: 0.7, width: 0.14, height: 0.1 },
+      { y: 0.32, cols: 1, z: 0.6, width: 0.12, height: 0.09 },
     ],
     xSpacing: 0.32,
     frontThreshold: 0.22,
@@ -321,10 +328,10 @@ const DEFAULT_FACADES: Record<BuildingShape, FacadeProfile> = {
   pyramid: {
     kind: 'pyramid',
     rows: [
-      { y: -0.44, cols: 4, z: 0.9, width: 0.18, height: 0.12 },
-      { y: -0.18, cols: 3, z: 0.8, width: 0.16, height: 0.11 },
-      { y: 0.08, cols: 2, z: 0.68, width: 0.14, height: 0.1 },
-      { y: 0.32, cols: 1, z: 0.58, width: 0.12, height: 0.09 },
+      { y: -0.44, cols: 4, z: 0.92, width: 0.2, height: 0.13 },
+      { y: -0.18, cols: 3, z: 0.82, width: 0.18, height: 0.12 },
+      { y: 0.08, cols: 2, z: 0.7, width: 0.15, height: 0.105 },
+      { y: 0.32, cols: 1, z: 0.6, width: 0.13, height: 0.095 },
     ],
     xSpacing: 0.28,
     frontThreshold: 0.2,
@@ -417,6 +424,79 @@ function buildWindows(shape: string, buildingId: string, seed: number) {
   }
 }
 
+function buildPlaneMatrix(
+  x: number,
+  y: number,
+  z: number,
+  width: number,
+  height: number,
+  rotationY = 0,
+) {
+  const position = new THREE.Vector3(x, y, z)
+  const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rotationY, 0))
+  const scale = new THREE.Vector3(width, height, 1)
+  return new THREE.Matrix4().compose(position, rotation, scale)
+}
+
+function buildWindowInstances(windows: WindowSlot[]): WindowInstances {
+  const allHaloMatrices: THREE.Matrix4[] = []
+  const litHaloMatrices: THREE.Matrix4[] = []
+  const litPaneMatrices: THREE.Matrix4[] = []
+  const darkPaneMatrices: THREE.Matrix4[] = []
+
+  for (const window of windows) {
+    const normal = getWindowNormal(window)
+    const paneX = window.x + normal.x * 0.05
+    const paneZ = window.z + normal.z * 0.05
+    const haloX = window.x + normal.x * 0.09
+    const haloZ = window.z + normal.z * 0.09
+    const rotationY = window.rotationY ?? 0
+
+    const paneMatrix = buildPlaneMatrix(
+      paneX,
+      window.y,
+      paneZ,
+      window.width * 1.08,
+      window.height * 1.08,
+      rotationY,
+    )
+    const haloMatrix = buildPlaneMatrix(
+      haloX,
+      window.y,
+      haloZ,
+      window.width * 1.5,
+      window.height * 1.5,
+      rotationY,
+    )
+
+    allHaloMatrices.push(haloMatrix)
+    if (window.baseLit) {
+      litPaneMatrices.push(paneMatrix)
+      litHaloMatrices.push(haloMatrix)
+    } else {
+      darkPaneMatrices.push(paneMatrix)
+    }
+  }
+
+  return {
+    allHaloMatrices,
+    litHaloMatrices,
+    litPaneMatrices,
+    darkPaneMatrices,
+  }
+}
+
+function applyInstanceMatrices(mesh: THREE.InstancedMesh | null, matrices: THREE.Matrix4[]) {
+  if (!mesh) {
+    return
+  }
+  for (let index = 0; index < matrices.length; index += 1) {
+    mesh.setMatrixAt(index, matrices[index])
+  }
+  mesh.instanceMatrix.needsUpdate = true
+  mesh.computeBoundingSphere()
+}
+
 function truncateMessage(value: string, limit = 140): string {
   if (value.length <= limit) {
     return value
@@ -443,6 +523,10 @@ function CityBuildingComponent({
   const isNight = timeTheme === 'night'
   const bodyRef  = useRef<THREE.Mesh>(null)
   const windowsGroupRef = useRef<THREE.Group>(null)
+  const litPaneRef = useRef<THREE.InstancedMesh>(null)
+  const darkPaneRef = useRef<THREE.InstancedMesh>(null)
+  const litHaloRef = useRef<THREE.InstancedMesh>(null)
+  const allHaloRef = useRef<THREE.InstancedMesh>(null)
   const lightRef = useRef<THREE.PointLight>(null)
   const antRef   = useRef<THREE.Mesh>(null)
   const heightRef = useRef(1.4)
@@ -480,15 +564,80 @@ function CityBuildingComponent({
     () => col.clone().lerp(new THREE.Color('#ffffff'), isNight ? 0.54 : 0.68),
     [col, isNight],
   )
+  const litPaneMat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: windowGlowColor,
+    transparent: true,
+    opacity: 1,
+    depthWrite: false,
+    toneMapped: false,
+    side: THREE.DoubleSide,
+  }), [windowGlowColor])
+  const darkPaneMat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: windowGlowColor,
+    transparent: true,
+    opacity: 1,
+    depthWrite: false,
+    toneMapped: false,
+    side: THREE.DoubleSide,
+  }), [windowGlowColor])
+  const litHaloMat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: windowHaloColor,
+    transparent: true,
+    opacity: 1,
+    depthWrite: false,
+    toneMapped: false,
+    side: THREE.DoubleSide,
+  }), [windowHaloColor])
+  const allHaloMat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: windowHaloColor,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    toneMapped: false,
+    side: THREE.DoubleSide,
+  }), [windowHaloColor])
+  const windowInstances = useMemo(() => buildWindowInstances(windows), [windows])
 
   const idleCoreLightIntensity = isNight ? 0.18 : 0.06
   const inactiveAntennaIntensity = isNight ? 0.35 : 0.16
+  const showCoreLight = !isDimmed && (isActive || isSelected || isNight)
+  const showGlowLight = !isDimmed && (isActive || isSelected || isNight)
 
   useEffect(() => {
     if (windowsGroupRef.current) {
       windowsGroupRef.current.visible = !isSelected
     }
   }, [isSelected])
+
+  useEffect(() => {
+    litPaneMat.opacity = isSelected
+      ? 0
+      : isDimmed
+        ? 0.16
+        : isActive
+          ? (isNight ? 1 : 0.94)
+          : (isNight ? 0.62 : 0.5)
+    darkPaneMat.opacity = isSelected
+      ? 0
+      : isDimmed
+        ? 0.16
+        : (isNight ? 0.14 : 0.09)
+    litHaloMat.opacity = isSelected
+      ? 0
+      : isDimmed
+        ? 0
+        : isActive
+          ? (isNight ? 0.34 : 0.24)
+          : (isNight ? 0.14 : 0.08)
+    allHaloMat.opacity = isSelected ? 0 : isDimmed ? 0.04 : 0
+  }, [allHaloMat, darkPaneMat, isActive, isDimmed, isNight, isSelected, litHaloMat, litPaneMat])
+
+  useEffect(() => {
+    applyInstanceMatrices(litPaneRef.current, windowInstances.litPaneMatrices)
+    applyInstanceMatrices(darkPaneRef.current, windowInstances.darkPaneMatrices)
+    applyInstanceMatrices(litHaloRef.current, windowInstances.litHaloMatrices)
+    applyInstanceMatrices(allHaloRef.current, windowInstances.allHaloMatrices)
+  }, [windowInstances])
 
   useFrame((state, delta) => {
     if (!bodyRef.current) return
@@ -584,64 +733,30 @@ function CityBuildingComponent({
       
       {/* Internal Server Racks - sibling so transmission pass renders them properly */}
       <group ref={windowsGroupRef} position={[0, target / 2, 0]}>
-        {windows.map((w, i) => {
-          const normal = getWindowNormal(w)
-          const panePosition: [number, number, number] = [
-            w.x + normal.x * 0.05,
-            w.y,
-            w.z + normal.z * 0.05,
-          ]
-          const haloPosition: [number, number, number] = [
-            w.x + normal.x * 0.09,
-            w.y,
-            w.z + normal.z * 0.09,
-          ]
-          const paneOpacity = isSelected
-            ? 0
-            : isDimmed
-              ? 0.16
-              : isActive && w.baseLit
-                ? (isNight ? 1 : 0.94)
-                : w.baseLit
-                  ? (isNight ? 0.62 : 0.5)
-                  : (isNight ? 0.14 : 0.09)
-          const haloOpacity = isSelected
-            ? 0
-            : isDimmed
-              ? 0.04
-              : isActive && w.baseLit
-                ? (isNight ? 0.34 : 0.24)
-                : w.baseLit
-                  ? (isNight ? 0.14 : 0.08)
-                  : 0
-
-          return (
-            <group key={i} rotation={[0, w.rotationY ?? 0, 0]}>
-              <mesh position={haloPosition} renderOrder={1}>
-                <planeGeometry args={[w.width * 1.5, w.height * 1.5]} />
-                <meshBasicMaterial
-                  color={windowHaloColor}
-                  transparent={true}
-                  opacity={haloOpacity}
-                  depthWrite={false}
-                  toneMapped={false}
-                  side={THREE.DoubleSide}
-                />
-              </mesh>
-              <mesh position={panePosition} renderOrder={2}>
-                <planeGeometry args={[w.width * 1.08, w.height * 1.08]} />
-                <meshBasicMaterial
-                  color={windowGlowColor}
-                  transparent={true}
-                  opacity={paneOpacity}
-                  depthWrite={false}
-                  toneMapped={false}
-                  side={THREE.DoubleSide}
-                />
-              </mesh>
-            </group>
-          )
-        })}
+        {windowInstances.allHaloMatrices.length > 0 && (
+          <instancedMesh ref={allHaloRef} args={[undefined, undefined, windowInstances.allHaloMatrices.length]} renderOrder={1}>
+            <planeGeometry args={[1, 1]} />
+            <primitive object={allHaloMat} attach="material" />
+          </instancedMesh>
+        )}
+        {windowInstances.litHaloMatrices.length > 0 && (
+          <instancedMesh ref={litHaloRef} args={[undefined, undefined, windowInstances.litHaloMatrices.length]} renderOrder={1}>
+            <planeGeometry args={[1, 1]} />
+            <primitive object={litHaloMat} attach="material" />
+          </instancedMesh>
+        )}
+        {windowInstances.darkPaneMatrices.length > 0 && (
+          <instancedMesh ref={darkPaneRef} args={[undefined, undefined, windowInstances.darkPaneMatrices.length]} renderOrder={2}>
+            <planeGeometry args={[1, 1]} />
+            <primitive object={darkPaneMat} attach="material" />
+          </instancedMesh>
+        )}
+        {windowInstances.litPaneMatrices.length > 0 && (
+          <instancedMesh ref={litPaneRef} args={[undefined, undefined, windowInstances.litPaneMatrices.length]} renderOrder={2}>
+            <planeGeometry args={[1, 1]} />
+            <primitive object={litPaneMat} attach="material" />
+          </instancedMesh>
+        )}
       </group>
 
       {/* Interior Drill-down Content */}
@@ -652,7 +767,7 @@ function CityBuildingComponent({
       )}
       
       {/* Internal core light for glass illumination */}
-      {!isDimmed && (
+      {showCoreLight && (
         <pointLight
           position={[0, target / 2, 0]}
           distance={4}
@@ -676,7 +791,7 @@ function CityBuildingComponent({
       )}
 
       {/* Glow light */}
-      {!isDimmed && (
+      {showGlowLight && (
         <pointLight
           ref={lightRef}
           color={color}

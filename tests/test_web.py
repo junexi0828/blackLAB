@@ -3,9 +3,10 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+import blacklab_factory.dashboard as dashboard_module
 from blacklab_factory.autopilot import AutopilotSupervisor, LoopRunRequest
 from blacklab_factory.factory import FactoryRunner
-from blacklab_factory.models import ArtifactRecord, RunSettings, StepRecord
+from blacklab_factory.models import ArtifactRecord, LoopIterationRecord, RunSettings, StepRecord
 from blacklab_factory.web import create_app
 
 
@@ -131,6 +132,117 @@ def test_dashboard_routes_render(tmp_path: Path) -> None:
     assert loop_detail_response.json()["loop_id"] == loop_id
 
 
+def test_loop_detail_cycles_are_paginated(tmp_path: Path) -> None:
+    supervisor = AutopilotSupervisor(storage_root=tmp_path)
+    loop_state = supervisor.start_loop(
+        LoopRunRequest(
+            objective="Paginate long-running loop cycles",
+            loop_mode="always_on",
+            run_mode="mock",
+            run_settings=RunSettings(),
+        )
+    )
+    base_time = datetime(2026, 4, 13, 0, 0, tzinfo=timezone.utc)
+    loop_state.runs = [
+        LoopIterationRecord(
+            iteration=index,
+            run_id=f"run-{index:02d}",
+            status="completed",
+            created_at=base_time + timedelta(minutes=index),
+            completed_at=base_time + timedelta(minutes=index, seconds=30),
+        )
+        for index in range(1, 15)
+    ]
+    supervisor.loop_storage.save_state(loop_state)
+
+    client = TestClient(create_app(storage_root=tmp_path))
+    first_page = client.get(f"/loops/{loop_state.loop_id}")
+    second_page = client.get(f"/loops/{loop_state.loop_id}?cycles_page=2")
+
+    assert first_page.status_code == 200
+    assert second_page.status_code == 200
+    assert f'/loops/{loop_state.loop_id}?cycles_page=2' in first_page.text
+    assert "run-14" in first_page.text
+    assert "run-01" not in first_page.text
+    assert "run-01" in second_page.text
+    assert 'class="pagination-item is-active">2<' in second_page.text
+
+
+def test_loop_detail_recent_updates_only_show_current_loop_activity(tmp_path: Path) -> None:
+    runner = FactoryRunner(storage_root=tmp_path)
+
+    unrelated_run = runner.storage.create_run(
+        mission="Unrelated run",
+        company_name="blackLAB",
+        mode="mock",
+        steps=[],
+    )
+    unrelated_run.status = "completed"
+    unrelated_run.steps = [
+        StepRecord(
+            department_key="finance",
+            department_label="Finance",
+            purpose="Review unrelated financials",
+            status="completed",
+            summary="Unrelated update",
+            completed_at=datetime(2026, 4, 13, 0, 0, tzinfo=timezone.utc),
+        )
+    ]
+    unrelated_run.current_status = "Unrelated run finished."
+    unrelated_run.updated_at = datetime(2026, 4, 13, 0, 5, tzinfo=timezone.utc)
+    runner.storage.save_state(unrelated_run)
+
+    linked_run = runner.storage.create_run(
+        mission="Linked loop run",
+        company_name="blackLAB",
+        mode="mock",
+        steps=[],
+    )
+    linked_run.status = "completed"
+    linked_run.steps = [
+        StepRecord(
+            department_key="product",
+            department_label="Product",
+            purpose="Refine the next iteration",
+            status="completed",
+            summary="Loop-linked update",
+            completed_at=datetime(2026, 4, 13, 1, 0, tzinfo=timezone.utc),
+        )
+    ]
+    linked_run.current_status = "Linked run finished."
+    linked_run.updated_at = datetime(2026, 4, 13, 1, 5, tzinfo=timezone.utc)
+    runner.storage.save_state(linked_run)
+
+    supervisor = AutopilotSupervisor(storage_root=tmp_path)
+    loop_state = supervisor.start_loop(
+        LoopRunRequest(
+            objective="Scope recent updates to the current loop",
+            loop_mode="always_on",
+            run_mode="mock",
+            run_settings=RunSettings(),
+        )
+    )
+    loop_state.status = "running"
+    loop_state.latest_note = "Current loop is still iterating."
+    loop_state.runs = [
+        LoopIterationRecord(
+            iteration=1,
+            run_id=linked_run.run_id,
+            status="completed",
+            created_at=datetime(2026, 4, 13, 1, 0, tzinfo=timezone.utc),
+            completed_at=datetime(2026, 4, 13, 1, 5, tzinfo=timezone.utc),
+        )
+    ]
+    supervisor.loop_storage.save_state(loop_state)
+
+    client = TestClient(create_app(storage_root=tmp_path))
+    response = client.get(f"/loops/{loop_state.loop_id}")
+
+    assert response.status_code == 200
+    assert "Loop-linked update" in response.text
+    assert "Unrelated update" not in response.text
+
+
 def test_run_stop_api_marks_run_stopping(tmp_path: Path) -> None:
     runner = FactoryRunner(storage_root=tmp_path)
     state = runner.storage.create_run(
@@ -149,6 +261,55 @@ def test_run_stop_api_marks_run_stopping(tmp_path: Path) -> None:
     payload = response.json()
     assert payload["run_id"] == state.run_id
     assert payload["status"] == "stopping"
+    assert payload["stop_requested"] is True
+
+
+def test_run_force_stop_api_marks_run_failed(tmp_path: Path, monkeypatch) -> None:
+    runner = FactoryRunner(storage_root=tmp_path)
+    state = runner.storage.create_run(
+        mission="Force stop this mock run",
+        company_name="blackLAB",
+        mode="mock",
+        steps=[],
+    )
+    state.status = "running"
+    state.controller_pid = 43210
+    runner.storage.save_state(state)
+    monkeypatch.setattr(dashboard_module, "terminate_process_group", lambda pid: True)
+
+    client = TestClient(create_app(storage_root=tmp_path))
+    response = client.post(f"/api/runs/{state.run_id}/force-stop")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run_id"] == state.run_id
+    assert payload["status"] == "failed"
+    assert payload["stop_requested"] is True
+    assert "force stopped" in payload["current_status"].lower()
+
+
+def test_loop_force_stop_api_marks_loop_failed(tmp_path: Path, monkeypatch) -> None:
+    supervisor = AutopilotSupervisor(storage_root=tmp_path)
+    loop_state = supervisor.loop_storage.create_loop(
+        objective="Force stop this loop",
+        loop_mode="full_auto",
+        run_mode="mock",
+        run_settings=RunSettings(),
+        interval_seconds=0,
+        max_iterations=1,
+    )
+    loop_state.status = "running"
+    loop_state.controller_pid = 54321
+    supervisor.loop_storage.save_state(loop_state)
+    monkeypatch.setattr(dashboard_module, "terminate_process_group", lambda pid: True)
+
+    client = TestClient(create_app(storage_root=tmp_path))
+    response = client.post(f"/api/loops/{loop_state.loop_id}/force-stop")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["loop_id"] == loop_state.loop_id
+    assert payload["status"] == "failed"
     assert payload["stop_requested"] is True
 
 

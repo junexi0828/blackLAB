@@ -2,15 +2,17 @@
 {% block title %}Loop {{ loop_state.loop_id }}{% endblock %}
 {% block content %}
   <section class="hero">
-    <div>
+    <div class="hero-copy">
       <h1>{{ loop_state.display_title }}</h1>
       <p class="subhead">Loop {{ loop_state.loop_id }} · {{ "Run until stopped" if loop_state.loop_mode == "always_on" else "Fixed cycles" if loop_state.loop_mode == "full_auto" else loop_state.loop_mode }}</p>
       {% if loop_state.project_slug %}
         <p class="hero-project">PROJECT // {{ loop_state.project_name or loop_state.project_slug }} · {{ loop_state.project_slug }}</p>
       {% endif %}
-      <p class="subhead">Current run {{ loop_state.current_run_id or "-" }} · latest update {{ loop_state.latest_note }}</p>
-      <p class="subhead">{{ loop_report.headline }}</p>
-      <p class="subhead">Goal preview {{ loop_state.objective_preview }}</p>
+      <div class="detail-meta-list">
+        <p><strong>Current run</strong> {{ loop_state.current_run_id or "-" }} · <strong>Latest update</strong> {{ loop_state.latest_note }}</p>
+        <p><strong>Summary</strong> {{ loop_report.headline }}</p>
+        <p><strong>Goal</strong> {{ loop_state.objective_preview }}</p>
+      </div>
     </div>
     <div class="hero-metrics">
       <span class="badge status-{{ loop_state.status }}">{{ loop_state.status }}</span>
@@ -28,7 +30,7 @@
       <h2>Current status, latest result, and linked run</h2>
     </div>
     <div class="two-column">
-      <article class="panel">
+      <article class="panel detail-focus-panel">
         <div class="panel-header">
           <h2>Loop Summary</h2>
         </div>
@@ -63,7 +65,7 @@
         </ul>
       </article>
 
-      <article class="panel">
+      <article class="panel detail-focus-panel">
         <div class="panel-header">
           <h2>Current Status</h2>
         </div>
@@ -106,22 +108,22 @@
   <section class="report-cluster">
     <div class="report-cluster__header">
       <p class="report-cluster__eyebrow">Activity</p>
-      <h2>Cycles and recent updates</h2>
+      <h2>Cycle history and recent updates</h2>
     </div>
-    <div class="two-column">
-      <article class="panel">
+    <div class="stack-column">
+      <article class="panel detail-support-panel">
         <div class="panel-header">
           <h2>Cycles</h2>
-          <p>Each cycle starts one run and uses the result for the next cycle.</p>
+          <p>One row per cycle.</p>
         </div>
         <div class="table-scroll table-scroll--compact">
           <table class="run-table">
             <thead>
               <tr>
-                <th>Iteration</th>
+                <th>Cycle</th>
                 <th>Run</th>
                 <th>Status</th>
-                <th>Summary</th>
+                <th>Time</th>
               </tr>
             </thead>
             <tbody>
@@ -136,7 +138,17 @@
                     {% endif %}
                   </td>
                   <td><span class="badge status-{{ iteration.status or 'pending' }}">{{ iteration.status or "pending" }}</span></td>
-                  <td>{{ linked_run.summary if linked_run else iteration.summary or "-" }}</td>
+                  <td>
+                    {% if iteration.completed_at %}
+                      {{ format_relative_timestamp(iteration.completed_at) }}
+                      <br />
+                      <small>{{ format_exact_timestamp(iteration.completed_at) }}</small>
+                    {% else %}
+                      {{ format_relative_timestamp(iteration.created_at) }}
+                      <br />
+                      <small>{{ format_exact_timestamp(iteration.created_at) }}</small>
+                    {% endif %}
+                  </td>
                 </tr>
               {% else %}
                 <tr>
@@ -146,12 +158,20 @@
             </tbody>
           </table>
         </div>
+        {% if cycles_total_pages > 1 %}
+          <div class="pagination-bar">
+            <a href="/loops/{{ loop_state.loop_id }}?cycles_page={{ cycles_current_page - 1 }}" class="pagination-item {% if cycles_current_page == 1 %}is-disabled{% endif %}">&larr; Previous</a>
+            {% for p in range(1, cycles_total_pages + 1) %}
+              <a href="/loops/{{ loop_state.loop_id }}?cycles_page={{ p }}" class="pagination-item {% if p == cycles_current_page %}is-active{% endif %}">{{ p }}</a>
+            {% endfor %}
+            <a href="/loops/{{ loop_state.loop_id }}?cycles_page={{ cycles_current_page + 1 }}" class="pagination-item {% if cycles_current_page == cycles_total_pages %}is-disabled{% endif %}">Next &rarr;</a>
+          </div>
+        {% endif %}
       </article>
 
-      <article class="panel">
+      <article class="panel detail-support-panel">
         <div class="panel-header">
           <h2>Recent Updates</h2>
-          <p>Latest updates from this loop.</p>
         </div>
         <ul class="timeline panel-scroll panel-scroll-xl">
           {% for event in event_feed %}
@@ -177,7 +197,7 @@
       <h2>Run settings, recovery history, and log</h2>
     </div>
     <div class="three-column">
-      <article class="panel">
+      <article class="panel detail-support-panel">
         <div class="panel-header">
           <h2>Run Settings</h2>
         </div>

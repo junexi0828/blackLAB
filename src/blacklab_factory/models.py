@@ -186,6 +186,7 @@ class RunState(BaseModel):
     status: RunStatus = "queued"
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
+    controller_pid: int | None = None
     stop_requested: bool = False
     current_department: str | None = None
     next_action: str = "Ready to start"
@@ -278,6 +279,7 @@ class LoopState(BaseModel):
     status: LoopStatus = "queued"
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
+    controller_pid: int | None = None
     current_run_id: str | None = None
     current_iteration: int = 0
     iterations_completed: int = 0

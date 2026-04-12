@@ -2,7 +2,7 @@
 {% block title %}Autopilot{% endblock %}
 {% block content %}
   <section class="hero">
-    <div>
+    <div class="hero-copy">
       <h1>Autopilot</h1>
       <p class="subhead">Keep improving one project over time.</p>
     </div>
@@ -69,14 +69,17 @@
             {% endfor %}
           </div>
         </div>
-        <p class="field-hint">
-          Uses your saved setup by default:
-          {{ operator_profile.autopilot.loop_mode }} ·
-          {{ operator_profile.autopilot.run_mode }} ·
-          every {{ operator_profile.autopilot.interval_seconds }}s ·
-          main {{ operator_profile.autopilot.run_settings.codex_model }}/{{ operator_profile.autopilot.run_settings.codex_autonomy }} ·
-          review {{ operator_profile.autopilot.run_settings.codex_review_model }}/{{ operator_profile.autopilot.run_settings.codex_review_autonomy }}
-        </p>
+        <div class="saved-setup-note">
+          <strong>Uses your saved setup by default.</strong>
+          <p>
+            {{ operator_profile.autopilot.loop_mode }} ·
+            {{ operator_profile.autopilot.run_mode }} ·
+            every {{ operator_profile.autopilot.interval_seconds }}s ·
+            main {{ operator_profile.autopilot.run_settings.codex_model }}/{{ operator_profile.autopilot.run_settings.codex_autonomy }} ·
+            review {{ operator_profile.autopilot.run_settings.codex_review_model }}/{{ operator_profile.autopilot.run_settings.codex_review_autonomy }} ·
+            {{ operator_profile.autopilot.run_settings.max_parallel_departments or company_config.max_parallel_departments }} teams at once
+          </p>
+        </div>
         <button
           type="button"
           class="ghost-button"

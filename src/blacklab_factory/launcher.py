@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import signal
 import subprocess
 import sys
 import time
@@ -174,3 +176,39 @@ def _wait_for_handoff(handoff_path: Path, log_path: Path, process: subprocess.Po
         f"Detached launch failed before publishing a {label}."
         f"{' Recent log: ' + log_tail if log_tail else ''}"
     )
+
+
+def terminate_process_group(pid: int, grace_seconds: float = 2.5) -> bool:
+    try:
+        os.killpg(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return False
+
+    deadline = time.monotonic() + grace_seconds
+    while time.monotonic() < deadline:
+        if not _is_process_alive(pid):
+            return True
+        time.sleep(0.1)
+
+    try:
+        os.killpg(pid, signal.SIGKILL)
+    except ProcessLookupError:
+        return True
+
+    deadline = time.monotonic() + 1.0
+    while time.monotonic() < deadline:
+        if not _is_process_alive(pid):
+            return True
+        time.sleep(0.05)
+
+    return not _is_process_alive(pid)
+
+
+def _is_process_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True

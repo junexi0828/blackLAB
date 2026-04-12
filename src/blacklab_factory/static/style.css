@@ -94,6 +94,12 @@ a {
   color: var(--muted);
 }
 
+.hero-copy {
+  display: grid;
+  gap: 0.2rem;
+  max-width: 48rem;
+}
+
 .hero-project,
 .project-chip,
 .project-signboard__label,
@@ -235,9 +241,34 @@ a {
   font-weight: 700;
 }
 
+.metric-card {
+  min-height: 9.5rem;
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+}
+
+.metric-card .metric {
+  margin-top: 0.3rem;
+  font-size: 2.35rem;
+  line-height: 1;
+}
+
+.metric-card--success {
+  border-color: rgba(23, 100, 72, 0.16);
+  background: rgba(248, 253, 251, 0.94);
+}
+
+.metric-card--alert {
+  border-color: rgba(180, 35, 24, 0.18);
+  background: rgba(255, 249, 247, 0.94);
+}
+
 .project-progress-panel {
   display: grid;
   gap: 0.55rem;
+  border-color: rgba(191, 106, 2, 0.18);
+  background: rgba(255, 250, 243, 0.95);
 }
 
 .project-progress-line,
@@ -255,6 +286,21 @@ a {
 .project-progress-meta {
   color: var(--muted);
   font-size: 0.84rem;
+}
+
+.detail-meta-list {
+  display: grid;
+  gap: 0.24rem;
+}
+
+.detail-meta-list p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.detail-meta-list strong {
+  color: var(--ink);
 }
 
 .panel-header {
@@ -278,6 +324,16 @@ a {
 
 .panel-muted {
   background: rgba(255, 255, 255, 0.48);
+  box-shadow: none;
+}
+
+.detail-focus-panel {
+  border-color: rgba(191, 106, 2, 0.15);
+  background: rgba(255, 251, 245, 0.95);
+}
+
+.detail-support-panel {
+  background: rgba(255, 255, 255, 0.56);
   box-shadow: none;
 }
 
@@ -1059,6 +1115,33 @@ a {
   font-size: 0.76rem;
   line-height: 1.4;
   color: #6b6258;
+}
+
+.saved-setup-note {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.1rem;
+  padding: 0.8rem 0.95rem;
+  border-radius: 14px;
+  border: 1px solid rgba(25, 19, 13, 0.08);
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.saved-setup-note strong,
+.saved-setup-note p {
+  margin: 0;
+}
+
+.saved-setup-note strong {
+  font-size: 0.8rem;
+  color: var(--ink);
+}
+
+.saved-setup-note p {
+  color: #6b6258;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .control-form input,

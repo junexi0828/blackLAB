@@ -2,7 +2,7 @@
 {% block title %}Launch{% endblock %}
 {% block content %}
   <section class="hero">
-    <div>
+    <div class="hero-copy">
       <h1>Start a Run</h1>
       <p class="subhead">Start one focused run for a project.</p>
     </div>
@@ -64,13 +64,15 @@
             {% endfor %}
           </div>
         </div>
-        <p class="field-hint">
-          Uses your saved setup by default:
-          {{ operator_profile.launch.mode }} ·
-          main {{ operator_profile.launch.run_settings.codex_model }}/{{ operator_profile.launch.run_settings.codex_autonomy }} ·
-          review {{ operator_profile.launch.run_settings.codex_review_model }}/{{ operator_profile.launch.run_settings.codex_review_autonomy }} ·
-          {{ operator_profile.launch.run_settings.max_parallel_departments or company_config.max_parallel_departments }} teams at once
-        </p>
+        <div class="saved-setup-note">
+          <strong>Uses your saved setup by default.</strong>
+          <p>
+            {{ operator_profile.launch.mode }} ·
+            main {{ operator_profile.launch.run_settings.codex_model }}/{{ operator_profile.launch.run_settings.codex_autonomy }} ·
+            review {{ operator_profile.launch.run_settings.codex_review_model }}/{{ operator_profile.launch.run_settings.codex_review_autonomy }} ·
+            {{ operator_profile.launch.run_settings.max_parallel_departments or company_config.max_parallel_departments }} teams at once
+          </p>
+        </div>
         <button
           type="button"
           class="ghost-button"

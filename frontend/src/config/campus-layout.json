@@ -101,9 +101,9 @@
     },
     "test_lab": {
       "position": [
+        -7.0,
         0.0,
-        0.0,
-        14.2
+        20.2
       ],
       "shape": "pyramid",
       "color": "#ff6b6b"

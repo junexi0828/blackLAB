@@ -9,7 +9,6 @@ interface ConsoleHUDProps {
   activeRunCount: number
   loopNote: string | null
   timeTheme: 'day' | 'night'
-  localClockLabel: string
   themeSource: 'location' | 'timezone'
   crewCounts: RoverCrewCounts
   systemMode: 'live' | 'stopping' | 'idle'
@@ -23,7 +22,6 @@ export function ConsoleHUD({
   activeRunCount,
   loopNote,
   timeTheme,
-  localClockLabel,
   themeSource,
   crewCounts,
   systemMode,
@@ -35,11 +33,18 @@ export function ConsoleHUD({
   const systemLabel = systemMode === 'stopping' ? 'STOPPING' : isLive ? 'RUNNING' : 'READY'
 
   // Ticker clock
-  const [clock, setClock] = useState(() => new Date().toISOString())
+  const [clock, setClock] = useState(() => Date.now())
   useEffect(() => {
-    const id = setInterval(() => setClock(new Date().toISOString()), 1000)
+    const id = window.setInterval(() => setClock(Date.now()), 1000)
     return () => clearInterval(id)
   }, [])
+  const clockDate = new Date(clock)
+  const localClockLabel = clockDate.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
+  const utcClockLabel = clockDate.toISOString().slice(11, 19)
 
   const displayText = loopNote ?? mission
 
@@ -101,7 +106,7 @@ export function ConsoleHUD({
           <span className="hud-sep" />
           <span className="hud-clock">{localClockLabel}</span>
           <span className="hud-sep" />
-          <span>{clock.slice(11, 19)} UTC</span>
+          <span>{utcClockLabel} UTC</span>
         </div>
       </div>
     </div>

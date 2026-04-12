@@ -2,7 +2,7 @@
 {% block title %}Overview{% endblock %}
 {% block content %}
   <section class="hero">
-    <div>
+    <div class="hero-copy">
       <h1>Overview</h1>
       <p class="subhead">Start here. See what is moving, what just finished, and what needs attention now.</p>
     </div>
@@ -12,19 +12,19 @@
   </section>
 
   <section class="card-grid">
-    <article class="card">
+    <article class="card metric-card">
       <h2>Active Runs</h2>
       <p class="metric">{{ active_runs|length }}</p>
     </article>
-    <article class="card">
+    <article class="card metric-card">
       <h2>Active Loops</h2>
       <p class="metric">{{ active_loops|length }}</p>
     </article>
-    <article class="card">
+    <article class="card metric-card metric-card--success">
       <h2>Completed Runs</h2>
       <p class="metric">{{ completed_runs|length }}</p>
     </article>
-    <article class="card">
+    <article class="card metric-card metric-card--alert">
       <h2>Needs Attention</h2>
       <p class="metric">{{ blocked_runs|length }}</p>
     </article>
@@ -109,7 +109,6 @@
     <article class="panel">
       <div class="panel-header">
         <h2>Recent Team Updates</h2>
-        <p>Latest completed work by team, shown from the original run output.</p>
       </div>
       <ul class="list">
         {% for decision in latest_decisions %}
@@ -130,7 +129,6 @@
     <article class="panel">
       <div class="panel-header">
         <h2>Open Issues</h2>
-        <p>Unresolved problems from recent runs. Use this list to see what still needs action.</p>
       </div>
       <ul class="list">
         {% for risk in top_risks %}
@@ -149,7 +147,6 @@
   <section class="panel">
     <div class="panel-header">
       <h2>Recent Activity</h2>
-      <p>Newest updates across runs and loops.</p>
     </div>
     <ul class="timeline">
       {% for event in operator_feed %}

@@ -11,42 +11,70 @@
     </div>
   </section>
 
-  <section class="card-grid">
-    <article class="card metric-card">
-      <h2>Active Runs</h2>
-      <p class="metric">{{ active_runs|length }}</p>
-    </article>
-    <article class="card metric-card">
-      <h2>Active Loops</h2>
-      <p class="metric">{{ active_loops|length }}</p>
-    </article>
-    <article class="card metric-card metric-card--success">
-      <h2>Completed Runs</h2>
-      <p class="metric">{{ completed_runs|length }}</p>
-    </article>
-    <article class="card metric-card metric-card--alert">
-      <h2>Needs Attention</h2>
-      <p class="metric">{{ blocked_runs|length }}</p>
-    </article>
-  </section>
-
   {% if current_project_memory %}
-    <section class="panel signal-panel project-progress-panel">
-      <div class="panel-header">
-        <div>
-          <h2>Project Progress</h2>
-          <p>{{ current_project_memory.name }}{% if current_project_memory.run_id %} · latest run {{ current_project_memory.run_id }}{% endif %}</p>
+    <section class="overview-stack">
+      <section class="panel signal-panel project-progress-panel project-progress-panel--hero">
+        <div class="panel-header">
+          <div>
+            <h2>Project Progress</h2>
+            <p>{{ current_project_memory.name }}{% if current_project_memory.run_id %} · latest run {{ current_project_memory.run_id }}{% endif %}</p>
+          </div>
         </div>
-      </div>
-      <p class="project-progress-line">{{ current_project_memory.summary }}</p>
-      <p class="project-progress-meta">
-        {% if current_project_memory.last_run_at %}
-          {{ format_exact_timestamp(current_project_memory.last_run_at) }} · {{ format_relative_timestamp(current_project_memory.last_run_at) }}
-        {% endif %}
-        {% if current_project_memory.risk_count %}
-          · {{ current_project_memory.risk_count }} open issues carried into the latest memory
-        {% endif %}
-      </p>
+        <p class="project-progress-line">{{ current_project_memory.summary }}</p>
+        <p class="project-progress-meta">
+          {% if current_project_memory.last_run_at %}
+            {{ format_exact_timestamp(current_project_memory.last_run_at) }} · {{ format_relative_timestamp(current_project_memory.last_run_at) }}
+          {% endif %}
+          {% if current_project_memory.risk_count %}
+            · {{ current_project_memory.risk_count }} open issues carried into the latest memory
+          {% endif %}
+        </p>
+        <div class="project-progress-status-strip">
+          <article class="project-progress-status-strip__item project-progress-status-strip__item--runs">
+            <h3>Active Runs</h3>
+            <p class="metric">{{ active_runs|length }}</p>
+            <p class="metric-note">running now</p>
+          </article>
+          <article class="project-progress-status-strip__item project-progress-status-strip__item--loops">
+            <h3>Active Loops</h3>
+            <p class="metric">{{ active_loops|length }}</p>
+            <p class="metric-note">still iterating</p>
+          </article>
+          <article class="project-progress-status-strip__item project-progress-status-strip__item--success">
+            <h3>Completed Runs</h3>
+            <p class="metric">{{ completed_runs|length }}</p>
+            <p class="metric-note">finished so far</p>
+          </article>
+          <article class="project-progress-status-strip__item project-progress-status-strip__item--alert">
+            <h3>Needs Attention</h3>
+            <p class="metric">{{ blocked_runs|length }}</p>
+            <p class="metric-note">blocked or failed</p>
+          </article>
+        </div>
+      </section>
+    </section>
+  {% else %}
+    <section class="card-grid">
+      <article class="card metric-card metric-card--runs">
+        <h2>Active Runs</h2>
+        <p class="metric">{{ active_runs|length }}</p>
+        <p class="metric-note">running now</p>
+      </article>
+      <article class="card metric-card metric-card--loops">
+        <h2>Active Loops</h2>
+        <p class="metric">{{ active_loops|length }}</p>
+        <p class="metric-note">still iterating</p>
+      </article>
+      <article class="card metric-card metric-card--success">
+        <h2>Completed Runs</h2>
+        <p class="metric">{{ completed_runs|length }}</p>
+        <p class="metric-note">finished so far</p>
+      </article>
+      <article class="card metric-card metric-card--alert">
+        <h2>Needs Attention</h2>
+        <p class="metric">{{ blocked_runs|length }}</p>
+        <p class="metric-note">blocked or failed</p>
+      </article>
     </section>
   {% endif %}
 

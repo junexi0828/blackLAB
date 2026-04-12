@@ -46,6 +46,10 @@ function CameraFocusController({
     toTarget: THREE.Vector3
     progress: number
   } | null>(null)
+  const lastFocusSignatureRef = useRef<string | null>(null)
+  const selectedCoords = selectedBuilding ? positions[selectedBuilding] ?? null : null
+  const focusX = selectedCoords?.[0] ?? 0
+  const focusZ = selectedCoords?.[2] ?? 0
 
   useEffect(() => {
     const controls = controlsRef.current
@@ -53,13 +57,38 @@ function CameraFocusController({
       return
     }
 
+    const handleControlStart = () => {
+      transitionRef.current = null
+    }
+
+    controls.addEventListener('start', handleControlStart)
+    return () => {
+      controls.removeEventListener('start', handleControlStart)
+    }
+  }, [controlsRef])
+
+  useEffect(() => {
+    const controls = controlsRef.current
+    if (!controls) {
+      return
+    }
+
+    const focusSignature = selectedBuilding
+      ? `${selectedBuilding}:${focusX.toFixed(3)}:${focusZ.toFixed(3)}`
+      : 'overview'
+
+    if (lastFocusSignatureRef.current === focusSignature) {
+      return
+    }
+    lastFocusSignatureRef.current = focusSignature
+
     const fromPosition = camera.position.clone()
     const fromTarget = controls.target.clone()
     let toPosition = DEFAULT_CAMERA_POSITION.clone()
     let toTarget = DEFAULT_CAMERA_TARGET.clone()
 
-    if (selectedBuilding && positions[selectedBuilding]) {
-      const [x, , z] = positions[selectedBuilding]
+    if (selectedBuilding && selectedCoords) {
+      const [x, , z] = selectedCoords
       toTarget = new THREE.Vector3(x, 1.2, z)
       toPosition = new THREE.Vector3(x + 6.8, 5.2, z + 7.2)
     }
@@ -71,7 +100,7 @@ function CameraFocusController({
       toTarget,
       progress: 0,
     }
-  }, [selectedBuilding, positions, camera, controlsRef])
+  }, [selectedBuilding, selectedCoords, focusX, focusZ, camera, controlsRef])
 
   useFrame((_, delta) => {
     const controls = controlsRef.current
@@ -80,7 +109,7 @@ function CameraFocusController({
       return
     }
 
-    transition.progress = Math.min(1, transition.progress + delta * 1.2)
+    transition.progress = Math.min(1, transition.progress + delta * 1.75)
     const eased = 1 - Math.pow(1 - transition.progress, 3)
 
     camera.position.lerpVectors(transition.fromPosition, transition.toPosition, eased)
@@ -243,9 +272,11 @@ export function WorldCanvas({
       <OrbitControls
         ref={controlsRef}
         enableDamping
-        dampingFactor={0.06}
-        autoRotate={!selectedBuilding}
-        autoRotateSpeed={-0.42}
+        dampingFactor={0.12}
+        autoRotate={false}
+        rotateSpeed={0.92}
+        zoomSpeed={0.96}
+        panSpeed={0.9}
         maxPolarAngle={Math.PI / 2.1}
         minDistance={6}
         maxDistance={40}

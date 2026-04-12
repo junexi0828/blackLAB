@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import type { StepRecord } from '../types'
 import { ACTIVE_ROVERS_PER_DEPARTMENT } from './roverPersona'
 import { getDepartmentOrganizationSpec, type RoverVisualArchetype } from '../config/organizationModel'
+import type { ProjectMaturityTier } from './projectMaturity'
 
 interface AgentRoversProps {
   positions: Record<string, [number, number, number]>
@@ -11,6 +12,9 @@ interface AgentRoversProps {
   steps: StepRecord[]
   hasActiveRun: boolean
   selectedBuilding?: string | null
+  speedMultiplier?: number
+  unlockTier?: ProjectMaturityTier
+  departmentMaturity?: Record<string, number>
 }
 
 const ROVER_COUNT = 60
@@ -34,6 +38,7 @@ interface RoverStyle {
   headScale: [number, number, number]
   headStyle: HeadStyle
   badgeOffsetX: number
+  badgeScale: [number, number, number]
   accentOffsetX: number
   packOffsetX: number
   scarfTilt: number
@@ -141,6 +146,7 @@ function buildRoverStyle(
   archetype: RoverVisualArchetype,
   mode: RoverMode,
   seed: number,
+  unlockTier: ProjectMaturityTier,
 ): RoverStyle {
   const style: RoverStyle = {
     shellColor: '#edf3fb',
@@ -162,6 +168,7 @@ function buildRoverStyle(
     headScale: hiddenScale(),
     headStyle: 'none',
     badgeOffsetX: 0.11,
+    badgeScale: scale3(1, 1, 1),
     accentOffsetX: 0,
     packOffsetX: 0.19,
     scarfTilt: 0,
@@ -252,6 +259,30 @@ function buildRoverStyle(
     style.visorColor = dim(style.visorColor, 0.9)
   }
 
+  if (unlockTier === 0) {
+    style.badgeScale = hiddenScale()
+    style.accentScale = hiddenScale()
+    style.packScale = hiddenScale()
+    style.scarfScale = hiddenScale()
+    style.capeScale = hiddenScale()
+    style.headScale = hiddenScale()
+    style.headStyle = 'none'
+  } else if (unlockTier === 1) {
+    style.accentScale = hiddenScale()
+    style.packScale = hiddenScale()
+    style.scarfScale = hiddenScale()
+    style.capeScale = hiddenScale()
+    style.headScale = hiddenScale()
+    style.headStyle = 'none'
+  } else if (unlockTier === 2) {
+    style.capeScale = hiddenScale()
+    style.headScale = hiddenScale()
+    style.headStyle = 'none'
+  } else if (unlockTier === 3) {
+    style.capeScale = scale3(style.capeScale[0] * 0.88, style.capeScale[1] * 0.88, style.capeScale[2] * 0.88)
+    style.headScale = scale3(style.headScale[0] * 0.94, style.headScale[1] * 0.94, style.headScale[2] * 0.94)
+  }
+
   return style
 }
 
@@ -311,7 +342,14 @@ const RoverMesh = memo(function RoverMesh({ rover }: { rover: RoverDescriptor })
         />
       )}
 
-      <mesh geometry={ROVER_GEOMETRIES.badge} material={badgeMaterial} position={[style.badgeOffsetX, 0.02, 0.215]} />
+      {isVisible(style.badgeScale) && (
+        <mesh
+          geometry={ROVER_GEOMETRIES.badge}
+          material={badgeMaterial}
+          position={[style.badgeOffsetX, 0.02, 0.215]}
+          scale={style.badgeScale}
+        />
+      )}
 
       {isVisible(style.accentScale) && (
         <mesh geometry={ROVER_GEOMETRIES.accent} material={accentMaterial} position={[style.accentOffsetX, -0.02, 0.215]} scale={style.accentScale} />
@@ -350,6 +388,9 @@ export const AgentRovers = memo(function AgentRovers({
   steps,
   hasActiveRun,
   selectedBuilding = null,
+  speedMultiplier = 1,
+  unlockTier = 0,
+  departmentMaturity = {},
 }: AgentRoversProps) {
   const groupRefs = useRef<Array<THREE.Group | null>>([])
   const progressRef = useRef<number[]>([])
@@ -373,9 +414,10 @@ export const AgentRovers = memo(function AgentRovers({
     const scopedRunningKeys = selectedBuilding
       ? runningKeys.filter((key) => key === selectedBuilding)
       : runningKeys
+    const activeRoversPerDepartment = [3, 4, 5, ACTIVE_ROVERS_PER_DEPARTMENT, ACTIVE_ROVERS_PER_DEPARTMENT][unlockTier]
 
     const movingCount = hasActiveRun
-      ? Math.min(ROVER_COUNT, Math.max(0, scopedRunningKeys.length * ACTIVE_ROVERS_PER_DEPARTMENT))
+      ? Math.min(ROVER_COUNT, Math.max(0, scopedRunningKeys.length * activeRoversPerDepartment))
       : 0
 
     for (let i = 0; i < movingCount; i++) {
@@ -384,7 +426,8 @@ export const AgentRovers = memo(function AgentRovers({
       const fromKey = choices[Math.floor(seeded(i * 4.13 + 1.9) * choices.length)] ?? toKey
       const styleSeed = i * 14.7 + hashKey(toKey) * 0.19 + hashKey(fromKey) * 0.07
       const archetype = getDepartmentOrganizationSpec(toKey).visualArchetype
-      const style = buildRoverStyle(archetype, 'moving', styleSeed)
+      const style = buildRoverStyle(archetype, 'moving', styleSeed, unlockTier)
+      const departmentSpeedFactor = 0.94 + (departmentMaturity[toKey] ?? 0) * 0.12
 
       arr.push({
         deptKey: toKey,
@@ -394,7 +437,7 @@ export const AgentRovers = memo(function AgentRovers({
         home: buildOffsetPosition(positions[toKey], i * 1.91 + 8.2, i * 6.51 + 0.4, 1.6),
         initialProgress: seeded(i * 5.5),
         renderScale: style.bodyScale,
-        speed: 0.2 + seeded(i * 1.1 + 0.3) * 0.18,
+        speed: (0.2 + seeded(i * 1.1 + 0.3) * 0.18) * speedMultiplier * departmentSpeedFactor,
         moveFirstAxis: seeded(i * 8.1) > 0.5 ? 'x' : 'z',
         sleepPhase: seeded(i * 11.3) * Math.PI * 2,
         style,
@@ -406,7 +449,7 @@ export const AgentRovers = memo(function AgentRovers({
       const styleSeed = i * 13.1 + hashKey(homeKey) * 0.17
       const archetype = getDepartmentOrganizationSpec(homeKey).visualArchetype
 
-      const style = buildRoverStyle(archetype, 'sleeping', styleSeed)
+      const style = buildRoverStyle(archetype, 'sleeping', styleSeed, unlockTier)
 
       arr.push({
         deptKey: homeKey,
@@ -424,7 +467,7 @@ export const AgentRovers = memo(function AgentRovers({
     }
 
     return arr
-  }, [positions, activeDepts, steps, hasActiveRun, selectedBuilding])
+  }, [positions, activeDepts, steps, hasActiveRun, selectedBuilding, speedMultiplier, unlockTier, departmentMaturity])
 
   useEffect(() => {
     progressRef.current = rovers.map((rover) => rover.initialProgress)

@@ -12,6 +12,8 @@ interface ConsoleHUDProps {
   themeSource: 'location' | 'timezone'
   crewCounts: RoverCrewCounts
   systemMode: 'live' | 'stopping' | 'idle'
+  maturityTierLabel: string
+  maturityPercent: number
 }
 
 export function ConsoleHUD({
@@ -25,6 +27,8 @@ export function ConsoleHUD({
   themeSource,
   crewCounts,
   systemMode,
+  maturityTierLabel,
+  maturityPercent,
 }: ConsoleHUDProps) {
   const isLive = systemMode === 'live' || systemMode === 'stopping' || loopStatus === 'running'
   const phaseIcon = timeTheme === 'day' ? '☀' : '☾'
@@ -100,6 +104,8 @@ export function ConsoleHUD({
           </div>
         )}
         <div className="hud-ribbon-meta">
+          <span className="hud-project-maturity">{maturityTierLabel} · {maturityPercent}% maturity</span>
+          <span className="hud-sep" />
           <span>{activeRunCount} run{activeRunCount !== 1 ? 's' : ''} live</span>
           <span className="hud-sep" />
           <span>{iterationsCompleted} cycles complete</span>

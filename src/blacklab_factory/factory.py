@@ -316,7 +316,8 @@ class FactoryRunner:
         return "\n".join(lines)
 
     def list_runs(self) -> list[RunState]:
-        return self.storage.list_runs()
+        runs, _ = self.storage.list_runs()
+        return runs
 
     def get_run(self, run_id: str) -> RunState:
         return self.storage.load_state(run_id)

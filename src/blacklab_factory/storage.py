@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 from datetime import timedelta
 from pathlib import Path
@@ -15,6 +16,7 @@ from blacklab_factory.models import (
     OperatorChatState,
     OperatorProfile,
     ProjectRecord,
+    ProcessRecord,
     RunSettings,
     RunState,
     StepRecord,
@@ -26,6 +28,27 @@ def slugify(value: str) -> str:
     lowered = value.lower().strip()
     lowered = re.sub(r"[^a-z0-9]+", "-", lowered)
     return lowered.strip("-") or "artifact"
+
+
+def _pid_is_alive(pid: int | None) -> bool:
+    if pid is None or pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _has_live_runtime_pid(controller_pid: int | None, process_records: list[ProcessRecord]) -> bool:
+    if _pid_is_alive(controller_pid):
+        return True
+    return any(
+        process.status == "running" and _pid_is_alive(process.pid)
+        for process in process_records
+    )
 
 
 class RunStorage:
@@ -219,6 +242,8 @@ class RunStorage:
     def _mark_stale_if_needed(self, state: RunState) -> RunState:
         if state.status not in {"running", "stopping"}:
             return state
+        if _has_live_runtime_pid(state.controller_pid, state.current_processes):
+            return state
         if utc_now() - state.updated_at <= self.stale_after:
             return state
         state.status = "stale"
@@ -396,6 +421,9 @@ class LoopStorage:
         if state.status not in {"running", "stopping"}:
             return state
 
+        if _pid_is_alive(state.controller_pid):
+            return state
+
         grace = max(self.stale_after, timedelta(seconds=max(180, state.interval_seconds + 90)))
         if utc_now() - state.updated_at <= grace:
             return state
@@ -407,7 +435,7 @@ class LoopStorage:
             except FileNotFoundError:
                 active_run = None
 
-        if active_run is not None and active_run.status == "running":
+        if active_run is not None and active_run.status in {"running", "stopping"}:
             return state
 
         if state.stop_requested:

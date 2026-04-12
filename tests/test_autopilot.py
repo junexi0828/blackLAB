@@ -1,3 +1,4 @@
+import os
 from datetime import timedelta
 from pathlib import Path
 
@@ -116,3 +117,27 @@ def test_stopping_loop_without_live_run_is_finalized(tmp_path: Path) -> None:
     refreshed = supervisor.loop_storage.load_state(loop_state.loop_id)
     assert refreshed.status == "completed"
     assert "finalized" in refreshed.latest_note.lower()
+
+
+def test_running_loop_stays_live_when_controller_pid_is_alive(tmp_path: Path) -> None:
+    supervisor = AutopilotSupervisor(storage_root=tmp_path)
+    request = LoopRunRequest(
+        objective="Keep loop alive while controller exists",
+        loop_mode="always_on",
+        run_mode="mock",
+        run_settings=RunSettings(),
+        interval_seconds=0,
+    )
+
+    loop_state = supervisor.start_loop(request)
+    loop_state.status = "running"
+    loop_state.controller_pid = os.getpid()
+    loop_state.updated_at = utc_now() - timedelta(minutes=10)
+    supervisor.loop_storage.state_path(loop_state.loop_id).write_text(
+        loop_state.model_dump_json(indent=2),
+        encoding="utf-8",
+    )
+
+    refreshed = supervisor.loop_storage.load_state(loop_state.loop_id)
+
+    assert refreshed.status == "running"

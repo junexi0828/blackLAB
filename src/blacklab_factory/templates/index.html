@@ -30,6 +30,26 @@
     </article>
   </section>
 
+  {% if current_project_memory %}
+    <section class="panel signal-panel project-progress-panel">
+      <div class="panel-header">
+        <div>
+          <h2>Project Progress</h2>
+          <p>{{ current_project_memory.name }}{% if current_project_memory.run_id %} · latest run {{ current_project_memory.run_id }}{% endif %}</p>
+        </div>
+      </div>
+      <p class="project-progress-line">{{ current_project_memory.summary }}</p>
+      <p class="project-progress-meta">
+        {% if current_project_memory.last_run_at %}
+          {{ format_exact_timestamp(current_project_memory.last_run_at) }} · {{ format_relative_timestamp(current_project_memory.last_run_at) }}
+        {% endif %}
+        {% if current_project_memory.risk_count %}
+          · {{ current_project_memory.risk_count }} open issues carried into the latest memory
+        {% endif %}
+      </p>
+    </section>
+  {% endif %}
+
   <section class="two-column">
     <article class="panel">
       <div class="panel-header">

@@ -23,6 +23,7 @@ def test_dashboard_routes_render(tmp_path: Path) -> None:
     assert "blackLAB Factory" in index_response.text
     assert "Overview" in index_response.text
     assert "Recent Runs" in index_response.text
+    assert "Project Progress" in index_response.text
 
     launch_page = client.get("/launch")
     assert launch_page.status_code == 200
@@ -210,6 +211,40 @@ def test_overview_team_updates_use_existing_department_outputs(tmp_path: Path) -
     assert "Recent Team Updates" in response.text
     assert "Product Planning Team" in response.text
     assert "Outlined the next pricing test for finance teams." in response.text
+
+
+def test_overview_project_progress_uses_saved_project_memory(tmp_path: Path) -> None:
+    runner = FactoryRunner(storage_root=tmp_path)
+    state = runner.storage.create_run(
+        mission="Show project memory on overview",
+        company_name="blackLAB",
+        mode="mock",
+        steps=[],
+    )
+    state.status = "completed"
+    state.project_slug = "revenue-leak-auditor"
+    state.project_name = "Revenue Leak Auditor"
+    runner.storage.save_state(state)
+
+    runner.projects.create_project("revenue-leak-auditor", "Revenue Leak Auditor")
+    runner.projects.append_memory(
+        slug="revenue-leak-auditor",
+        run_id=state.run_id,
+        mission=state.mission,
+        run_summary="The pricing test is defined and the product direction is narrowed.",
+        decisions=["Finance approved the target segment."],
+        next_run_hint="Validate demand with live customer calls.",
+        risks=["No direct customer proof yet."],
+    )
+
+    client = TestClient(create_app(storage_root=tmp_path))
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "Project Progress" in response.text
+    assert "Revenue Leak Auditor" in response.text
+    assert "The project is now at: The pricing test is defined and the product direction is narrowed. Next up: Validate demand with live customer calls." in response.text
+    assert state.run_id in response.text
 
 
 def test_overview_recent_activity_is_paginated(tmp_path: Path) -> None:

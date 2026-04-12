@@ -609,6 +609,36 @@ def create_app(storage: RunStorage) -> FastAPI:
             for record in projects
         ]
 
+    def build_current_project_memory(current_project: dict | None) -> dict | None:
+        if not current_project:
+            return None
+        slug = current_project.get("slug")
+        if not slug:
+            return None
+
+        record = project_storage.get_project(slug)
+        snapshot = project_storage.read_latest_memory_snapshot(slug)
+        if not record and not snapshot:
+            return None
+
+        if snapshot and snapshot.get("summary"):
+            sentence = snapshot["summary"].strip()
+            next_hint = str(snapshot.get("next_run_hint") or "").strip()
+            summary = f"The project is now at: {sentence}"
+            if next_hint:
+                summary = f"{summary} Next up: {next_hint}"
+        else:
+            summary = "No saved run summary yet. Start a run to build project memory."
+
+        return {
+            "slug": slug,
+            "name": (record.name if record and record.name else current_project.get("name") or slug),
+            "run_id": snapshot.get("run_id") if snapshot else (record.last_run_id if record else None),
+            "summary": summary,
+            "risk_count": len(snapshot.get("risks", [])) if snapshot else 0,
+            "last_run_at": record.last_run_at if record else None,
+        }
+
     def build_overview_context(activity_page: int = 1) -> dict:
         runs, _ = storage.list_runs()
         loops, _ = loop_storage.list_loops()
@@ -633,6 +663,7 @@ def create_app(storage: RunStorage) -> FastAPI:
         latest_decisions = build_latest_decisions(runs)
         top_risks = build_top_risks(runs)
         current_project = build_current_project(runs, loops, operator_profile)
+        current_project_memory = build_current_project_memory(current_project)
         return {
             "runs": runs,
             "loops": loops,
@@ -654,6 +685,7 @@ def create_app(storage: RunStorage) -> FastAPI:
             "recent_projects": project_library[:3],
             "resource_snapshot": resource_snapshot,
             "current_project": current_project,
+            "current_project_memory": current_project_memory,
             "operator_route": operator_route,
             "activity_current_page": activity_page,
             "activity_total_pages": activity_total_pages,

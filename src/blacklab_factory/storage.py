@@ -613,6 +613,32 @@ class ProjectStorage:
         recent = entries[-last_n:]
         return "\n\n---\n\n".join(recent)
 
+    def read_latest_memory_snapshot(self, slug: str) -> dict[str, object] | None:
+        """Return parsed fields from the latest memory entry for quick dashboard display."""
+        entry = self.read_memory(slug, last_n=1).strip()
+        if not entry:
+            return None
+
+        run_id_match = re.search(r"\*\*Run ID\*\*: `([^`]+)`", entry)
+        summary_match = re.search(r"\*\*Summary\*\*: (.+)", entry)
+        next_hint_match = re.search(r"\*\*Next Run Hint\*\*: (.+)", entry)
+        risks_match = re.search(r"\*\*Open Risks\*\*:\n(.*?)(?:\n\n\*\*Next Run Hint\*\*:|\Z)", entry, re.DOTALL)
+
+        risks: list[str] = []
+        if risks_match:
+            risks = [
+                line.strip()[2:].strip()
+                for line in risks_match.group(1).splitlines()
+                if line.strip().startswith("- ")
+            ]
+
+        return {
+            "run_id": run_id_match.group(1).strip() if run_id_match else None,
+            "summary": summary_match.group(1).strip() if summary_match else "",
+            "next_run_hint": next_hint_match.group(1).strip() if next_hint_match else "",
+            "risks": risks,
+        }
+
     def _trim_memory(self, slug: str) -> None:
         path = self.memory_path(self.normalize_slug(slug))
         if not path.exists():

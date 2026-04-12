@@ -5,12 +5,14 @@ import { Sky, Environment, OrbitControls, Stars } from '@react-three/drei'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import * as THREE from 'three'
 import type { CampusLayout, CompanyConfig, EventEntry, StepRecord } from '../types'
+import { getDepartmentOrganizationSpec } from '../config/organizationModel'
 import { buildCampusMaps, DEFAULT_CAMPUS_LAYOUT } from './cityConstants'
 import { CityBuilding } from './CityBuilding'
 import { AgentRovers } from './AgentRovers'
 import { DataBeams } from './DataBeams'
 import { GroundGrid } from './GroundGrid'
 import { CampusMonument } from './CampusMonument'
+import type { ProjectMaturityModel } from './projectMaturity'
 import { resolveLiveDepartmentKeys } from './roverPersona'
 
 interface WorldCanvasProps {
@@ -25,6 +27,7 @@ interface WorldCanvasProps {
   layout?: CampusLayout | null
   showMonument?: boolean
   workflowConfig?: CompanyConfig | null
+  projectMaturity?: ProjectMaturityModel | null
 }
 
 const DEFAULT_CAMERA_POSITION = new THREE.Vector3(18, 14, 18)
@@ -144,6 +147,7 @@ function areWorldCanvasPropsEqual(left: WorldCanvasProps, right: WorldCanvasProp
     left.timeTheme === right.timeTheme &&
     left.showMonument === right.showMonument &&
     left.workflowConfig === right.workflowConfig &&
+    left.projectMaturity === right.projectMaturity &&
     left.onDismissBubble === right.onDismissBubble &&
     left.onSelectBuilding === right.onSelectBuilding &&
     areStepRecordsEqual(left.steps, right.steps) &&
@@ -303,6 +307,7 @@ function WorldCanvasComponent({
   layout = null,
   showMonument = true,
   workflowConfig = null,
+  projectMaturity = null,
 }: WorldCanvasProps) {
   const isNight = timeTheme === 'night'
   const [autoRotateEnabled, setAutoRotateEnabled] = useState(() => !selectedBuilding)
@@ -331,6 +336,26 @@ function WorldCanvasComponent({
     () => Object.keys(positions),
     [positions],
   )
+  const buildingGrowthProfiles = useMemo(() => {
+    return Object.fromEntries(
+      visibleKeys.map((key) => {
+        const bucket = getDepartmentOrganizationSpec(key).hudBucket
+        const clusterHeightMultiplier = projectMaturity?.buildingHeightMultiplier[bucket] ?? 0.88
+        const clusterMaturity = projectMaturity?.clusterMaturity[bucket] ?? 0
+        const departmentMaturity = projectMaturity?.departmentMaturity[key] ?? clusterMaturity
+        return [
+          key,
+          {
+            heightMultiplier: clusterHeightMultiplier * (0.92 + departmentMaturity * 0.14),
+            growthRateMultiplier:
+              (projectMaturity?.buildingGrowthRateMultiplier ?? 0.92) + clusterMaturity * 0.03 + departmentMaturity * 0.03,
+            clusterMaturity,
+            departmentMaturity,
+          },
+        ]
+      }),
+    ) as Record<string, { heightMultiplier: number; growthRateMultiplier: number; clusterMaturity: number; departmentMaturity: number }>
+  }, [projectMaturity, visibleKeys])
   const controlsRef = useRef<OrbitControlsImpl | null>(null)
   const autoRotateTimerRef = useRef<number | null>(null)
   const [cameraTransitionActive, setCameraTransitionActive] = useState(false)
@@ -483,6 +508,7 @@ function WorldCanvasComponent({
         const label = step?.department_label ?? key.replace('_', ' ').toUpperCase()
         const isSelected = visualSelectedBuilding === key
         const isDimmed = visualSelectedBuilding !== null && !isSelected
+        const growthProfile = buildingGrowthProfiles[key]
 
         return (
           <CityBuilding
@@ -499,6 +525,11 @@ function WorldCanvasComponent({
             onDismissEvent={onDismissBubble}
             isSelected={isSelected}
             isDimmed={isDimmed}
+            heightMultiplier={growthProfile?.heightMultiplier}
+            growthRateMultiplier={growthProfile?.growthRateMultiplier}
+            unlockTier={projectMaturity?.unlockTier}
+            clusterMaturity={growthProfile?.clusterMaturity}
+            departmentMaturity={growthProfile?.departmentMaturity}
             onClick={() => onSelectBuilding?.(key)}
             timeTheme={timeTheme}
           />
@@ -525,6 +556,9 @@ function WorldCanvasComponent({
         steps={steps}
         hasActiveRun={hasActiveRun}
         selectedBuilding={visualSelectedBuilding}
+        speedMultiplier={projectMaturity?.roverSpeedMultiplier}
+        unlockTier={projectMaturity?.unlockTier}
+        departmentMaturity={projectMaturity?.departmentMaturity}
       />
 
       <CameraFocusController

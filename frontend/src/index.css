@@ -2026,8 +2026,16 @@ textarea {
   color: rgba(255, 255, 255, 0.15);
 }
 
+.hud-project-maturity {
+  color: rgba(255, 255, 255, 0.24);
+}
+
 .console-world--day .hud-ribbon-meta {
   color: rgba(71, 85, 105, 0.62);
+}
+
+.console-world--day .hud-project-maturity {
+  color: rgba(71, 85, 105, 0.74);
 }
 
 .hud-sep {

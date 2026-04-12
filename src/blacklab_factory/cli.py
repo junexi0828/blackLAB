@@ -270,7 +270,7 @@ def autopilot_status(
         typer.echo(json.dumps(loop_state.model_dump(mode="json"), indent=2))
         return
 
-    loops = supervisor.loop_storage.list_loops()
+    loops, _ = supervisor.loop_storage.list_loops()
     typer.echo(json.dumps([loop.model_dump(mode="json") for loop in loops], indent=2))
 
 

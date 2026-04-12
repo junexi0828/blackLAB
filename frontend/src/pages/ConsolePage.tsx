@@ -7,6 +7,7 @@ import type { CampusLayout, EventEntry, ProjectLibraryEntry, StepRecord } from '
 import { ConsoleHUD } from '../ui/ConsoleHUD'
 import { EventFeedOverlay } from '../ui/EventFeedOverlay'
 import { WorldCanvas } from '../ui/WorldCanvas'
+import { resolveProjectMaturity } from '../ui/projectMaturity'
 import { buildCrewCounts, resolveLiveDepartmentKeys } from '../ui/roverPersona'
 
 const BUBBLE_TTL_MS = 14000
@@ -148,6 +149,31 @@ export function ConsolePage() {
   const crewCounts = useMemo(
     () => buildCrewCounts(liveDepartmentKeys),
     [liveDepartmentKeys],
+  )
+  const projectMaturity = useMemo(
+    () =>
+      resolveProjectMaturity({
+        settings: settingsResource.data ?? null,
+        runs,
+        loops,
+        activeRun,
+        activeLoop,
+        projectLibrary,
+        currentProjectSlug: currentProject?.slug ?? null,
+        selectedProjectSlug,
+        liveDepartmentKeys,
+      }),
+    [
+      settingsResource.data,
+      runs,
+      loops,
+      activeRun,
+      activeLoop,
+      projectLibrary,
+      currentProject?.slug,
+      selectedProjectSlug,
+      liveDepartmentKeys,
+    ],
   )
 
   const bubbleEvents = useMemo(() => {
@@ -827,6 +853,7 @@ export function ConsolePage() {
         layout={visibleLayout}
         showMonument={!hiddenCampusItems.has('monument')}
         workflowConfig={settingsResource.data ?? null}
+        projectMaturity={projectMaturity}
       />
       <ConsoleHUD
         mission={activeRun?.mission ?? activeLoop?.objective ?? latestRun?.mission ?? null}
@@ -839,6 +866,8 @@ export function ConsolePage() {
         themeSource={themeSource}
         crewCounts={crewCounts}
         systemMode={systemMode}
+        maturityTierLabel={projectMaturity.tierLabel}
+        maturityPercent={projectMaturity.maturityPercent}
       />
       <EventFeedOverlay
         events={visibleFeedEvents}

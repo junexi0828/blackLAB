@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from 'react'
+import { memo, useEffect, useRef, useMemo } from 'react'
 import type { CSSProperties } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Text, Html } from '@react-three/drei'
@@ -424,7 +424,7 @@ function truncateMessage(value: string, limit = 140): string {
   return value.slice(0, limit - 1).trimEnd() + '…'
 }
 
-export function CityBuilding({
+function CityBuildingComponent({
   buildingId,
   position,
   color,
@@ -739,3 +739,28 @@ export function CityBuilding({
     </group>
   )
 }
+
+function areCityBuildingPropsEqual(prev: CityBuildingProps, next: CityBuildingProps) {
+  return (
+    prev.buildingId === next.buildingId &&
+    prev.position[0] === next.position[0] &&
+    prev.position[1] === next.position[1] &&
+    prev.position[2] === next.position[2] &&
+    prev.color === next.color &&
+    prev.isActive === next.isActive &&
+    prev.status === next.status &&
+    prev.label === next.label &&
+    prev.summary === next.summary &&
+    prev.shape === next.shape &&
+    prev.isSelected === next.isSelected &&
+    prev.isDimmed === next.isDimmed &&
+    prev.timeTheme === next.timeTheme &&
+    prev.event?.event_id === next.event?.event_id &&
+    prev.event?.status === next.event?.status &&
+    prev.event?.message === next.event?.message &&
+    prev.event?.is_live === next.event?.is_live &&
+    prev.event?.timestamp === next.event?.timestamp
+  )
+}
+
+export const CityBuilding = memo(CityBuildingComponent, areCityBuildingPropsEqual)

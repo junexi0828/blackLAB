@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { memo, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Line } from '@react-three/drei'
 import * as THREE from 'three'
@@ -20,9 +20,11 @@ function seeded(seed: number) {
 }
 
 const FORWARD_VECTOR = new THREE.Vector3(0, 0, 1)
+const VECTOR_A = new THREE.Vector3()
+const VECTOR_B = new THREE.Vector3()
 
 // A performant individual beam component to animate flows using dashOffset
-function AnimatedBeam({
+const AnimatedBeam = memo(function AnimatedBeam({
   points,
   color,
   opacity,
@@ -37,18 +39,24 @@ function AnimatedBeam({
   const pulseRefs = useRef<THREE.Mesh[]>([])
   const pulseCount = 4
 
-  // Use curve to generate smooth flowing path for highly active links
-  const curve = useMemo(() => {
-    if (points.length >= 3) {
-      return new THREE.CatmullRomCurve3(points)
+  const samples = useMemo(() => {
+    const curve = new THREE.CatmullRomCurve3(points)
+    const sampleCount = points.length >= 3 ? 24 : 2
+    const positions = Array.from({ length: sampleCount + 1 }, (_, index) => {
+      const progress = index / sampleCount
+      return curve.getPointAt(progress)
+    })
+    const tangents = Array.from({ length: sampleCount + 1 }, (_, index) => {
+      const progress = index / sampleCount
+      return curve.getTangentAt(progress).normalize()
+    })
+    return {
+      linePoints: positions.map((point) => [point.x, point.y, point.z] as [number, number, number]),
+      positions,
+      tangents,
+      sampleCount,
     }
-    return new THREE.CatmullRomCurve3(points)
   }, [points])
-
-  const pts = useMemo(
-    () => curve.getPoints(points.length >= 3 ? 32 : 2).map((p) => [p.x, p.y, p.z] as [number, number, number]),
-    [curve, points.length],
-  )
 
   useFrame((_, delta) => {
     if (isDashed && lineRef.current?.material) {
@@ -62,9 +70,14 @@ function AnimatedBeam({
       pulseRefs.current.forEach((mesh, index) => {
         if (!mesh) return
         const progress = ((elapsed * 0.22) - index * 0.11 + 1) % 1
-        const position = curve.getPointAt(progress)
-        const tangent = curve.getTangentAt(progress).normalize()
-        mesh.position.copy(position)
+        const sampleIndex = progress * samples.sampleCount
+        const lowerIndex = Math.floor(sampleIndex)
+        const upperIndex = Math.min(samples.sampleCount, lowerIndex + 1)
+        const alpha = sampleIndex - lowerIndex
+        mesh.position.lerpVectors(samples.positions[lowerIndex], samples.positions[upperIndex], alpha)
+        VECTOR_A.copy(samples.tangents[lowerIndex])
+        VECTOR_B.copy(samples.tangents[upperIndex])
+        const tangent = VECTOR_A.lerp(VECTOR_B, alpha).normalize()
         mesh.quaternion.setFromUnitVectors(FORWARD_VECTOR, tangent)
         const material = mesh.material as THREE.MeshStandardMaterial
         const intensity = Math.max(0.35, 1 - index * 0.16)
@@ -78,7 +91,7 @@ function AnimatedBeam({
     <group>
       <Line
         ref={lineRef}
-        points={pts}
+        points={samples.linePoints}
         color={color}
         transparent
         opacity={opacity}
@@ -113,7 +126,36 @@ function AnimatedBeam({
         ))}
     </group>
   )
-}
+})
+
+const StaticBeam = memo(function StaticBeam({
+  points,
+  color,
+  opacity,
+}: {
+  points: THREE.Vector3[]
+  color: THREE.Color
+  opacity: number
+}) {
+  const linePoints = useMemo(
+    () => points.map((point) => [point.x, point.y, point.z] as [number, number, number]),
+    [points],
+  )
+
+  return (
+    <Line
+      points={linePoints}
+      color={color}
+      transparent
+      opacity={opacity}
+      lineWidth={1.4}
+      dashed={false}
+      blending={THREE.NormalBlending}
+      depthWrite={false}
+      toneMapped
+    />
+  )
+})
 
 export function DataBeams({
   steps,
@@ -197,16 +239,25 @@ export function DataBeams({
   }, [steps, positions, colors, activeDepts, hasActiveRun, isNight])
 
   return (
-    <>
-      {beams.map((beam) => (
-        <AnimatedBeam
-          key={beam.key}
-          points={beam.points}
-          color={beam.color}
-          opacity={beam.opacity}
-          isDashed={beam.isDashed}
-        />
-      ))}
-    </>
+      <>
+        {beams.map((beam) => (
+          beam.isDashed ? (
+            <AnimatedBeam
+              key={beam.key}
+              points={beam.points}
+              color={beam.color}
+              opacity={beam.opacity}
+              isDashed={beam.isDashed}
+            />
+          ) : (
+            <StaticBeam
+              key={beam.key}
+              points={beam.points}
+              color={beam.color}
+              opacity={beam.opacity}
+            />
+          )
+        ))}
+      </>
   )
 }

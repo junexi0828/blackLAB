@@ -151,7 +151,7 @@ def test_loop_detail_cycles_are_paginated(tmp_path: Path) -> None:
             created_at=base_time + timedelta(minutes=index),
             completed_at=base_time + timedelta(minutes=index, seconds=30),
         )
-        for index in range(1, 15)
+        for index in range(1, 21)
     ]
     supervisor.loop_storage.save_state(loop_state)
 
@@ -162,7 +162,7 @@ def test_loop_detail_cycles_are_paginated(tmp_path: Path) -> None:
     assert first_page.status_code == 200
     assert second_page.status_code == 200
     assert f'/loops/{loop_state.loop_id}?cycles_page=2' in first_page.text
-    assert "run-14" in first_page.text
+    assert "run-20" in first_page.text
     assert "run-01" not in first_page.text
     assert "run-01" in second_page.text
     assert 'class="pagination-item is-active">2<' in second_page.text

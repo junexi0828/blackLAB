@@ -1,10 +1,10 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
-import { Canvas, useThree } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Sky, Environment, OrbitControls, Stars } from '@react-three/drei'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import * as THREE from 'three'
-import type { CampusLayout, EventEntry, StepRecord } from '../types'
+import type { CampusLayout, CompanyConfig, EventEntry, StepRecord } from '../types'
 import { buildCampusMaps, DEFAULT_CAMPUS_LAYOUT } from './cityConstants'
 import { CityBuilding } from './CityBuilding'
 import { AgentRovers } from './AgentRovers'
@@ -24,11 +24,14 @@ interface WorldCanvasProps {
   timeTheme?: 'day' | 'night'
   layout?: CampusLayout | null
   showMonument?: boolean
+  workflowConfig?: CompanyConfig | null
 }
 
 const DEFAULT_CAMERA_POSITION = new THREE.Vector3(18, 14, 18)
 const DEFAULT_CAMERA_TARGET = new THREE.Vector3(0, 0, 0)
 const AUTO_ROTATE_RESUME_DELAY_MS = 2600
+const CAMERA_ENTER_DURATION = 1.3
+const CAMERA_EXIT_DURATION = 0.76
 
 function vectorsEqual(left: [number, number, number], right: [number, number, number]) {
   return left[0] === right[0] && left[1] === right[1] && left[2] === right[2]
@@ -140,6 +143,7 @@ function areWorldCanvasPropsEqual(left: WorldCanvasProps, right: WorldCanvasProp
     left.selectedBuilding === right.selectedBuilding &&
     left.timeTheme === right.timeTheme &&
     left.showMonument === right.showMonument &&
+    left.workflowConfig === right.workflowConfig &&
     left.onDismissBubble === right.onDismissBubble &&
     left.onSelectBuilding === right.onSelectBuilding &&
     areStepRecordsEqual(left.steps, right.steps) &&
@@ -152,21 +156,49 @@ function CameraFocusController({
   selectedBuilding,
   positions,
   controlsRef,
+  onTransitionStateChange,
 }: {
   selectedBuilding?: string | null
   positions: Record<string, [number, number, number]>
   controlsRef: RefObject<OrbitControlsImpl | null>
+  onTransitionStateChange: (isActive: boolean) => void
 }) {
   const { camera } = useThree()
-  const selectedCoords = selectedBuilding ? positions[selectedBuilding] ?? null : null
-  const focusX = selectedCoords?.[0] ?? 0
-  const focusZ = selectedCoords?.[2] ?? 0
+  const transitionRef = useRef<{
+    fromPosition: THREE.Vector3
+    toPosition: THREE.Vector3
+    fromTarget: THREE.Vector3
+    toTarget: THREE.Vector3
+    positionCurve: THREE.QuadraticBezierCurve3 | null
+    isEntering: boolean
+    duration: number
+    progress: number
+  } | null>(null)
+  const focusSignatureRef = useRef<string | null>(null)
+  const positionSampleRef = useRef(new THREE.Vector3())
+
+  const stopTransition = useCallback(() => {
+    if (!transitionRef.current) {
+      return
+    }
+    transitionRef.current = null
+    onTransitionStateChange(false)
+  }, [onTransitionStateChange])
 
   useEffect(() => {
     const controls = controlsRef.current
     if (!controls) {
       return
     }
+
+    const selectedCoords = selectedBuilding ? positions[selectedBuilding] ?? null : null
+    const focusSignature = selectedCoords
+      ? `${selectedBuilding}:${selectedCoords[0]}:${selectedCoords[1]}:${selectedCoords[2]}`
+      : 'overview'
+    if (focusSignatureRef.current === focusSignature) {
+      return
+    }
+    focusSignatureRef.current = focusSignature
 
     const nextPosition = DEFAULT_CAMERA_POSITION.clone()
     const nextTarget = DEFAULT_CAMERA_TARGET.clone()
@@ -177,11 +209,84 @@ function CameraFocusController({
       nextPosition.set(x + 6.8, 5.2, z + 7.2)
     }
 
-    camera.position.copy(nextPosition)
-    controls.target.copy(nextTarget)
-    camera.lookAt(nextTarget)
+    const fromPosition = camera.position.clone()
+    const fromTarget = controls.target.clone()
+    const alreadyThere =
+      fromPosition.distanceToSquared(nextPosition) < 0.0001 &&
+      fromTarget.distanceToSquared(nextTarget) < 0.0001
+    if (alreadyThere) {
+      stopTransition()
+      return
+    }
+
+    const isEntering = Boolean(selectedBuilding && selectedCoords)
+    let positionCurve: THREE.QuadraticBezierCurve3 | null = null
+    if (isEntering) {
+      const midpoint = fromPosition.clone().lerp(nextPosition, 0.5)
+      const travelDistance = fromPosition.distanceTo(nextPosition)
+      midpoint.y += THREE.MathUtils.clamp(travelDistance * 0.12, 1.4, 3.6)
+      positionCurve = new THREE.QuadraticBezierCurve3(fromPosition.clone(), midpoint, nextPosition.clone())
+    }
+
+    transitionRef.current = {
+      fromPosition,
+      toPosition: nextPosition,
+      fromTarget,
+      toTarget: nextTarget,
+      positionCurve,
+      isEntering,
+      duration: isEntering ? CAMERA_ENTER_DURATION : CAMERA_EXIT_DURATION,
+      progress: 0,
+    }
+    onTransitionStateChange(true)
+  }, [selectedBuilding, positions, camera, controlsRef, onTransitionStateChange, stopTransition])
+
+  useEffect(() => {
+    const controls = controlsRef.current
+    if (!controls) {
+      return
+    }
+
+    const handleStart = () => {
+      stopTransition()
+    }
+
+    controls.addEventListener('start', handleStart)
+    return () => {
+      controls.removeEventListener('start', handleStart)
+    }
+  }, [controlsRef, stopTransition])
+
+  useFrame((_, delta: number) => {
+    const controls = controlsRef.current
+    const transition = transitionRef.current
+    if (!controls || !transition) {
+      return
+    }
+
+    transition.progress = Math.min(1, transition.progress + delta / transition.duration)
+    const t = transition.progress
+    const easedPosition = t * t * t * (t * (t * 6 - 15) + 10)
+    const targetT = transition.isEntering ? Math.max(0, (t - 0.08) / 0.92) : t
+    const easedTarget = targetT * targetT * targetT * (targetT * (targetT * 6 - 15) + 10)
+
+    if (transition.positionCurve) {
+      transition.positionCurve.getPointAt(easedPosition, positionSampleRef.current)
+      camera.position.copy(positionSampleRef.current)
+    } else {
+      camera.position.lerpVectors(transition.fromPosition, transition.toPosition, easedPosition)
+    }
+    controls.target.lerpVectors(transition.fromTarget, transition.toTarget, easedTarget)
     controls.update()
-  }, [selectedBuilding, focusX, focusZ, camera, controlsRef])
+
+    if (transition.progress >= 1) {
+      camera.position.copy(transition.toPosition)
+      controls.target.copy(transition.toTarget)
+      controls.update()
+      transitionRef.current = null
+      onTransitionStateChange(false)
+    }
+  })
 
   return null
 }
@@ -197,6 +302,7 @@ function WorldCanvasComponent({
   timeTheme = 'day',
   layout = null,
   showMonument = true,
+  workflowConfig = null,
 }: WorldCanvasProps) {
   const isNight = timeTheme === 'night'
   const [autoRotateEnabled, setAutoRotateEnabled] = useState(() => !selectedBuilding)
@@ -227,6 +333,23 @@ function WorldCanvasComponent({
   )
   const controlsRef = useRef<OrbitControlsImpl | null>(null)
   const autoRotateTimerRef = useRef<number | null>(null)
+  const [cameraTransitionActive, setCameraTransitionActive] = useState(false)
+  const [visualSelectedBuilding, setVisualSelectedBuilding] = useState<string | null>(selectedBuilding ?? null)
+  const cameraTransitionActiveRef = useRef(false)
+  const selectedBuildingRef = useRef<string | null | undefined>(selectedBuilding)
+  const autoRotateInitializedRef = useRef(false)
+
+  const scheduleAutoRotateResume = useCallback((delay = AUTO_ROTATE_RESUME_DELAY_MS) => {
+    if (autoRotateTimerRef.current !== null) {
+      window.clearTimeout(autoRotateTimerRef.current)
+    }
+    autoRotateTimerRef.current = window.setTimeout(() => {
+      if (!selectedBuildingRef.current && !cameraTransitionActiveRef.current) {
+        setAutoRotateEnabled(true)
+      }
+      autoRotateTimerRef.current = null
+    }, delay)
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -237,12 +360,42 @@ function WorldCanvasComponent({
   }, [])
 
   useEffect(() => {
+    cameraTransitionActiveRef.current = cameraTransitionActive
+  }, [cameraTransitionActive])
+
+  useEffect(() => {
+    selectedBuildingRef.current = selectedBuilding
+  }, [selectedBuilding])
+
+  useEffect(() => {
+    if (selectedBuilding || cameraTransitionActive) {
+      return
+    }
+    setVisualSelectedBuilding(null)
+  }, [cameraTransitionActive, selectedBuilding])
+
+  useEffect(() => {
+    if (!selectedBuilding || cameraTransitionActive) {
+      return
+    }
+    setVisualSelectedBuilding(selectedBuilding)
+  }, [cameraTransitionActive, selectedBuilding])
+
+  useEffect(() => {
     if (autoRotateTimerRef.current !== null) {
       window.clearTimeout(autoRotateTimerRef.current)
       autoRotateTimerRef.current = null
     }
-    setAutoRotateEnabled(!selectedBuilding)
-  }, [selectedBuilding])
+    if (!autoRotateInitializedRef.current && !selectedBuilding) {
+      autoRotateInitializedRef.current = true
+      setAutoRotateEnabled(true)
+      return
+    }
+    setAutoRotateEnabled(false)
+    if (!selectedBuilding) {
+      scheduleAutoRotateResume()
+    }
+  }, [scheduleAutoRotateResume, selectedBuilding])
 
   useEffect(() => {
     const controls = controlsRef.current
@@ -262,13 +415,7 @@ function WorldCanvasComponent({
       if (selectedBuilding) {
         return
       }
-      if (autoRotateTimerRef.current !== null) {
-        window.clearTimeout(autoRotateTimerRef.current)
-      }
-      autoRotateTimerRef.current = window.setTimeout(() => {
-        setAutoRotateEnabled(true)
-        autoRotateTimerRef.current = null
-      }, AUTO_ROTATE_RESUME_DELAY_MS)
+      scheduleAutoRotateResume()
     }
 
     controls.addEventListener('start', handleStart)
@@ -278,7 +425,7 @@ function WorldCanvasComponent({
       controls.removeEventListener('start', handleStart)
       controls.removeEventListener('end', handleEnd)
     }
-  }, [selectedBuilding])
+  }, [scheduleAutoRotateResume, selectedBuilding])
 
   return (
     <Canvas
@@ -334,8 +481,8 @@ function WorldCanvasComponent({
         const status = hasActiveRun ? (step?.status ?? 'queued') : (event?.status ?? 'queued')
         const color = colors[key] ?? '#ffffff'
         const label = step?.department_label ?? key.replace('_', ' ').toUpperCase()
-        const isSelected = selectedBuilding === key
-        const isDimmed = selectedBuilding !== null && !isSelected
+        const isSelected = visualSelectedBuilding === key
+        const isDimmed = visualSelectedBuilding !== null && !isSelected
 
         return (
           <CityBuilding
@@ -359,7 +506,7 @@ function WorldCanvasComponent({
       })}
 
       {/* Glowing data connections */}
-      {selectedBuilding === null && (
+      {visualSelectedBuilding === null && (
         <DataBeams
           steps={steps}
           positions={positions}
@@ -367,6 +514,7 @@ function WorldCanvasComponent({
           activeDepts={activeDepts}
           hasActiveRun={hasActiveRun}
           timeTheme={timeTheme}
+          workflowConfig={workflowConfig}
         />
       )}
 
@@ -376,20 +524,21 @@ function WorldCanvasComponent({
         activeDepts={activeDepts}
         steps={steps}
         hasActiveRun={hasActiveRun}
-        selectedBuilding={selectedBuilding}
+        selectedBuilding={visualSelectedBuilding}
       />
 
       <CameraFocusController
         selectedBuilding={selectedBuilding}
         positions={positions}
         controlsRef={controlsRef}
+        onTransitionStateChange={setCameraTransitionActive}
       />
 
       <OrbitControls
         ref={controlsRef}
         enableDamping
         dampingFactor={0.06}
-        autoRotate={autoRotateEnabled && !selectedBuilding}
+        autoRotate={autoRotateEnabled && !selectedBuilding && !cameraTransitionActive}
         autoRotateSpeed={-0.42}
         maxPolarAngle={Math.PI / 2.1}
         minDistance={6}

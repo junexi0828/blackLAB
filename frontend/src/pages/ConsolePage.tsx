@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { forceStopLoop, forceStopRun, getCampusLayout, getFeed, getOperatorProfile, getProjects, launchLoop, launchRun, listLoops, listRuns, saveCampusLayout, stopLoop, stopRun } from '../api'
+import { forceStopLoop, forceStopRun, getCampusLayout, getFeed, getOperatorProfile, getProjects, getSettings, launchLoop, launchRun, listLoops, listRuns, saveCampusLayout, stopLoop, stopRun } from '../api'
 import { useJsonResource } from '../hooks/useJsonResource'
 import { useLiveRefresh } from '../hooks/useLiveRefresh'
 import { useSolarTheme } from '../hooks/useSolarTheme'
@@ -62,6 +62,7 @@ export function ConsolePage() {
   const layoutResource = useJsonResource(getCampusLayout, [])
   const profileResource = useJsonResource(getOperatorProfile, [])
   const projectsResource = useJsonResource(getProjects, [])
+  const settingsResource = useJsonResource(getSettings, [])
   const [dismissedFeedIds, setDismissedFeedIds] = useState<string[]>([])
   const [dismissedBubbleIds, setDismissedBubbleIds] = useState<string[]>([])
   const [feedCollapsed, setFeedCollapsed] = useState(false)
@@ -825,6 +826,7 @@ export function ConsolePage() {
         timeTheme={timeTheme}
         layout={visibleLayout}
         showMonument={!hiddenCampusItems.has('monument')}
+        workflowConfig={settingsResource.data ?? null}
       />
       <ConsoleHUD
         mission={activeRun?.mission ?? activeLoop?.objective ?? latestRun?.mission ?? null}

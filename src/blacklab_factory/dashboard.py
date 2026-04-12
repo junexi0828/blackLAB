@@ -1079,7 +1079,7 @@ def create_app(storage: RunStorage) -> FastAPI:
             except FileNotFoundError:
                 all_linked_runs.append((iteration, None))
 
-        cycles_page_size = 12
+        cycles_page_size = 18
         cycles_total_count = len(all_linked_runs)
         cycles_total_pages = max(1, (cycles_total_count + cycles_page_size - 1) // cycles_page_size)
         if cycles_page > cycles_total_pages:

@@ -8,7 +8,6 @@ import { getDepartmentOrganizationSpec, type RoverVisualArchetype } from '../con
 interface AgentRoversProps {
   positions: Record<string, [number, number, number]>
   activeDepts: Set<string>
-  colors: Record<string, string>
   steps: StepRecord[]
   hasActiveRun: boolean
   selectedBuilding?: string | null
@@ -308,7 +307,6 @@ function RoverMesh({ rover }: { rover: RoverDescriptor }) {
 export function AgentRovers({
   positions,
   activeDepts,
-  colors,
   steps,
   hasActiveRun,
   selectedBuilding = null,
@@ -381,7 +379,7 @@ export function AgentRovers({
     }
 
     return arr
-  }, [positions, activeDepts, colors, steps, hasActiveRun, selectedBuilding])
+  }, [positions, activeDepts, steps, hasActiveRun, selectedBuilding])
 
   useEffect(() => {
     progressRef.current = rovers.map((rover) => rover.initialProgress)

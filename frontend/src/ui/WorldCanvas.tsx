@@ -229,7 +229,6 @@ export function WorldCanvas({
       <AgentRovers
         positions={positions}
         activeDepts={activeDepts}
-        colors={colors}
         steps={steps}
         hasActiveRun={hasActiveRun}
         selectedBuilding={selectedBuilding}

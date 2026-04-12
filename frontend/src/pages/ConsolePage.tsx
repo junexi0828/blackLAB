@@ -76,10 +76,6 @@ export function ConsolePage() {
   const [runtimeBusy, setRuntimeBusy] = useState(false)
   const [runtimeNotice, setRuntimeNotice] = useState<string | null>(null)
 
-  useLiveRefresh(async () => {
-    await Promise.all([runsResource.refresh(), loopsResource.refresh(), feedResource.refresh(), profileResource.refresh(), projectsResource.refresh()])
-  }, 4000)
-
   useEffect(() => {
     const timer = window.setInterval(() => setClockNow(Date.now()), 1000)
     return () => window.clearInterval(timer)
@@ -141,6 +137,8 @@ export function ConsolePage() {
       : activeLoop?.status === 'running' || activeRunCount > 0
         ? 'live'
         : 'idle'
+  const refreshIntervalMs = systemMode === 'idle' ? 12000 : 4000
+  const hiddenRefreshIntervalMs = systemMode === 'idle' ? 30000 : 12000
   const liveDepartmentKeys = useMemo(
     () => resolveLiveDepartmentKeys(activeRun?.steps ?? [], activeRun?.current_department ?? null),
     [activeRun?.current_department, activeRun?.steps],
@@ -243,6 +241,21 @@ export function ConsolePage() {
   const runtimeBookmarkMeta =
     liveLoop ? 'Loop active' : activeRun ? 'Run active' : selectedProject?.name ?? currentProject?.name ?? 'Ready'
   const layoutBookmarkMeta = editMode ? describeLayoutTarget(editTarget) : layoutNotice ?? 'Adjust campus'
+
+  useLiveRefresh(
+    async () => {
+      await Promise.all([
+        runsResource.refresh(),
+        loopsResource.refresh(),
+        feedResource.refresh(),
+        profileResource.refresh(),
+        projectsResource.refresh(),
+      ])
+    },
+    refreshIntervalMs,
+    true,
+    hiddenRefreshIntervalMs,
+  )
 
   useEffect(() => {
     if (selectedProjectSlug && projectLibrary.some((project) => project.slug === selectedProjectSlug)) {

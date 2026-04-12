@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react'
+import { useEffect, useRef, useMemo } from 'react'
 import type { CSSProperties } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Text, Html } from '@react-three/drei'
@@ -482,36 +482,65 @@ export function CityBuilding({
   )
 
   const idleCoreLightIntensity = isNight ? 0.18 : 0.06
+  const inactiveAntennaIntensity = isNight ? 0.35 : 0.16
+
+  useEffect(() => {
+    if (windowsGroupRef.current) {
+      windowsGroupRef.current.visible = !isSelected
+    }
+  }, [isSelected])
 
   useFrame((state, delta) => {
     if (!bodyRef.current) return
-    heightRef.current = THREE.MathUtils.lerp(heightRef.current, target, delta * 1.8)
-    const h = heightRef.current
-    bodyRef.current.scale.y = h
-    bodyRef.current.position.y = h / 2
+    const targetGlassOpacity = isSelected ? 0.08 : (isDimmed ? 0.25 : 1.0)
+    const targetFrameOpacity = isDimmed ? 0.2 : 1.0
+    const needsHeightTween = Math.abs(heightRef.current - target) > 0.01
+    const needsOpacityTween =
+      Math.abs(glassMat.opacity - targetGlassOpacity) > 0.01 ||
+      Math.abs(frameMat.opacity - targetFrameOpacity) > 0.01
+    const needsPulse = isActive && !isDimmed
 
-    // Selection/Dimming animations
-    const targetOpacity = isSelected ? 0.08 : (isDimmed ? 0.25 : 1.0)
-    glassMat.opacity = THREE.MathUtils.lerp(glassMat.opacity, targetOpacity, delta * 3)
-    frameMat.opacity = THREE.MathUtils.lerp(frameMat.opacity, isDimmed ? 0.2 : 1.0, delta * 3)
-    
-    // Antennas and labels follow building height
-    if (windowsGroupRef.current) {
-      windowsGroupRef.current.scale.y = h
-      windowsGroupRef.current.position.y = h / 2
-      windowsGroupRef.current.visible = !isSelected // Hide interal racks when selected to show interior
+    if (!needsHeightTween && !needsOpacityTween && !needsPulse) {
+      return
     }
 
-    if (lightRef.current) {
-      const t = state.clock.getElapsedTime()
-      lightRef.current.intensity = isActive && !isDimmed ? (isNight ? 3.4 : 2.5) + Math.sin(t * 1.8) * 0.8 : idleCoreLightIntensity
-      lightRef.current.position.y = h + 1.5
+    if (needsHeightTween) {
+      heightRef.current = THREE.MathUtils.lerp(heightRef.current, target, delta * 1.8)
+      const h = heightRef.current
+      bodyRef.current.scale.y = h
+      bodyRef.current.position.y = h / 2
+
+      if (windowsGroupRef.current) {
+        windowsGroupRef.current.scale.y = h
+        windowsGroupRef.current.position.y = h / 2
+      }
+      if (lightRef.current) {
+        lightRef.current.position.y = h + 1.5
+      }
+      if (antRef.current) {
+        antRef.current.position.y = h + 0.55
+      }
     }
-    if (antRef.current) {
+
+    if (needsOpacityTween) {
+      glassMat.opacity = THREE.MathUtils.lerp(glassMat.opacity, targetGlassOpacity, delta * 3)
+      frameMat.opacity = THREE.MathUtils.lerp(frameMat.opacity, targetFrameOpacity, delta * 3)
+    }
+
+    if (needsPulse) {
       const t = state.clock.getElapsedTime()
+      if (lightRef.current) {
+        lightRef.current.intensity = (isNight ? 3.4 : 2.5) + Math.sin(t * 1.8) * 0.8
+      }
+      if (antRef.current) {
+        const mat = antRef.current.material as THREE.MeshStandardMaterial
+        mat.emissiveIntensity = Math.sin(t * 3) > 0.5 ? (isNight ? 4.2 : 3) : (isNight ? 0.9 : 0.5)
+        mat.opacity = 1.0
+        mat.transparent = true
+      }
+    } else if (antRef.current) {
       const mat = antRef.current.material as THREE.MeshStandardMaterial
-      mat.emissiveIntensity = isActive && !isDimmed ? (Math.sin(t * 3) > 0.5 ? (isNight ? 4.2 : 3) : (isNight ? 0.9 : 0.5)) : (isNight ? 0.35 : 0.16)
-      antRef.current.position.y = h + 0.55
+      mat.emissiveIntensity = inactiveAntennaIntensity
       mat.opacity = isDimmed ? 0.2 : 1.0
       mat.transparent = true
     }

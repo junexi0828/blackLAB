@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import type { RefObject } from 'react'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { Canvas, useThree } from '@react-three/fiber'
 import { Sky, Environment, OrbitControls, Stars } from '@react-three/drei'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import * as THREE from 'three'
@@ -39,14 +39,6 @@ function CameraFocusController({
   controlsRef: RefObject<OrbitControlsImpl | null>
 }) {
   const { camera } = useThree()
-  const transitionRef = useRef<{
-    fromPosition: THREE.Vector3
-    toPosition: THREE.Vector3
-    fromTarget: THREE.Vector3
-    toTarget: THREE.Vector3
-    progress: number
-  } | null>(null)
-  const lastFocusSignatureRef = useRef<string | null>(null)
   const selectedCoords = selectedBuilding ? positions[selectedBuilding] ?? null : null
   const focusX = selectedCoords?.[0] ?? 0
   const focusZ = selectedCoords?.[2] ?? 0
@@ -57,69 +49,20 @@ function CameraFocusController({
       return
     }
 
-    const handleControlStart = () => {
-      transitionRef.current = null
-    }
-
-    controls.addEventListener('start', handleControlStart)
-    return () => {
-      controls.removeEventListener('start', handleControlStart)
-    }
-  }, [controlsRef])
-
-  useEffect(() => {
-    const controls = controlsRef.current
-    if (!controls) {
-      return
-    }
-
-    const focusSignature = selectedBuilding
-      ? `${selectedBuilding}:${focusX.toFixed(3)}:${focusZ.toFixed(3)}`
-      : 'overview'
-
-    if (lastFocusSignatureRef.current === focusSignature) {
-      return
-    }
-    lastFocusSignatureRef.current = focusSignature
-
-    const fromPosition = camera.position.clone()
-    const fromTarget = controls.target.clone()
-    let toPosition = DEFAULT_CAMERA_POSITION.clone()
-    let toTarget = DEFAULT_CAMERA_TARGET.clone()
+    const nextPosition = DEFAULT_CAMERA_POSITION.clone()
+    const nextTarget = DEFAULT_CAMERA_TARGET.clone()
 
     if (selectedBuilding && selectedCoords) {
       const [x, , z] = selectedCoords
-      toTarget = new THREE.Vector3(x, 1.2, z)
-      toPosition = new THREE.Vector3(x + 6.8, 5.2, z + 7.2)
+      nextTarget.set(x, 1.2, z)
+      nextPosition.set(x + 6.8, 5.2, z + 7.2)
     }
 
-    transitionRef.current = {
-      fromPosition,
-      toPosition,
-      fromTarget,
-      toTarget,
-      progress: 0,
-    }
-  }, [selectedBuilding, selectedCoords, focusX, focusZ, camera, controlsRef])
-
-  useFrame((_, delta) => {
-    const controls = controlsRef.current
-    const transition = transitionRef.current
-    if (!controls || !transition) {
-      return
-    }
-
-    transition.progress = Math.min(1, transition.progress + delta * 1.75)
-    const eased = 1 - Math.pow(1 - transition.progress, 3)
-
-    camera.position.lerpVectors(transition.fromPosition, transition.toPosition, eased)
-    controls.target.lerpVectors(transition.fromTarget, transition.toTarget, eased)
+    camera.position.copy(nextPosition)
+    controls.target.copy(nextTarget)
+    camera.lookAt(nextTarget)
     controls.update()
-
-    if (transition.progress >= 1) {
-      transitionRef.current = null
-    }
-  })
+  }, [selectedBuilding, focusX, focusZ, camera, controlsRef])
 
   return null
 }
@@ -272,11 +215,8 @@ export function WorldCanvas({
       <OrbitControls
         ref={controlsRef}
         enableDamping
-        dampingFactor={0.12}
+        dampingFactor={0.06}
         autoRotate={false}
-        rotateSpeed={0.92}
-        zoomSpeed={0.96}
-        panSpeed={0.9}
         maxPolarAngle={Math.PI / 2.1}
         minDistance={6}
         maxDistance={40}

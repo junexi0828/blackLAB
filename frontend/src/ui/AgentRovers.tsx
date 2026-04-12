@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { memo, useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { StepRecord } from '../types'
@@ -48,6 +48,7 @@ interface RoverDescriptor {
   to: THREE.Vector3
   home: THREE.Vector3
   initialProgress: number
+  renderScale: [number, number, number]
   speed: number
   moveFirstAxis: 'x' | 'z'
   sleepPhase: number
@@ -70,6 +71,47 @@ function hiddenScale(): [number, number, number] {
 function dim(hex: string, factor: number) {
   const color = new THREE.Color(hex).multiplyScalar(factor)
   return `#${color.getHexString()}`
+}
+
+const ROVER_GEOMETRIES = {
+  body: new THREE.BoxGeometry(0.5, 0.4, 0.4),
+  outfit: new THREE.BoxGeometry(0.56, 0.28, 0.44),
+  scarf: new THREE.BoxGeometry(0.62, 0.07, 0.5),
+  cape: new THREE.BoxGeometry(0.34, 0.3, 0.05),
+  pack: new THREE.BoxGeometry(0.18, 0.18, 0.1),
+  badge: new THREE.BoxGeometry(0.09, 0.07, 0.02),
+  accent: new THREE.BoxGeometry(0.08, 0.18, 0.02),
+  visor: new THREE.BoxGeometry(0.31, 0.13, 0.02),
+  eye: new THREE.SphereGeometry(0.016, 8, 8),
+  cap: new THREE.CylinderGeometry(0.16, 0.22, 0.12, 12),
+  halo: new THREE.TorusGeometry(0.17, 0.025, 8, 18),
+  antenna: new THREE.CylinderGeometry(0.025, 0.03, 0.24, 8),
+} as const
+
+const shellMaterialCache = new Map<string, THREE.MeshPhysicalMaterial>()
+const basicMaterialCache = new Map<string, THREE.MeshBasicMaterial>()
+
+function getShellMaterial(color: string) {
+  let material = shellMaterialCache.get(color)
+  if (!material) {
+    material = new THREE.MeshPhysicalMaterial({
+      color,
+      roughness: 0.32,
+      metalness: 0.16,
+      clearcoat: 0.48,
+    })
+    shellMaterialCache.set(color, material)
+  }
+  return material
+}
+
+function getBasicMaterial(color: string) {
+  let material = basicMaterialCache.get(color)
+  if (!material) {
+    material = new THREE.MeshBasicMaterial({ color, toneMapped: false })
+    basicMaterialCache.set(color, material)
+  }
+  return material
 }
 
 function hashKey(value: string) {
@@ -217,94 +259,92 @@ function isVisible(scale: [number, number, number]) {
   return scale[0] > 0.001 || scale[1] > 0.001 || scale[2] > 0.001
 }
 
-function RoverMesh({ rover }: { rover: RoverDescriptor }) {
+const EYE_MATERIAL = getBasicMaterial('#ffffff')
+
+const RoverMesh = memo(function RoverMesh({ rover }: { rover: RoverDescriptor }) {
   const style = rover.style
+  const shellMaterial = getShellMaterial(style.shellColor)
+  const outfitMaterial = getBasicMaterial(style.outfitColor)
+  const trimMaterial = getBasicMaterial(style.trimColor)
+  const badgeMaterial = getBasicMaterial(style.badgeColor)
+  const accentMaterial = getBasicMaterial(style.accentColor)
+  const visorMaterial = getBasicMaterial(style.visorColor)
 
   return (
     <group>
-      <mesh castShadow receiveShadow>
-        <boxGeometry args={[0.5, 0.4, 0.4]} />
-        <meshPhysicalMaterial color={style.shellColor} roughness={0.32} metalness={0.16} clearcoat={0.48} />
-      </mesh>
+      <mesh castShadow receiveShadow geometry={ROVER_GEOMETRIES.body} material={shellMaterial} />
 
-      <mesh castShadow receiveShadow position={[0, -0.01, 0]} scale={style.outfitScale}>
-        <boxGeometry args={[0.56, 0.28, 0.44]} />
-        <meshBasicMaterial color={style.outfitColor} toneMapped={false} />
-      </mesh>
+      <mesh castShadow receiveShadow geometry={ROVER_GEOMETRIES.outfit} material={outfitMaterial} position={[0, -0.01, 0]} scale={style.outfitScale} />
 
       {isVisible(style.scarfScale) && (
-        <mesh castShadow receiveShadow position={[0, 0.1, 0.02]} scale={style.scarfScale} rotation={[0, 0, style.scarfTilt]}>
-          <boxGeometry args={[0.62, 0.07, 0.5]} />
-          <meshBasicMaterial color={style.trimColor} toneMapped={false} />
-        </mesh>
+        <mesh
+          castShadow
+          receiveShadow
+          geometry={ROVER_GEOMETRIES.scarf}
+          material={trimMaterial}
+          position={[0, 0.1, 0.02]}
+          scale={style.scarfScale}
+          rotation={[0, 0, style.scarfTilt]}
+        />
       )}
 
       {isVisible(style.capeScale) && (
-        <mesh castShadow receiveShadow position={[0, -0.01, -0.23]} scale={style.capeScale} rotation={[0, style.capeTilt, 0]}>
-          <boxGeometry args={[0.34, 0.3, 0.05]} />
-          <meshBasicMaterial color={style.outfitColor} toneMapped={false} />
-        </mesh>
+        <mesh
+          castShadow
+          receiveShadow
+          geometry={ROVER_GEOMETRIES.cape}
+          material={outfitMaterial}
+          position={[0, -0.01, -0.23]}
+          scale={style.capeScale}
+          rotation={[0, style.capeTilt, 0]}
+        />
       )}
 
       {isVisible(style.packScale) && (
-        <mesh castShadow receiveShadow position={[style.packOffsetX, -0.02, -0.15]} scale={style.packScale}>
-          <boxGeometry args={[0.18, 0.18, 0.1]} />
-          <meshBasicMaterial color={style.trimColor} toneMapped={false} />
-        </mesh>
+        <mesh
+          castShadow
+          receiveShadow
+          geometry={ROVER_GEOMETRIES.pack}
+          material={trimMaterial}
+          position={[style.packOffsetX, -0.02, -0.15]}
+          scale={style.packScale}
+        />
       )}
 
-      <mesh position={[style.badgeOffsetX, 0.02, 0.215]}>
-        <boxGeometry args={[0.09, 0.07, 0.02]} />
-        <meshBasicMaterial color={style.badgeColor} toneMapped={false} />
-      </mesh>
+      <mesh geometry={ROVER_GEOMETRIES.badge} material={badgeMaterial} position={[style.badgeOffsetX, 0.02, 0.215]} />
 
       {isVisible(style.accentScale) && (
-        <mesh position={[style.accentOffsetX, -0.02, 0.215]} scale={style.accentScale}>
-          <boxGeometry args={[0.08, 0.18, 0.02]} />
-          <meshBasicMaterial color={style.accentColor} toneMapped={false} />
-        </mesh>
+        <mesh geometry={ROVER_GEOMETRIES.accent} material={accentMaterial} position={[style.accentOffsetX, -0.02, 0.215]} scale={style.accentScale} />
       )}
 
-      <mesh position={[0, 0.08, 0.216]}>
-        <boxGeometry args={[0.31, 0.13, 0.02]} />
-        <meshBasicMaterial color={style.visorColor} toneMapped={false} />
-      </mesh>
+      <mesh geometry={ROVER_GEOMETRIES.visor} material={visorMaterial} position={[0, 0.08, 0.216]} />
 
-      <mesh position={[-0.08, 0.08, 0.227]}>
-        <sphereGeometry args={[0.016, 8, 8]} />
-        <meshBasicMaterial color="#ffffff" toneMapped={false} />
-      </mesh>
+      <mesh geometry={ROVER_GEOMETRIES.eye} material={EYE_MATERIAL} position={[-0.08, 0.08, 0.227]} />
 
-      <mesh position={[0.08, 0.08, 0.227]}>
-        <sphereGeometry args={[0.016, 8, 8]} />
-        <meshBasicMaterial color="#ffffff" toneMapped={false} />
-      </mesh>
+      <mesh geometry={ROVER_GEOMETRIES.eye} material={EYE_MATERIAL} position={[0.08, 0.08, 0.227]} />
 
       {style.headStyle === 'cap' && (
-        <mesh castShadow receiveShadow position={[0, 0.24, 0]} scale={style.headScale}>
-          <cylinderGeometry args={[0.16, 0.22, 0.12, 12]} />
-          <meshBasicMaterial color={style.trimColor} toneMapped={false} />
-        </mesh>
+        <mesh castShadow receiveShadow geometry={ROVER_GEOMETRIES.cap} material={trimMaterial} position={[0, 0.24, 0]} scale={style.headScale} />
       )}
 
       {style.headStyle === 'halo' && (
-        <mesh position={[0, 0.28, 0]} scale={style.headScale} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.17, 0.025, 8, 18]} />
-          <meshBasicMaterial color={style.badgeColor} toneMapped={false} />
-        </mesh>
+        <mesh geometry={ROVER_GEOMETRIES.halo} material={badgeMaterial} position={[0, 0.28, 0]} scale={style.headScale} rotation={[Math.PI / 2, 0, 0]} />
       )}
 
       {style.headStyle === 'antenna' && (
-        <mesh position={[0, 0.28, -0.02]} scale={style.headScale} rotation={[style.antennaLean, 0, 0]}>
-          <cylinderGeometry args={[0.025, 0.03, 0.24, 8]} />
-          <meshBasicMaterial color={style.trimColor} toneMapped={false} />
-        </mesh>
+        <mesh
+          geometry={ROVER_GEOMETRIES.antenna}
+          material={trimMaterial}
+          position={[0, 0.28, -0.02]}
+          scale={style.headScale}
+          rotation={[style.antennaLean, 0, 0]}
+        />
       )}
     </group>
   )
-}
+})
 
-export function AgentRovers({
+export const AgentRovers = memo(function AgentRovers({
   positions,
   activeDepts,
   steps,
@@ -344,6 +384,7 @@ export function AgentRovers({
       const fromKey = choices[Math.floor(seeded(i * 4.13 + 1.9) * choices.length)] ?? toKey
       const styleSeed = i * 14.7 + hashKey(toKey) * 0.19 + hashKey(fromKey) * 0.07
       const archetype = getDepartmentOrganizationSpec(toKey).visualArchetype
+      const style = buildRoverStyle(archetype, 'moving', styleSeed)
 
       arr.push({
         deptKey: toKey,
@@ -352,10 +393,11 @@ export function AgentRovers({
         to: buildOffsetPosition(positions[toKey], i * 5.21 + 1.7, i * 7.03 + 2.4, 1.6),
         home: buildOffsetPosition(positions[toKey], i * 1.91 + 8.2, i * 6.51 + 0.4, 1.6),
         initialProgress: seeded(i * 5.5),
+        renderScale: style.bodyScale,
         speed: 0.2 + seeded(i * 1.1 + 0.3) * 0.18,
         moveFirstAxis: seeded(i * 8.1) > 0.5 ? 'x' : 'z',
         sleepPhase: seeded(i * 11.3) * Math.PI * 2,
-        style: buildRoverStyle(archetype, 'moving', styleSeed),
+        style,
       })
     }
 
@@ -364,6 +406,8 @@ export function AgentRovers({
       const styleSeed = i * 13.1 + hashKey(homeKey) * 0.17
       const archetype = getDepartmentOrganizationSpec(homeKey).visualArchetype
 
+      const style = buildRoverStyle(archetype, 'sleeping', styleSeed)
+
       arr.push({
         deptKey: homeKey,
         mode: 'sleeping',
@@ -371,10 +415,11 @@ export function AgentRovers({
         to: new THREE.Vector3(),
         home: buildOffsetPosition(positions[homeKey], i * 2.71 + 4.4, i * 3.91 + 2.2, 2.1),
         initialProgress: 0,
+        renderScale: scale3(style.bodyScale[0] * 1.01, style.bodyScale[1] * 0.82, style.bodyScale[2] * 1.04),
         speed: 0,
         moveFirstAxis: 'x',
         sleepPhase: seeded(i * 4.7 + 2.9) * Math.PI * 2,
-        style: buildRoverStyle(archetype, 'sleeping', styleSeed),
+        style,
       })
     }
 
@@ -439,11 +484,6 @@ export function AgentRovers({
           : group.rotation.y
 
         group.rotation.set(0, rotY, Math.sin(progress * Math.PI * 8) * 0.04)
-        group.scale.set(
-          rover.style.bodyScale[0],
-          rover.style.bodyScale[1],
-          rover.style.bodyScale[2],
-        )
       } else {
         const breathe = Math.sin(elapsed * 1.25 + rover.sleepPhase)
         const sway = Math.sin(elapsed * 0.55 + rover.sleepPhase)
@@ -454,11 +494,6 @@ export function AgentRovers({
           rover.home.z,
         )
         group.rotation.set(0.22 + breathe * 0.03, sway * 0.18, 0.08 + sway * 0.02)
-        group.scale.set(
-          rover.style.bodyScale[0] * 1.01,
-          rover.style.bodyScale[1] * 0.82,
-          rover.style.bodyScale[2] * 1.04,
-        )
       }
     }
   })
@@ -468,6 +503,7 @@ export function AgentRovers({
       {rovers.map((rover, index) => (
         <group
           key={`${rover.deptKey}-${index}`}
+          scale={rover.renderScale}
           ref={(node) => {
             groupRefs.current[index] = node
           }}
@@ -477,4 +513,4 @@ export function AgentRovers({
       ))}
     </group>
   )
-}
+})

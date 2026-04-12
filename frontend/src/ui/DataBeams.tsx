@@ -157,7 +157,7 @@ const StaticBeam = memo(function StaticBeam({
   )
 })
 
-export function DataBeams({
+export const DataBeams = memo(function DataBeams({
   steps,
   positions,
   colors,
@@ -239,25 +239,25 @@ export function DataBeams({
   }, [steps, positions, colors, activeDepts, hasActiveRun, isNight])
 
   return (
-      <>
-        {beams.map((beam) => (
-          beam.isDashed ? (
-            <AnimatedBeam
-              key={beam.key}
-              points={beam.points}
-              color={beam.color}
-              opacity={beam.opacity}
-              isDashed={beam.isDashed}
-            />
-          ) : (
-            <StaticBeam
-              key={beam.key}
-              points={beam.points}
-              color={beam.color}
-              opacity={beam.opacity}
-            />
-          )
-        ))}
-      </>
+    <>
+      {beams.map((beam) =>
+        beam.isDashed ? (
+          <AnimatedBeam
+            key={beam.key}
+            points={beam.points}
+            color={beam.color}
+            opacity={beam.opacity}
+            isDashed={beam.isDashed}
+          />
+        ) : (
+          <StaticBeam
+            key={beam.key}
+            points={beam.points}
+            color={beam.color}
+            opacity={beam.opacity}
+          />
+        ),
+      )}
+    </>
   )
-}
+})

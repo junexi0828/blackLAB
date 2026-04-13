@@ -42,6 +42,13 @@ class AutopilotSupervisor:
         self.loop_storage = LoopStorage(self.runner.storage.root)
 
     def start_loop(self, request: LoopRunRequest) -> LoopState:
+        normalized_project_slug = self.runner.projects.normalize_slug(request.project_slug) if request.project_slug else None
+        if normalized_project_slug:
+            project = self.runner.projects.get_project(normalized_project_slug)
+            if project and project.status == "archived":
+                raise RuntimeError(
+                    f"Project '{normalized_project_slug}' is archived and must be restored before starting a new loop."
+                )
         loop_state = self.loop_storage.create_loop(
             objective=request.objective,
             loop_mode=request.loop_mode,
@@ -50,12 +57,12 @@ class AutopilotSupervisor:
             interval_seconds=request.interval_seconds,
             max_iterations=request.max_iterations,
         )
-        loop_state.project_slug = request.project_slug
+        loop_state.project_slug = normalized_project_slug
         loop_state.max_recovery_attempts = request.max_recovery_attempts
         
         # Optionally populate project_name if project exists
-        if request.project_slug:
-            project = self.runner.projects.get_project(request.project_slug)
+        if normalized_project_slug:
+            project = self.runner.projects.get_project(normalized_project_slug)
             if project:
                 loop_state.project_name = project.name
         

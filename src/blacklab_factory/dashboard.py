@@ -778,17 +778,21 @@ def create_app(storage: RunStorage) -> FastAPI:
             )
         return groups
 
-    def build_project_library() -> list[dict]:
+    def build_project_library(*, include_archived: bool = False) -> list[dict]:
         latest_release_by_project, active_release_by_project = build_release_maps(release_storage.list_releases())
         projects = sorted(
-            project_storage.list_projects(),
-            key=lambda record: record.last_run_at or record.updated_at,
-            reverse=True,
+            [
+                record
+                for record in project_storage.list_projects()
+                if include_archived or record.status != "archived"
+            ],
+            key=lambda record: (record.status == "archived", -(record.last_run_at or record.updated_at).timestamp()),
         )
         return [
             {
                 "slug": record.slug,
                 "name": record.name or record.slug.replace("-", " ").title(),
+                "status": record.status,
                 "brief": record.brief,
                 "run_count": record.run_count,
                 "last_run_id": record.last_run_id,
@@ -964,13 +968,22 @@ def create_app(storage: RunStorage) -> FastAPI:
             "name": name or slug,
             "source": project_source_label(source),
             "entity_id": entity_id,
-            "reference_label": reference_label or entity_id or "Saved default",
+            "reference_label": reference_label or entity_id or default_project_reference_label(source),
         }
+
+    def default_project_reference_label(source: str) -> str:
+        labels = {
+            "launch default": "Launch preset",
+            "autopilot default": "Autopilot preset",
+        }
+        return labels.get(source, "Operator preset")
 
     def build_default_project_payload(slug: str | None, source: str) -> dict | None:
         if not slug:
             return None
         record = project_storage.get_project(slug)
+        if record and record.status == "archived":
+            return None
         return current_project_payload(
             slug=slug,
             name=record.name if record else slug.replace("-", " ").title(),
@@ -978,12 +991,18 @@ def create_app(storage: RunStorage) -> FastAPI:
             entity_id=None,
         )
 
+    def project_is_operational(slug: str | None) -> bool:
+        if not slug:
+            return False
+        record = project_storage.get_project(slug)
+        return not (record and record.status == "archived")
+
     def build_list_page_current_project(*, runs=None, loops=None, default_slug: str | None = None, default_source: str | None = None) -> dict | None:
         runs = runs or []
         loops = loops or []
 
         for run in runs:
-            if run.status == "running" and run.project_slug:
+            if run.status == "running" and project_is_operational(run.project_slug):
                 return current_project_payload(
                     slug=run.project_slug,
                     name=run.project_name,
@@ -991,7 +1010,7 @@ def create_app(storage: RunStorage) -> FastAPI:
                     entity_id=run.run_id,
                 )
         for loop_state in loops:
-            if loop_state.status in {"running", "stopping"} and loop_state.project_slug:
+            if loop_state.status in {"running", "stopping"} and project_is_operational(loop_state.project_slug):
                 return current_project_payload(
                     slug=loop_state.project_slug,
                     name=loop_state.project_name,
@@ -999,7 +1018,7 @@ def create_app(storage: RunStorage) -> FastAPI:
                     entity_id=loop_state.loop_id,
                 )
         for run in runs:
-            if run.project_slug:
+            if project_is_operational(run.project_slug):
                 return current_project_payload(
                     slug=run.project_slug,
                     name=run.project_name,
@@ -1007,7 +1026,7 @@ def create_app(storage: RunStorage) -> FastAPI:
                     entity_id=run.run_id,
                 )
         for loop_state in loops:
-            if loop_state.project_slug:
+            if project_is_operational(loop_state.project_slug):
                 return current_project_payload(
                     slug=loop_state.project_slug,
                     name=loop_state.project_name,
@@ -1020,7 +1039,7 @@ def create_app(storage: RunStorage) -> FastAPI:
 
     def build_current_project(runs, loops, releases, operator_profile) -> dict | None:
         for run in runs:
-            if run.status == "running" and run.project_slug:
+            if run.status == "running" and project_is_operational(run.project_slug):
                 return current_project_payload(
                     slug=run.project_slug,
                     name=run.project_name,
@@ -1028,7 +1047,7 @@ def create_app(storage: RunStorage) -> FastAPI:
                     entity_id=run.run_id,
                 )
         for loop_state in loops:
-            if loop_state.status in {"running", "stopping"} and loop_state.project_slug:
+            if loop_state.status in {"running", "stopping"} and project_is_operational(loop_state.project_slug):
                 return current_project_payload(
                     slug=loop_state.project_slug,
                     name=loop_state.project_name,
@@ -1036,7 +1055,7 @@ def create_app(storage: RunStorage) -> FastAPI:
                     entity_id=loop_state.loop_id,
                 )
         for release_state in releases:
-            if release_state.status == "running":
+            if release_state.status == "running" and project_is_operational(release_state.project_slug):
                 return current_project_payload(
                     slug=release_state.project_slug,
                     name=release_state.project_name,
@@ -1045,7 +1064,7 @@ def create_app(storage: RunStorage) -> FastAPI:
                     reference_label=release_state.release_id,
                 )
         for run in runs:
-            if run.project_slug:
+            if project_is_operational(run.project_slug):
                 return current_project_payload(
                     slug=run.project_slug,
                     name=run.project_name,
@@ -1053,7 +1072,7 @@ def create_app(storage: RunStorage) -> FastAPI:
                     entity_id=run.run_id,
                 )
         for loop_state in loops:
-            if loop_state.project_slug:
+            if project_is_operational(loop_state.project_slug):
                 return current_project_payload(
                     slug=loop_state.project_slug,
                     name=loop_state.project_name,
@@ -1277,6 +1296,7 @@ def create_app(storage: RunStorage) -> FastAPI:
     def settings_page(request: Request):
         context = build_overview_context()
         context["company_config"] = company_config
+        context["project_library"] = build_project_library(include_archived=True)
         context["department_catalog"] = build_department_catalog(context["operator_profile"])
         context["organization_chart"] = build_organization_chart(context["operator_profile"])
         context["organization_groups"] = build_organization_directory(context["operator_profile"])
@@ -1464,6 +1484,82 @@ def create_app(storage: RunStorage) -> FastAPI:
     def operator_profile_api():
         return JSONResponse(operator.load_profile().model_dump(mode="json"))
 
+    def get_project_or_404(project_slug: str):
+        normalized_slug = project_storage.normalize_slug(project_slug)
+        project = project_storage.get_project(normalized_slug)
+        if project is None:
+            raise HTTPException(status_code=404, detail="Project not found")
+        return project
+
+    def ensure_project_not_active(project_slug: str) -> None:
+        runs, _ = storage.list_runs()
+        active_run = next(
+            (run for run in runs if run.project_slug == project_slug and run.status in {"running", "stopping"}),
+            None,
+        )
+        if active_run is not None:
+            raise HTTPException(status_code=409, detail=f"Project has an active run: {active_run.run_id}")
+
+        loops, _ = loop_storage.list_loops()
+        active_loop = next(
+            (loop for loop in loops if loop.project_slug == project_slug and loop.status in {"running", "stopping"}),
+            None,
+        )
+        if active_loop is not None:
+            raise HTTPException(status_code=409, detail=f"Project has an active loop: {active_loop.loop_id}")
+
+        active_release = next(
+            (release for release in release_storage.list_releases(project_slug=project_slug) if release.status == "running"),
+            None,
+        )
+        if active_release is not None:
+            raise HTTPException(status_code=409, detail=f"Project has an active release build: {active_release.release_id}")
+
+    def archive_project(project_slug: str) -> dict:
+        project = get_project_or_404(project_slug)
+        ensure_project_not_active(project.slug)
+        archived = project if project.status == "archived" else project_storage.archive_project(project.slug)
+        return {
+            "project_slug": archived.slug,
+            "status": archived.status,
+            "message": f"{archived.name} archived.",
+        }
+
+    def restore_project(project_slug: str) -> dict:
+        project = get_project_or_404(project_slug)
+        restored = project if project.status != "archived" else project_storage.restore_project(project.slug)
+        return {
+            "project_slug": restored.slug,
+            "status": restored.status,
+            "message": f"{restored.name} restored.",
+        }
+
+    def delete_project(project_slug: str) -> dict:
+        project = get_project_or_404(project_slug)
+        ensure_project_not_active(project.slug)
+        deleted_run_ids = storage.delete_runs_for_project(project.slug)
+        deleted_loop_ids = loop_storage.delete_loops_for_project(project.slug)
+        deleted_release_ids = release_storage.delete_releases_for_project(project.slug)
+        deleted = project_storage.delete_project(project.slug)
+        profile = operator.load_profile()
+        changed = False
+        if profile.launch.project_slug == deleted.slug:
+            profile.launch.project_slug = None
+            changed = True
+        if profile.autopilot.project_slug == deleted.slug:
+            profile.autopilot.project_slug = None
+            changed = True
+        if changed:
+            operator.save_profile(profile)
+        return {
+            "project_slug": deleted.slug,
+            "status": "deleted",
+            "deleted_runs": len(deleted_run_ids),
+            "deleted_loops": len(deleted_loop_ids),
+            "deleted_releases": len(deleted_release_ids),
+            "message": f"{deleted.name} deleted with its saved workspace and related records.",
+        }
+
     @app.get("/api/projects")
     def projects_api():
         runs, _ = storage.list_runs()
@@ -1476,6 +1572,33 @@ def create_app(storage: RunStorage) -> FastAPI:
                 "current_project": build_current_project(runs, loops, releases, operator_profile),
             }
         )
+
+    @app.post("/api/projects/{project_slug}/archive")
+    def archive_project_api(project_slug: str):
+        return JSONResponse(archive_project(project_slug))
+
+    @app.post("/api/projects/{project_slug}/restore")
+    def restore_project_api(project_slug: str):
+        return JSONResponse(restore_project(project_slug))
+
+    @app.delete("/api/projects/{project_slug}")
+    def delete_project_api(project_slug: str):
+        return JSONResponse(delete_project(project_slug))
+
+    @app.post("/projects/{project_slug}/archive", include_in_schema=False)
+    def archive_project_redirect(project_slug: str, request: Request):
+        archive_project(project_slug)
+        return RedirectResponse(url=request.headers.get("referer") or "/settings", status_code=303)
+
+    @app.post("/projects/{project_slug}/restore", include_in_schema=False)
+    def restore_project_redirect(project_slug: str, request: Request):
+        restore_project(project_slug)
+        return RedirectResponse(url=request.headers.get("referer") or "/settings", status_code=303)
+
+    @app.post("/projects/{project_slug}/delete", include_in_schema=False)
+    def delete_project_redirect(project_slug: str, request: Request):
+        delete_project(project_slug)
+        return RedirectResponse(url=request.headers.get("referer") or "/settings", status_code=303)
 
     @app.get("/api/releases")
     def releases_api(project_slug: str | None = None):
@@ -1495,6 +1618,8 @@ def create_app(storage: RunStorage) -> FastAPI:
         project = project_storage.get_project(normalized_slug)
         if project is None:
             raise HTTPException(status_code=404, detail="Project not found")
+        if project.status == "archived":
+            raise HTTPException(status_code=409, detail="Archived project must be restored before Release Center can package it.")
         active_release = next(
             (
                 release
@@ -1544,6 +1669,30 @@ def create_app(storage: RunStorage) -> FastAPI:
             raise HTTPException(status_code=404, detail="Release archive not found")
         return FileResponse(download_path, filename=download_path.name, media_type="application/zip")
 
+    def delete_release(release_id: str) -> dict:
+        try:
+            release_state = release_storage.load_state(release_id)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="Release not found") from exc
+        if release_state.status == "running":
+            raise HTTPException(status_code=409, detail="Active release build cannot be deleted.")
+        deleted = release_storage.delete_release(release_id)
+        return {
+            "release_id": deleted.release_id,
+            "project_slug": deleted.project_slug,
+            "status": "deleted",
+            "message": f"Release {deleted.release_id} deleted.",
+        }
+
+    @app.delete("/api/releases/{release_id}")
+    def delete_release_api(release_id: str):
+        return JSONResponse(delete_release(release_id))
+
+    @app.post("/releases/{release_id}/delete", include_in_schema=False)
+    def delete_release_redirect(release_id: str, request: Request):
+        delete_release(release_id)
+        return RedirectResponse(url=request.headers.get("referer") or "/settings", status_code=303)
+
     @app.post("/api/operator/profile")
     def save_operator_profile_api(profile: OperatorProfile = Body(...)):
         if profile.launch.project_slug:
@@ -1561,6 +1710,10 @@ def create_app(storage: RunStorage) -> FastAPI:
     def launch_run_api(payload: RunLaunchPayload = Body(...)):
         operator_profile = operator.load_profile()
         project_slug = project_storage.normalize_slug(payload.project_slug) if payload.project_slug else None
+        if project_slug:
+            project = get_project_or_404(project_slug)
+            if project.status == "archived":
+                raise HTTPException(status_code=409, detail="Archived project must be restored before starting a new run.")
         launch = launch_detached_run(
             mission=payload.mission,
             project_slug=project_slug,
@@ -1598,6 +1751,10 @@ def create_app(storage: RunStorage) -> FastAPI:
     def launch_loop_api(payload: LoopLaunchPayload = Body(...)):
         operator_profile = operator.load_profile()
         project_slug = project_storage.normalize_slug(payload.project_slug) if payload.project_slug else None
+        if project_slug:
+            project = get_project_or_404(project_slug)
+            if project.status == "archived":
+                raise HTTPException(status_code=409, detail="Archived project must be restored before starting a new loop.")
         launch = launch_detached_loop(
             objective=payload.objective,
             project_slug=project_slug,

@@ -33,6 +33,11 @@ class FactoryRunner:
         project_slug: str | None = None,
     ) -> RunState:
         normalized_project_slug = self.projects.normalize_slug(project_slug) if project_slug else None
+        existing_project = self.projects.get_project(normalized_project_slug) if normalized_project_slug else None
+        if existing_project and existing_project.status == "archived":
+            raise RuntimeError(
+                f"Project '{normalized_project_slug}' is archived and must be restored before starting a new run."
+            )
         selected_mode = mode or self.config.default_mode
         parallel_limit = max(1, max_parallel_departments or self.config.max_parallel_departments)
         effective_settings = (run_settings.model_copy(deep=True) if run_settings else RunSettings())
@@ -72,7 +77,7 @@ class FactoryRunner:
         project_context = ""
         if normalized_project_slug:
             # Auto-create the project record if it doesn't exist yet
-            if not self.projects.get_project(normalized_project_slug):
+            if not existing_project:
                 self.projects.create_project(
                     slug=normalized_project_slug,
                     name=normalized_project_slug.replace("-", " ").title(),

@@ -9,9 +9,10 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 import blacklab_factory.dashboard as dashboard_module
+from blacklab_factory.models import RunSettings
 from blacklab_factory.launcher import DetachedLaunch
 from blacklab_factory.release_ops import ReleaseManager
-from blacklab_factory.storage import ProjectStorage, ReleaseStorage
+from blacklab_factory.storage import LoopStorage, OperatorStorage, ProjectStorage, ReleaseStorage, RunStorage
 from blacklab_factory.web import create_app
 
 
@@ -254,6 +255,112 @@ def test_release_api_lists_and_downloads_completed_release(tmp_path: Path) -> No
     assert download_response.status_code == 200
     assert download_response.headers["content-type"] == "application/zip"
     assert len(download_response.content) > 0
+
+
+def test_archived_project_is_hidden_from_operations_and_blocks_launch_and_release(tmp_path: Path) -> None:
+    _seed_project_workspace(tmp_path, slug="archive-project")
+    client = TestClient(create_app(storage_root=tmp_path))
+
+    archive_response = client.post("/api/projects/archive-project/archive")
+
+    assert archive_response.status_code == 200
+    assert archive_response.json()["status"] == "archived"
+
+    projects_response = client.get("/api/projects")
+    assert projects_response.status_code == 200
+    assert all(project["slug"] != "archive-project" for project in projects_response.json()["projects"])
+
+    launch_response = client.post(
+        "/api/launch/run",
+        json={
+            "mission": "Run should be blocked for archived project",
+            "project_slug": "archive-project",
+            "mode": "mock",
+            "codex_model": "gpt-5.4",
+            "codex_autonomy": "read_only",
+            "codex_review_model": "gpt-5.4-mini",
+            "codex_review_autonomy": "read_only",
+            "max_parallel_departments": 7,
+            "pause_between_departments": 0,
+        },
+    )
+    assert launch_response.status_code == 409
+
+    release_response = client.post("/api/projects/archive-project/releases")
+    assert release_response.status_code == 409
+
+    restore_response = client.post("/api/projects/archive-project/restore")
+    assert restore_response.status_code == 200
+    assert restore_response.json()["status"] == "active"
+
+    projects_after_restore = client.get("/api/projects")
+    assert any(project["slug"] == "archive-project" for project in projects_after_restore.json()["projects"])
+
+
+def test_project_delete_removes_workspace_and_related_records(tmp_path: Path) -> None:
+    _seed_project_workspace(tmp_path, slug="cleanup-project")
+    operator_storage = OperatorStorage(tmp_path)
+    profile = operator_storage.load_profile()
+    profile.launch.project_slug = "cleanup-project"
+    profile.autopilot.project_slug = "cleanup-project"
+    operator_storage.save_profile(profile)
+
+    run_storage = RunStorage(tmp_path)
+    run_state = run_storage.create_run(
+        mission="Cleanup run",
+        company_name="blackLAB",
+        mode="mock",
+        steps=[],
+        settings=RunSettings(),
+    )
+    run_state.project_slug = "cleanup-project"
+    run_storage.save_state(run_state)
+
+    loop_storage = LoopStorage(tmp_path)
+    loop_state = loop_storage.create_loop(
+        objective="Cleanup loop",
+        loop_mode="full_auto",
+        run_mode="mock",
+        run_settings=RunSettings(),
+        interval_seconds=0,
+        max_iterations=1,
+    )
+    loop_state.project_slug = "cleanup-project"
+    loop_storage.save_state(loop_state)
+
+    manager = ReleaseManager(tmp_path)
+    release = manager.start_build("cleanup-project")
+
+    client = TestClient(create_app(storage_root=tmp_path))
+    delete_response = client.delete("/api/projects/cleanup-project")
+
+    assert delete_response.status_code == 200
+    payload = delete_response.json()
+    assert payload["deleted_runs"] == 1
+    assert payload["deleted_loops"] == 1
+    assert payload["deleted_releases"] == 1
+    assert not ProjectStorage(tmp_path).project_dir("cleanup-project").exists()
+    assert not run_storage.run_dir(run_state.run_id).exists()
+    assert not loop_storage.loop_dir(loop_state.loop_id).exists()
+    assert not ReleaseStorage(tmp_path).release_dir(release.release_id).exists()
+
+    profile_response = client.get("/api/operator/profile")
+    assert profile_response.status_code == 200
+    assert profile_response.json()["launch"]["project_slug"] is None
+    assert profile_response.json()["autopilot"]["project_slug"] is None
+
+
+def test_release_delete_api_removes_completed_release(tmp_path: Path) -> None:
+    _seed_project_workspace(tmp_path, slug="delete-release")
+    manager = ReleaseManager(tmp_path)
+    release = manager.start_build("delete-release")
+    client = TestClient(create_app(storage_root=tmp_path))
+
+    response = client.delete(f"/api/releases/{release.release_id}")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "deleted"
+    assert not ReleaseStorage(tmp_path).release_dir(release.release_id).exists()
 
 
 def test_release_storage_recovers_completed_archive_after_controller_exit(tmp_path: Path) -> None:

@@ -2532,6 +2532,62 @@ textarea {
   gap: 0.55rem;
 }
 
+.console-power-dock__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.console-power-dock__value {
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+}
+
+.console-power-dock__field {
+  display: grid;
+  gap: 0.38rem;
+  font-size: 0.74rem;
+}
+
+.console-power-dock__field span {
+  color: rgba(255, 255, 255, 0.56);
+}
+
+.console-power-dock__slider {
+  width: 100%;
+  accent-color: #43d3b0;
+}
+
+.console-power-dock__scale {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.46);
+}
+
+.console-power-dock__preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.console-power-dock__preset {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.36rem 0.6rem;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.console-power-dock__preset.is-selected {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .console-power-dock__button.is-selected {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
 }
@@ -2548,6 +2604,21 @@ textarea {
 .console-world--day .console-power-dock__summary,
 .console-world--day .console-power-dock__hint {
   color: rgba(15, 23, 42, 0.76);
+}
+
+.console-world--day .console-power-dock__field span,
+.console-world--day .console-power-dock__scale {
+  color: rgba(71, 85, 105, 0.68);
+}
+
+.console-world--day .console-power-dock__preset {
+  background: rgba(15, 23, 42, 0.05);
+  color: rgba(15, 23, 42, 0.76);
+}
+
+.console-world--day .console-power-dock__preset.is-selected {
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.16);
+  background: rgba(15, 23, 42, 0.1);
 }
 
 .console-world--day .console-power-dock__button.is-selected {

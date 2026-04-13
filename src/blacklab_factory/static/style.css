@@ -13,6 +13,10 @@
   font-family: "Iowan Old Style", "Palatino Linotype", serif;
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -197,6 +201,9 @@ a {
 
 .card-grid,
 .two-column,
+.control-page,
+.control-page__main,
+.control-page__rail,
 .three-column,
 .mission-grid,
 .form-grid {
@@ -270,6 +277,17 @@ a {
 
 .two-column {
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.control-page {
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.92fr);
+  align-items: start;
+}
+
+.control-page__main,
+.control-page__rail {
+  min-width: 0;
+  align-content: start;
 }
 
 .three-column {
@@ -900,6 +918,13 @@ a {
   gap: 0.15rem;
 }
 
+.project-library-copy__header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
 .project-library-copy p,
 .project-library-copy small,
 .project-library-copy strong {
@@ -909,6 +934,16 @@ a {
 .project-library-copy p,
 .project-library-copy small {
   color: var(--muted);
+}
+
+.project-library-actions {
+  display: grid;
+  gap: 0.55rem;
+  justify-items: end;
+}
+
+.project-library-actions .button-row {
+  justify-content: flex-end;
 }
 
 .report-cluster__header {
@@ -1163,6 +1198,16 @@ a {
 .status-stale {
   color: var(--danger);
   background: rgba(122, 99, 47, 0.18);
+}
+
+.status-active {
+  color: #0f766e;
+  background: rgba(15, 118, 110, 0.12);
+}
+
+.status-archived {
+  color: #475569;
+  background: rgba(100, 116, 139, 0.16);
 }
 
 .status-pending {
@@ -1446,6 +1491,28 @@ textarea:focus-visible {
   gap: 1rem;
 }
 
+.list--status-summary .timeline-head {
+  align-items: flex-start;
+}
+
+.list--status-summary .timeline-head strong {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.list--status-summary .timeline-head strong a {
+  display: block;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.list--status-summary .timeline-head .badge {
+  flex: 0 0 5.6rem;
+  justify-content: center;
+  white-space: nowrap;
+  text-transform: capitalize;
+}
+
 .current-loop-panel {
   padding-bottom: 1rem;
 }
@@ -1544,6 +1611,10 @@ textarea:focus-visible {
 }
 
 @media (max-width: 1180px) {
+  .control-page {
+    grid-template-columns: 1fr;
+  }
+
   .project-progress-status-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

@@ -12,7 +12,7 @@ from blacklab_factory.models import (
     CompanyConfig,
     OperatorProfile,
 )
-from blacklab_factory.storage import OperatorStorage, RunStorage
+from blacklab_factory.storage import OperatorStorage, ProjectStorage, RunStorage
 
 KNOWN_MODELS = [
     "gpt-5.4",
@@ -29,14 +29,21 @@ class OperatorCommander:
         self.storage_root = storage_root
         self.config = load_company_config()
         self.run_storage = RunStorage(storage_root)
+        self.project_storage = ProjectStorage(storage_root)
         self.loop_supervisor = AutopilotSupervisor(storage_root=storage_root)
         self.operator_storage = OperatorStorage(storage_root)
 
     def load_profile(self) -> OperatorProfile:
-        return seed_operator_profile(self.operator_storage.load_profile(), self.config)
+        profile = seed_operator_profile(self.operator_storage.load_profile(), self.config)
+        cleaned = self._clear_archived_project_defaults(profile)
+        if cleaned:
+            self.operator_storage.save_profile(profile)
+        return profile
 
     def save_profile(self, profile: OperatorProfile) -> OperatorProfile:
-        return self.operator_storage.save_profile(seed_operator_profile(profile, self.config))
+        profile = seed_operator_profile(profile, self.config)
+        self._clear_archived_project_defaults(profile)
+        return self.operator_storage.save_profile(profile)
 
     def load_chat_history(self):
         return self.operator_storage.load_chat().messages
@@ -259,6 +266,18 @@ class OperatorCommander:
             )
 
         return None
+
+    def _clear_archived_project_defaults(self, profile: OperatorProfile) -> bool:
+        changed = False
+        for lane in (profile.launch, profile.autopilot):
+            slug = lane.project_slug
+            if not slug:
+                continue
+            project = self.project_storage.get_project(slug)
+            if project and project.status == "archived":
+                lane.project_slug = None
+                changed = True
+        return changed
 
     def _update_profile_from_message(
         self,

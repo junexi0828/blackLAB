@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import tempfile
 from datetime import timedelta
 from pathlib import Path
@@ -249,6 +250,24 @@ class RunStorage:
         self.append_log(run_id, f"Run controller pid registered: {pid}")
         return state
 
+    def delete_run(self, run_id: str) -> RunState:
+        state = self.load_state(run_id)
+        shutil.rmtree(self.run_dir(run_id), ignore_errors=True)
+        return state
+
+    def delete_runs_for_project(self, project_slug: str) -> list[str]:
+        deleted_ids: list[str] = []
+        for path in sorted(self.runs_dir.glob("*/state.json")):
+            try:
+                state = RunState.model_validate_json(path.read_text(encoding="utf-8"))
+            except ValidationError:
+                continue
+            if state.project_slug != project_slug:
+                continue
+            shutil.rmtree(path.parent, ignore_errors=True)
+            deleted_ids.append(state.run_id)
+        return deleted_ids
+
     def mark_force_stopped(self, run_id: str, reason: str) -> RunState:
         state = self.load_state(run_id)
         state.stop_requested = True
@@ -421,6 +440,24 @@ class LoopStorage:
         self.save_state(state)
         self.append_log(loop_id, f"Loop controller pid registered: {pid}")
         return state
+
+    def delete_loop(self, loop_id: str) -> LoopState:
+        state = self.load_state(loop_id)
+        shutil.rmtree(self.loop_dir(loop_id), ignore_errors=True)
+        return state
+
+    def delete_loops_for_project(self, project_slug: str) -> list[str]:
+        deleted_ids: list[str] = []
+        for path in sorted(self.loops_dir.glob("*/state.json")):
+            try:
+                state = LoopState.model_validate_json(path.read_text(encoding="utf-8"))
+            except ValidationError:
+                continue
+            if state.project_slug != project_slug:
+                continue
+            shutil.rmtree(path.parent, ignore_errors=True)
+            deleted_ids.append(state.loop_id)
+        return deleted_ids
 
     def request_stop(self, loop_id: str) -> LoopState:
         state = self.load_state(loop_id)
@@ -643,6 +680,27 @@ class ProjectStorage:
             return ProjectRecord.model_validate_json(path.read_text(encoding="utf-8"))
         except Exception:
             return None
+
+    def update_project_status(self, slug: str, status: str) -> ProjectRecord:
+        record = self.get_project(slug)
+        if record is None:
+            raise FileNotFoundError(f"Project {slug} not found.")
+        record.status = status
+        self._save_meta(record)
+        return record
+
+    def archive_project(self, slug: str) -> ProjectRecord:
+        return self.update_project_status(slug, "archived")
+
+    def restore_project(self, slug: str) -> ProjectRecord:
+        return self.update_project_status(slug, "active")
+
+    def delete_project(self, slug: str) -> ProjectRecord:
+        record = self.get_project(slug)
+        if record is None:
+            raise FileNotFoundError(f"Project {slug} not found.")
+        shutil.rmtree(self.project_dir(slug), ignore_errors=True)
+        return record
 
     def list_projects(self) -> list[ProjectRecord]:
         records: list[ProjectRecord] = []
@@ -882,6 +940,24 @@ class ReleaseStorage:
         self.save_state(state)
         self.append_log(release_id, f"Release controller pid registered: {pid}")
         return state
+
+    def delete_release(self, release_id: str) -> ReleaseState:
+        state = self.load_state(release_id)
+        shutil.rmtree(self.release_dir(release_id), ignore_errors=True)
+        return state
+
+    def delete_releases_for_project(self, project_slug: str) -> list[str]:
+        deleted_ids: list[str] = []
+        for path in sorted(self.releases_dir.glob("*/state.json")):
+            try:
+                state = ReleaseState.model_validate_json(path.read_text(encoding="utf-8"))
+            except ValidationError:
+                continue
+            if state.project_slug != project_slug:
+                continue
+            shutil.rmtree(path.parent, ignore_errors=True)
+            deleted_ids.append(state.release_id)
+        return deleted_ids
 
     def append_log(self, release_id: str, message: str) -> None:
         with self.log_path(release_id).open("a", encoding="utf-8") as handle:

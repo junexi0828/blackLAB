@@ -900,6 +900,13 @@ a {
   gap: 0.15rem;
 }
 
+.project-library-copy__header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
 .project-library-copy p,
 .project-library-copy small,
 .project-library-copy strong {
@@ -909,6 +916,16 @@ a {
 .project-library-copy p,
 .project-library-copy small {
   color: var(--muted);
+}
+
+.project-library-actions {
+  display: grid;
+  gap: 0.55rem;
+  justify-items: end;
+}
+
+.project-library-actions .button-row {
+  justify-content: flex-end;
 }
 
 .report-cluster__header {
@@ -1163,6 +1180,16 @@ a {
 .status-stale {
   color: var(--danger);
   background: rgba(122, 99, 47, 0.18);
+}
+
+.status-active {
+  color: #0f766e;
+  background: rgba(15, 118, 110, 0.12);
+}
+
+.status-archived {
+  color: #475569;
+  background: rgba(100, 116, 139, 0.16);
 }
 
 .status-pending {

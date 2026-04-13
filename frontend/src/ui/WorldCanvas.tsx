@@ -29,6 +29,8 @@ interface WorldCanvasProps {
   workflowConfig?: CompanyConfig | null
   projectMaturity?: ProjectMaturityModel | null
   renderMode?: 'normal' | 'low-power'
+  autoRotateEnabled?: boolean
+  autoRotateSpeed?: number
 }
 
 const DEFAULT_CAMERA_POSITION = new THREE.Vector3(18, 14, 18)
@@ -148,6 +150,8 @@ function areWorldCanvasPropsEqual(left: WorldCanvasProps, right: WorldCanvasProp
     left.timeTheme === right.timeTheme &&
     left.showMonument === right.showMonument &&
     left.renderMode === right.renderMode &&
+    left.autoRotateEnabled === right.autoRotateEnabled &&
+    left.autoRotateSpeed === right.autoRotateSpeed &&
     left.workflowConfig === right.workflowConfig &&
     left.projectMaturity === right.projectMaturity &&
     left.onDismissBubble === right.onDismissBubble &&
@@ -311,6 +315,8 @@ function WorldCanvasComponent({
   workflowConfig = null,
   projectMaturity = null,
   renderMode = 'normal',
+  autoRotateEnabled: autoRotatePreference = true,
+  autoRotateSpeed = -0.42,
 }: WorldCanvasProps) {
   const isNight = timeTheme === 'night'
   const isLowPowerMode = renderMode === 'low-power'
@@ -582,8 +588,8 @@ function WorldCanvasComponent({
         ref={controlsRef}
         enableDamping
         dampingFactor={0.06}
-        autoRotate={autoRotateEnabled && !selectedBuilding && !cameraTransitionActive}
-        autoRotateSpeed={-0.42}
+        autoRotate={autoRotatePreference && autoRotateEnabled && !selectedBuilding && !cameraTransitionActive}
+        autoRotateSpeed={autoRotateSpeed}
         maxPolarAngle={Math.PI / 2.1}
         minDistance={6}
         maxDistance={40}

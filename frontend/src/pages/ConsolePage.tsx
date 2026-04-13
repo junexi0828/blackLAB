@@ -13,6 +13,11 @@ import { buildCrewCounts, resolveLiveDepartmentKeys } from '../ui/roverPersona'
 const BUBBLE_TTL_MS = 14000
 const EMPTY_STEPS: StepRecord[] = []
 const CONSOLE_RENDER_MODE_STORAGE_KEY = 'blacklab.console.render_mode'
+const CONSOLE_CAMERA_SETTINGS_STORAGE_KEY = 'blacklab.console.camera_settings'
+const DEFAULT_AUTO_ROTATE_SPEED = -0.42
+const AUTO_ROTATE_SPEED_MIN = -0.9
+const AUTO_ROTATE_SPEED_MAX = 0.9
+const AUTO_ROTATE_SPEED_PRESETS = [-0.7, -0.42, 0.42, 0.7] as const
 
 type ConsoleRenderMode = 'normal' | 'low-power'
 type ReleaseStatusTone = 'standby' | 'running' | 'ready' | 'failed' | 'attention'
@@ -25,6 +30,11 @@ interface ReleasePanelModel {
   buildLabel: string
   canDownload: boolean
   timestampLabel: string | null
+}
+
+interface ConsoleCameraSettings {
+  autoRotate: boolean
+  autoRotateSpeed: number
 }
 
 const LazyWorldCanvas = lazy(async () => {
@@ -52,6 +62,55 @@ function writeConsoleRenderMode(renderMode: ConsoleRenderMode) {
   } catch {
     // ignore localStorage failures
   }
+}
+
+function clampAutoRotateSpeed(value: number) {
+  return Math.min(AUTO_ROTATE_SPEED_MAX, Math.max(AUTO_ROTATE_SPEED_MIN, value))
+}
+
+function readConsoleCameraSettings(): ConsoleCameraSettings {
+  if (typeof window === 'undefined') {
+    return { autoRotate: true, autoRotateSpeed: DEFAULT_AUTO_ROTATE_SPEED }
+  }
+  try {
+    const raw = window.localStorage.getItem(CONSOLE_CAMERA_SETTINGS_STORAGE_KEY)
+    if (!raw) {
+      return { autoRotate: true, autoRotateSpeed: DEFAULT_AUTO_ROTATE_SPEED }
+    }
+    const parsed = JSON.parse(raw) as Partial<ConsoleCameraSettings>
+    return {
+      autoRotate: parsed.autoRotate !== false,
+      autoRotateSpeed:
+        typeof parsed.autoRotateSpeed === 'number'
+          ? clampAutoRotateSpeed(parsed.autoRotateSpeed)
+          : DEFAULT_AUTO_ROTATE_SPEED,
+    }
+  } catch {
+    return { autoRotate: true, autoRotateSpeed: DEFAULT_AUTO_ROTATE_SPEED }
+  }
+}
+
+function writeConsoleCameraSettings(settings: ConsoleCameraSettings) {
+  if (typeof window === 'undefined') {
+    return
+  }
+  try {
+    window.localStorage.setItem(
+      CONSOLE_CAMERA_SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        autoRotate: settings.autoRotate,
+        autoRotateSpeed: clampAutoRotateSpeed(settings.autoRotateSpeed),
+      }),
+    )
+  } catch {
+    // ignore localStorage failures
+  }
+}
+
+function formatSignedSpeed(value: number) {
+  const normalized = clampAutoRotateSpeed(value)
+  const rounded = Math.abs(normalized) < 0.005 ? 0 : normalized
+  return `${rounded > 0 ? '+' : ''}${rounded.toFixed(2)}`
 }
 
 function prettifyDepartmentKey(value: string): string {
@@ -186,6 +245,7 @@ export function ConsolePage() {
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null)
   const [utilityDockTab, setUtilityDockTab] = useState<'runtime' | 'release' | 'layout' | 'power' | null>(null)
   const [renderMode, setRenderMode] = useState<ConsoleRenderMode>(() => readConsoleRenderMode())
+  const [cameraSettings, setCameraSettings] = useState<ConsoleCameraSettings>(() => readConsoleCameraSettings())
   const [editTarget, setEditTarget] = useState<string | 'monument' | null>(null)
   const [layoutDraft, setLayoutDraft] = useState<CampusLayout | null>(null)
   const [layoutNotice, setLayoutNotice] = useState<string | null>(null)
@@ -207,6 +267,10 @@ export function ConsolePage() {
   useEffect(() => {
     writeConsoleRenderMode(renderMode)
   }, [renderMode])
+
+  useEffect(() => {
+    writeConsoleCameraSettings(cameraSettings)
+  }, [cameraSettings])
 
   const runs = useMemo(() => runsResource.data ?? [], [runsResource.data])
   const loops = useMemo(() => loopsResource.data ?? [], [loopsResource.data])
@@ -405,7 +469,9 @@ export function ConsolePage() {
         ? `Failed · ${latestRelease.release_id}`
         : 'Package delivery bundle'
   const layoutBookmarkMeta = editMode ? describeLayoutTarget(editTarget) : layoutNotice ?? 'Adjust campus'
-  const powerBookmarkMeta = isLowPowerMode ? 'UI low power active' : 'UI normal rendering'
+  const powerBookmarkMeta = `${isLowPowerMode ? 'UI low power' : 'UI normal'} · ${
+    cameraSettings.autoRotate ? `rotate ${formatSignedSpeed(cameraSettings.autoRotateSpeed)}` : 'rotate off'
+  }`
   const releasePanel = useMemo(
     () => resolveReleasePanelModel(selectedProject?.name ?? currentProject?.name ?? null, latestRelease, activeRelease),
     [activeRelease, currentProject?.name, latestRelease, selectedProject?.name],
@@ -1193,6 +1259,66 @@ export function ConsolePage() {
                   </button>
                 </div>
               </div>
+              <div className="console-power-dock__card">
+                <div className="console-power-dock__section-header">
+                  <span className="hud-small-tag">CAMERA ORBIT</span>
+                  <strong className="console-power-dock__value">
+                    {cameraSettings.autoRotate ? formatSignedSpeed(cameraSettings.autoRotateSpeed) : 'OFF'}
+                  </strong>
+                </div>
+                <div className="console-power-dock__actions">
+                  <button
+                    type="button"
+                    className={`console-project-dock__button console-power-dock__button ${cameraSettings.autoRotate ? 'is-selected' : ''}`}
+                    onClick={() => setCameraSettings((current) => ({ ...current, autoRotate: true }))}
+                    aria-pressed={cameraSettings.autoRotate}
+                  >
+                    Auto Rotate On
+                  </button>
+                  <button
+                    type="button"
+                    className={`console-project-dock__button console-power-dock__button ${!cameraSettings.autoRotate ? 'is-selected' : ''}`}
+                    onClick={() => setCameraSettings((current) => ({ ...current, autoRotate: false }))}
+                    aria-pressed={!cameraSettings.autoRotate}
+                  >
+                    Auto Rotate Off
+                  </button>
+                </div>
+                <label className="console-power-dock__field">
+                  <span>Rotation Speed</span>
+                  <input
+                    className="console-power-dock__slider"
+                    type="range"
+                    min={AUTO_ROTATE_SPEED_MIN}
+                    max={AUTO_ROTATE_SPEED_MAX}
+                    step={0.02}
+                    value={cameraSettings.autoRotateSpeed}
+                    onChange={(event) => {
+                      const nextSpeed = clampAutoRotateSpeed(Number(event.target.value))
+                      setCameraSettings((current) => ({ ...current, autoRotateSpeed: nextSpeed }))
+                    }}
+                  />
+                </label>
+                <div className="console-power-dock__scale">
+                  <span>{formatSignedSpeed(AUTO_ROTATE_SPEED_MIN)}</span>
+                  <span>0.00</span>
+                  <span>{formatSignedSpeed(AUTO_ROTATE_SPEED_MAX)}</span>
+                </div>
+                <div className="console-power-dock__preset-row">
+                  {AUTO_ROTATE_SPEED_PRESETS.map((speed) => (
+                    <button
+                      key={speed}
+                      type="button"
+                      className={`console-power-dock__preset ${
+                        Math.abs(cameraSettings.autoRotateSpeed - speed) < 0.001 ? 'is-selected' : ''
+                      }`}
+                      onClick={() => setCameraSettings((current) => ({ ...current, autoRotateSpeed: speed }))}
+                    >
+                      {formatSignedSpeed(speed)}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <p className="console-power-dock__hint">
                 Low power reduces canvas quality, animation load, rover count, data beams, and refresh cadence for long-running operator screens.
               </p>
@@ -1224,6 +1350,8 @@ export function ConsolePage() {
           workflowConfig={settingsResource.data ?? null}
           projectMaturity={projectMaturity}
           renderMode={renderMode}
+          autoRotateEnabled={cameraSettings.autoRotate}
+          autoRotateSpeed={cameraSettings.autoRotateSpeed}
         />
       </Suspense>
       <ConsoleHUD

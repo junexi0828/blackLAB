@@ -99,29 +99,48 @@
       {% for project in project_library %}
         <div class="project-library-row">
           <div class="project-library-copy">
-            <strong>{{ project.name }}</strong>
+            <div class="project-library-copy__header">
+              <strong>{{ project.name }}</strong>
+              <span class="badge status-{{ project.status }}">{{ project.status }}</span>
+            </div>
             <small>{{ project.slug }} · {{ project.run_count }} runs</small>
             {% if project.brief %}
               <p>{{ project.brief }}</p>
             {% endif %}
+            {% if project.active_release %}
+              <p>Release Center is packaging {{ project.active_release.release_id }}.</p>
+            {% elif project.latest_release %}
+              <p>
+                Latest release {{ project.latest_release.release_id }} ·
+                <span class="badge status-{{ project.latest_release.status }}">{{ project.latest_release.status_label }}</span>
+              </p>
+            {% endif %}
           </div>
-          <div class="button-row">
-            <button
-              type="button"
-              class="ghost-button"
-              data-apply-project="operator-settings-form:launch_project_slug"
-              data-project-value="{{ project.slug }}"
-            >
-              Use for Run
-            </button>
-            <button
-              type="button"
-              class="ghost-button"
-              data-apply-project="operator-settings-form:autopilot_project_slug"
-              data-project-value="{{ project.slug }}"
-            >
-              Use for Autopilot
-            </button>
+          <div class="project-library-actions">
+            <div class="button-row">
+              {% if project.latest_release and project.latest_release.download_url %}
+                <a class="ghost-button" href="{{ project.latest_release.download_url }}">Download Release</a>
+              {% endif %}
+              {% if project.latest_release and not project.active_release %}
+                <form method="post" action="/releases/{{ project.latest_release.release_id }}/delete" onsubmit="return confirm('Delete the latest release archive?');">
+                  <button type="submit" class="danger-button">Delete Release</button>
+                </form>
+              {% endif %}
+            </div>
+            <div class="button-row">
+              {% if project.status == "archived" %}
+                <form method="post" action="/projects/{{ project.slug }}/restore">
+                  <button type="submit" class="ghost-button">Restore</button>
+                </form>
+              {% else %}
+                <form method="post" action="/projects/{{ project.slug }}/archive" onsubmit="return confirm('Archive this project and hide it from operations?');">
+                  <button type="submit" class="ghost-button">Archive</button>
+                </form>
+              {% endif %}
+              <form method="post" action="/projects/{{ project.slug }}/delete" onsubmit="return confirm('Delete this project and all related runs, loops, releases, and workspace files?');">
+                <button type="submit" class="danger-button">Delete Project</button>
+              </form>
+            </div>
           </div>
         </div>
       {% else %}

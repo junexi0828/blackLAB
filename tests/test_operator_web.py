@@ -7,7 +7,7 @@ from blacklab_factory.autopilot import AutopilotSupervisor, LoopRunRequest
 from blacklab_factory.factory import FactoryRunner
 from blacklab_factory.models import RunSettings, StepRecord
 from blacklab_factory.operator_control import OperatorCommander
-from blacklab_factory.storage import OperatorStorage, RunStorage
+from blacklab_factory.storage import OperatorStorage, ProjectStorage, RunStorage
 from blacklab_factory.web import create_app
 
 
@@ -165,6 +165,26 @@ def test_operator_profile_recovers_from_empty_json_file(tmp_path: Path) -> None:
     assert "launch" in payload
     assert "autopilot" in payload
     assert storage.profile_path().read_text(encoding="utf-8").strip().startswith("{")
+
+
+def test_operator_profile_clears_archived_default_projects(tmp_path: Path) -> None:
+    projects = ProjectStorage(tmp_path)
+    projects.create_project(slug="retired-project", name="Retired Project")
+    projects.archive_project("retired-project")
+
+    storage = OperatorStorage(tmp_path)
+    profile = storage.load_profile()
+    profile.launch.project_slug = "retired-project"
+    profile.autopilot.project_slug = "retired-project"
+    storage.save_profile(profile)
+
+    client = TestClient(create_app(storage_root=tmp_path))
+    response = client.get("/api/operator/profile")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["launch"]["project_slug"] is None
+    assert payload["autopilot"]["project_slug"] is None
 
 
 def test_operator_chat_routes_directive_to_active_run(tmp_path: Path) -> None:

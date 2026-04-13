@@ -175,6 +175,8 @@ class ReleaseManager:
         record = self.project_storage.get_project(project_slug)
         if record is None:
             raise FileNotFoundError(f"Project {project_slug} not found.")
+        if record.status == "archived":
+            raise RuntimeError("Archived project must be restored before Release Center can package it.")
 
         release_state = self.release_storage.create_release(
             project_slug=record.slug,

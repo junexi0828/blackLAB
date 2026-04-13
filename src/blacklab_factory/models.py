@@ -20,7 +20,7 @@ LoopMode = Literal["full_auto", "always_on"]
 LoopStatus = Literal["queued", "running", "stopping", "completed", "failed"]
 ReleaseStatus = Literal["queued", "running", "completed", "failed", "stale"]
 ChatRole = Literal["user", "assistant"]
-ProjectStatus = Literal["active", "paused", "archived"]
+ProjectStatus = Literal["active", "archived"]
 
 DEFAULT_CORE_CODEX_MODEL = "gpt-5.4"
 DEFAULT_REVIEW_CODEX_MODEL = "gpt-5.4-mini"

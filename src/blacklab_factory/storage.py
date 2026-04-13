@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import os
 import re
+import tempfile
 from datetime import timedelta
 from pathlib import Path
 
@@ -50,6 +52,31 @@ def _has_live_runtime_pid(controller_pid: int | None, process_records: list[Proc
         process.status == "running" and _pid_is_alive(process.pid)
         for process in process_records
     )
+
+
+def _existing_controller_pid(path: Path) -> int | None:
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    pid = payload.get("controller_pid")
+    return pid if isinstance(pid, int) and pid > 0 else None
+
+
+def _atomic_write(path: Path, content: str) -> None:
+    with tempfile.NamedTemporaryFile(
+        "w",
+        encoding="utf-8",
+        dir=path.parent,
+        prefix=f"{path.name}.",
+        suffix=".tmp",
+        delete=False,
+    ) as handle:
+        handle.write(content)
+        tmp_path = Path(handle.name)
+    tmp_path.replace(path)
 
 
 class RunStorage:
@@ -120,11 +147,10 @@ class RunStorage:
         return self.run_dir(run_id) / "directives.json"
 
     def save_state(self, state: RunState) -> None:
+        if state.controller_pid is None:
+            state.controller_pid = _existing_controller_pid(self.state_path(state.run_id))
         state.updated_at = utc_now()
-        self.state_path(state.run_id).write_text(
-            state.model_dump_json(indent=2),
-            encoding="utf-8",
-        )
+        _atomic_write(self.state_path(state.run_id), state.model_dump_json(indent=2))
 
     def load_state(self, run_id: str) -> RunState:
         payload = self.state_path(run_id).read_text(encoding="utf-8")
@@ -275,7 +301,7 @@ class RunStorage:
         return OperatorDirectiveInbox.model_validate_json(path.read_text(encoding="utf-8"))
 
     def _save_inbox(self, path: Path, inbox: OperatorDirectiveInbox) -> None:
-        path.write_text(inbox.model_dump_json(indent=2), encoding="utf-8")
+        _atomic_write(path, inbox.model_dump_json(indent=2))
 
     def _directive_id(self, prefix: str) -> str:
         return f"{prefix}-{utc_now().strftime('%Y%m%dT%H%M%S%fZ')}"
@@ -325,11 +351,10 @@ class LoopStorage:
         return self.loop_dir(loop_id) / "directives.json"
 
     def save_state(self, state: LoopState) -> None:
+        if state.controller_pid is None:
+            state.controller_pid = _existing_controller_pid(self.state_path(state.loop_id))
         state.updated_at = utc_now()
-        self.state_path(state.loop_id).write_text(
-            state.model_dump_json(indent=2),
-            encoding="utf-8",
-        )
+        _atomic_write(self.state_path(state.loop_id), state.model_dump_json(indent=2))
 
     def load_state(self, loop_id: str) -> LoopState:
         state = LoopState.model_validate_json(self.state_path(loop_id).read_text(encoding="utf-8"))
@@ -468,7 +493,7 @@ class LoopStorage:
         return OperatorDirectiveInbox.model_validate_json(path.read_text(encoding="utf-8"))
 
     def _save_inbox(self, path: Path, inbox: OperatorDirectiveInbox) -> None:
-        path.write_text(inbox.model_dump_json(indent=2), encoding="utf-8")
+        _atomic_write(path, inbox.model_dump_json(indent=2))
 
     def _directive_id(self, prefix: str) -> str:
         return f"{prefix}-{utc_now().strftime('%Y%m%dT%H%M%S%fZ')}"
@@ -492,15 +517,22 @@ class OperatorStorage:
             profile = OperatorProfile()
             self.save_profile(profile)
             return profile
-        profile = OperatorProfile.model_validate_json(path.read_text(encoding="utf-8"))
+        payload = path.read_text(encoding="utf-8").strip()
+        if not payload:
+            profile = OperatorProfile()
+            self.save_profile(profile)
+            return profile
+        try:
+            profile = OperatorProfile.model_validate_json(payload)
+        except ValidationError:
+            profile = OperatorProfile()
+            self.save_profile(profile)
+            return profile
         self.save_profile(profile)
         return profile
 
     def save_profile(self, profile: OperatorProfile) -> OperatorProfile:
-        self.profile_path().write_text(
-            profile.model_dump_json(indent=2),
-            encoding="utf-8",
-        )
+        _atomic_write(self.profile_path(), profile.model_dump_json(indent=2))
         return profile
 
     def load_chat(self) -> OperatorChatState:
@@ -509,13 +541,20 @@ class OperatorStorage:
             state = OperatorChatState()
             self.save_chat(state)
             return state
-        return OperatorChatState.model_validate_json(path.read_text(encoding="utf-8"))
+        payload = path.read_text(encoding="utf-8").strip()
+        if not payload:
+            state = OperatorChatState()
+            self.save_chat(state)
+            return state
+        try:
+            return OperatorChatState.model_validate_json(payload)
+        except ValidationError:
+            state = OperatorChatState()
+            self.save_chat(state)
+            return state
 
     def save_chat(self, chat_state: OperatorChatState) -> OperatorChatState:
-        self.chat_path().write_text(
-            chat_state.model_dump_json(indent=2),
-            encoding="utf-8",
-        )
+        _atomic_write(self.chat_path(), chat_state.model_dump_json(indent=2))
         return chat_state
 
     def append_chat_message(self, role: str, content: str, limit: int = 80) -> OperatorChatState:
@@ -811,11 +850,10 @@ class ReleaseStorage:
         return self.release_dir(release_id) / "release.log"
 
     def save_state(self, state: ReleaseState) -> None:
+        if state.controller_pid is None:
+            state.controller_pid = _existing_controller_pid(self.state_path(state.release_id))
         state.updated_at = utc_now()
-        self.state_path(state.release_id).write_text(
-            state.model_dump_json(indent=2),
-            encoding="utf-8",
-        )
+        _atomic_write(self.state_path(state.release_id), state.model_dump_json(indent=2))
 
     def load_state(self, release_id: str) -> ReleaseState:
         payload = self.state_path(release_id).read_text(encoding="utf-8")

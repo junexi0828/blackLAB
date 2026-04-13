@@ -106,6 +106,22 @@ def test_release_storage_recovers_completed_archive_after_controller_exit(tmp_pa
     assert recovered.current_status == "Release bundle recovered after the packaging controller exited."
 
 
+def test_release_storage_preserves_controller_pid_across_subsequent_saves(tmp_path: Path) -> None:
+    _seed_project_workspace(tmp_path, slug="persist-release")
+    storage = ReleaseStorage(tmp_path)
+    release = storage.create_release(project_slug="persist-release", project_name="Persist Release")
+    storage.attach_controller_pid(release.release_id, 65432)
+
+    stale_copy = storage.load_state(release.release_id)
+    stale_copy.controller_pid = None
+    stale_copy.status = "running"
+    stale_copy.current_status = "Packaging continues."
+    storage.save_state(stale_copy)
+
+    refreshed = storage.load_state(release.release_id)
+    assert refreshed.controller_pid == 65432
+
+
 def test_release_build_api_starts_detached_release(tmp_path: Path, monkeypatch) -> None:
     _seed_project_workspace(tmp_path, slug="bundle")
 

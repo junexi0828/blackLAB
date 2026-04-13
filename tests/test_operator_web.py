@@ -7,7 +7,7 @@ from blacklab_factory.autopilot import AutopilotSupervisor, LoopRunRequest
 from blacklab_factory.factory import FactoryRunner
 from blacklab_factory.models import RunSettings, StepRecord
 from blacklab_factory.operator_control import OperatorCommander
-from blacklab_factory.storage import RunStorage
+from blacklab_factory.storage import OperatorStorage, RunStorage
 from blacklab_factory.web import create_app
 
 
@@ -151,6 +151,20 @@ def test_operator_profile_persists_roster_selection(tmp_path: Path) -> None:
         "board_review",
     ]
     assert load_response.json()["roster"]["hidden_campus_items"] == ["monument"]
+
+
+def test_operator_profile_recovers_from_empty_json_file(tmp_path: Path) -> None:
+    storage = OperatorStorage(tmp_path)
+    storage.profile_path().write_text("", encoding="utf-8")
+
+    client = TestClient(create_app(storage_root=tmp_path))
+    response = client.get("/api/operator/profile")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "launch" in payload
+    assert "autopilot" in payload
+    assert storage.profile_path().read_text(encoding="utf-8").strip().startswith("{")
 
 
 def test_operator_chat_routes_directive_to_active_run(tmp_path: Path) -> None:

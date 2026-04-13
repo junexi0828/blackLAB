@@ -1473,6 +1473,28 @@ textarea:focus-visible {
   gap: 1rem;
 }
 
+.list--status-summary .timeline-head {
+  align-items: flex-start;
+}
+
+.list--status-summary .timeline-head strong {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.list--status-summary .timeline-head strong a {
+  display: block;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.list--status-summary .timeline-head .badge {
+  flex: 0 0 5.6rem;
+  justify-content: center;
+  white-space: nowrap;
+  text-transform: capitalize;
+}
+
 .current-loop-panel {
   padding-bottom: 1rem;
 }

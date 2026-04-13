@@ -243,27 +243,36 @@ export function ConsolePage() {
     () => projectLibrary.find((project) => project.slug === selectedProjectSlug) ?? null,
     [projectLibrary, selectedProjectSlug],
   )
+  const runtimeProjectSlug = selectedProject?.slug ?? currentProject?.slug ?? null
   const latestRelease = selectedProject?.latest_release ?? null
   const activeRelease = selectedProject?.active_release ?? null
+  const scopedRuns = useMemo(
+    () => (runtimeProjectSlug ? runs.filter((run) => run.project_slug === runtimeProjectSlug) : runs),
+    [runs, runtimeProjectSlug],
+  )
+  const scopedLoops = useMemo(
+    () => (runtimeProjectSlug ? loops.filter((loop) => loop.project_slug === runtimeProjectSlug) : loops),
+    [loops, runtimeProjectSlug],
+  )
   const activeRuns = useMemo(
-    () => runs.filter((run) => run.status === 'running'),
-    [runs],
+    () => scopedRuns.filter((run) => run.status === 'running' || run.status === 'stopping'),
+    [scopedRuns],
   )
 
   const activeLoop =
-    loops.find((l) => l.status === 'running' || l.status === 'stopping') ??
-    loops[0] ??
+    scopedLoops.find((loop) => loop.status === 'running' || loop.status === 'stopping') ??
+    scopedLoops[0] ??
     null
   const liveLoop = useMemo(
-    () => loops.find((loop) => loop.status === 'running' || loop.status === 'stopping') ?? null,
-    [loops],
+    () => scopedLoops.find((loop) => loop.status === 'running' || loop.status === 'stopping') ?? null,
+    [scopedLoops],
   )
   const activeRun = activeRuns[0] ?? null
   const activeRunSteps = activeRun?.steps ?? EMPTY_STEPS
-  const latestRun = runs[0] ?? null
+  const latestRun = scopedRuns[0] ?? null
   const activeRunCount = activeRuns.length
   const systemMode: 'live' | 'stopping' | 'idle' =
-    activeLoop?.status === 'stopping'
+    activeLoop?.status === 'stopping' || activeRun?.status === 'stopping'
       ? 'stopping'
       : activeLoop?.status === 'running' || activeRunCount > 0
         ? 'live'

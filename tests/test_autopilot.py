@@ -141,3 +141,48 @@ def test_running_loop_stays_live_when_controller_pid_is_alive(tmp_path: Path) ->
     refreshed = supervisor.loop_storage.load_state(loop_state.loop_id)
 
     assert refreshed.status == "running"
+
+
+def test_start_loop_persists_project_metadata(tmp_path: Path) -> None:
+    supervisor = AutopilotSupervisor(storage_root=tmp_path)
+    project = supervisor.runner.projects.create_project("rail-planner-lab", "Rail Planner Lab")
+
+    loop_state = supervisor.start_loop(
+        LoopRunRequest(
+            objective="Build a rail planning simulator",
+            loop_mode="full_auto",
+            run_mode="mock",
+            run_settings=RunSettings(),
+            project_slug=project.slug,
+        )
+    )
+
+    reloaded = supervisor.loop_storage.load_state(loop_state.loop_id)
+    assert reloaded.project_slug == "rail-planner-lab"
+    assert reloaded.project_name == "Rail Planner Lab"
+
+
+def test_run_loop_backfills_missing_project_metadata_for_existing_loop(tmp_path: Path) -> None:
+    supervisor = AutopilotSupervisor(storage_root=tmp_path)
+    project = supervisor.runner.projects.create_project("rail-planner-lab", "Rail Planner Lab")
+
+    request = LoopRunRequest(
+        objective="Backfill loop metadata",
+        loop_mode="full_auto",
+        run_mode="mock",
+        run_settings=RunSettings(),
+        interval_seconds=0,
+        max_iterations=1,
+        project_slug=project.slug,
+    )
+    loop_state = supervisor.start_loop(request)
+    loop_state.project_slug = None
+    loop_state.project_name = None
+    supervisor.loop_storage.save_state(loop_state)
+
+    completed = supervisor.run_loop(request, loop_id=loop_state.loop_id)
+    reloaded = supervisor.loop_storage.load_state(completed.loop_id)
+
+    assert completed.status == "completed"
+    assert reloaded.project_slug == "rail-planner-lab"
+    assert reloaded.project_name == "Rail Planner Lab"

@@ -41,6 +41,27 @@ class AutopilotSupervisor:
         self.runner = FactoryRunner(storage_root=storage_root)
         self.loop_storage = LoopStorage(self.runner.storage.root)
 
+    def _sync_loop_project_metadata(self, loop_state: LoopState, project_slug: str | None) -> LoopState:
+        normalized_project_slug = self.runner.projects.normalize_slug(project_slug) if project_slug else None
+        changed = False
+
+        if loop_state.project_slug != normalized_project_slug:
+            loop_state.project_slug = normalized_project_slug
+            changed = True
+
+        project_name = None
+        if normalized_project_slug:
+            project = self.runner.projects.get_project(normalized_project_slug)
+            if project:
+                project_name = project.name
+        if loop_state.project_name != project_name:
+            loop_state.project_name = project_name
+            changed = True
+
+        if changed:
+            self.loop_storage.save_state(loop_state)
+        return loop_state
+
     def start_loop(self, request: LoopRunRequest) -> LoopState:
         normalized_project_slug = self.runner.projects.normalize_slug(request.project_slug) if request.project_slug else None
         if normalized_project_slug:
@@ -57,20 +78,14 @@ class AutopilotSupervisor:
             interval_seconds=request.interval_seconds,
             max_iterations=request.max_iterations,
         )
-        loop_state.project_slug = normalized_project_slug
         loop_state.max_recovery_attempts = request.max_recovery_attempts
-        
-        # Optionally populate project_name if project exists
-        if normalized_project_slug:
-            project = self.runner.projects.get_project(normalized_project_slug)
-            if project:
-                loop_state.project_name = project.name
-        
+        loop_state = self._sync_loop_project_metadata(loop_state, normalized_project_slug)
         self.loop_storage.append_log(loop_state.loop_id, "Autopilot loop created.")
         return loop_state
 
     def run_loop(self, request: LoopRunRequest, loop_id: str | None = None) -> LoopState:
         loop_state = self.loop_storage.load_state(loop_id) if loop_id else self.start_loop(request)
+        loop_state = self._sync_loop_project_metadata(loop_state, request.project_slug)
         loop_state.status = "running"
         loop_state.latest_note = "Autopilot loop is active."
         self.loop_storage.save_state(loop_state)
@@ -79,6 +94,7 @@ class AutopilotSupervisor:
 
         while True:
             loop_state = self.loop_storage.load_state(loop_state.loop_id)
+            loop_state = self._sync_loop_project_metadata(loop_state, request.project_slug)
             new_directives = self.loop_storage.consume_directives(loop_state.loop_id)
             if new_directives:
                 operator_directives.extend(

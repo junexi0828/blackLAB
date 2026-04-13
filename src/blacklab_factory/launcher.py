@@ -211,9 +211,22 @@ def _wait_for_handoff(handoff_path: Path, log_path: Path, process: subprocess.Po
     )
 
 
-def terminate_process_group(pid: int, grace_seconds: float = 2.5) -> bool:
+def _resolve_process_group_id(pid: int) -> int | None:
     try:
-        os.killpg(pid, signal.SIGTERM)
+        return os.getpgid(pid)
+    except ProcessLookupError:
+        return None
+    except PermissionError:
+        return pid
+
+
+def terminate_process_group(pid: int, grace_seconds: float = 2.5) -> bool:
+    process_group_id = _resolve_process_group_id(pid)
+    if process_group_id is None:
+        return False
+
+    try:
+        os.killpg(process_group_id, signal.SIGTERM)
     except ProcessLookupError:
         return False
 
@@ -224,7 +237,7 @@ def terminate_process_group(pid: int, grace_seconds: float = 2.5) -> bool:
         time.sleep(0.1)
 
     try:
-        os.killpg(pid, signal.SIGKILL)
+        os.killpg(process_group_id, signal.SIGKILL)
     except ProcessLookupError:
         return True
 

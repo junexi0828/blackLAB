@@ -2,6 +2,7 @@ import time
 from pathlib import Path
 
 import blacklab_factory.cli as cli_module
+import blacklab_factory.launcher as launcher_module
 from blacklab_factory.factory import FactoryRunner
 from blacklab_factory.launcher import launch_detached_run
 from typer.testing import CliRunner
@@ -82,3 +83,14 @@ def test_dashboard_access_log_can_be_enabled_from_env(monkeypatch) -> None:
 
     assert result.exit_code == 0
     assert captured["access_log"] is True
+
+
+def test_terminate_process_group_uses_process_group_id(monkeypatch) -> None:
+    signals: list[tuple[int, int]] = []
+
+    monkeypatch.setattr(launcher_module.os, "getpgid", lambda pid: 91000)
+    monkeypatch.setattr(launcher_module.os, "killpg", lambda pgid, sig: signals.append((pgid, sig)))
+    monkeypatch.setattr(launcher_module, "_is_process_alive", lambda pid: False)
+
+    assert launcher_module.terminate_process_group(17160) is True
+    assert signals == [(91000, launcher_module.signal.SIGTERM)]

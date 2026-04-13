@@ -51,6 +51,42 @@
             <p class="metric-note">blocked or failed</p>
           </article>
         </div>
+        {% if current_project %}
+          {% set latest_release = current_project_release.latest_release %}
+          {% set active_release = current_project_release.active_release %}
+          <div class="project-progress-release">
+            <div class="project-progress-release__copy">
+              <span class="project-progress-release__label">Latest Release</span>
+              {% if active_release %}
+                <span class="project-progress-release__status project-progress-release__status--running">{{ active_release.status_label }}</span>
+              {% elif latest_release %}
+                <span class="project-progress-release__status project-progress-release__status--{{ latest_release.status }}">{{ latest_release.status_label }}</span>
+              {% else %}
+                <span class="project-progress-release__status project-progress-release__status--standby">Standby</span>
+              {% endif %}
+              {% if active_release %}
+                <strong>Packaging {{ current_project.name }}</strong>
+                <p>{{ active_release.current_status or active_release.summary }}</p>
+              {% elif latest_release %}
+                <strong>{{ latest_release.download_filename or latest_release.release_id }}</strong>
+                <p>{{ latest_release.current_status or latest_release.summary }}</p>
+              {% else %}
+                <strong>No delivery bundle yet</strong>
+                <p>Package this project when you want a downloadable release.</p>
+              {% endif %}
+            </div>
+            <div class="project-progress-release__actions">
+              <form method="post" action="/projects/{{ current_project.slug }}/releases">
+                <button class="secondary-button" type="submit" {% if active_release %}disabled{% endif %}>
+                  {% if active_release %}Packaging…{% elif latest_release %}{{ latest_release.action_label }}{% else %}Build Release{% endif %}
+                </button>
+              </form>
+              {% if latest_release and latest_release.download_url %}
+                <a class="ghost-button" href="{{ latest_release.download_url }}">Download</a>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
       </section>
     </section>
   {% else %}

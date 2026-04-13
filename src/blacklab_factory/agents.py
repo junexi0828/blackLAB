@@ -94,6 +94,21 @@ class MockDepartmentAgent(DepartmentAgent):
             else []
         )
         if department.key == "board_review":
+            package_handoff = {
+                "delivery_type": None,
+                "primary_path": None,
+                "must_include": [],
+                "launch_instructions": None,
+                "validation_target": None,
+                "allowed_external_dependencies": [],
+                "forbidden_local_dependencies": [
+                    "machine-specific absolute paths",
+                    "undeclared files outside the extracted package root",
+                ],
+                "notes": [
+                    "Update this handoff before manual release packaging when a concrete delivery surface exists."
+                ],
+            }
             summary = f"{department.label} consolidated the company plan for: {state.mission}"
             body = "\n".join(
                 [
@@ -123,6 +138,11 @@ class MockDepartmentAgent(DepartmentAgent):
                     "## Immediate Actions",
                     "- Use this briefing as the operating document for the next run or human review.",
                     "- Reject any department artifact that cannot be tied to revenue within the first launch cycle.",
+                    "",
+                    "## Package Handoff",
+                    "```json",
+                    json.dumps(package_handoff, ensure_ascii=False, indent=2),
+                    "```",
                 ]
             )
             risks = [
@@ -245,6 +265,13 @@ class OpenAIDepartmentAgent(DepartmentAgent):
             if directive_context.strip()
             else ""
         )
+        package_handoff_requirement = (
+            "\nIf you are the final board review, append a `## Package Handoff` section with a fenced JSON object "
+            "containing delivery_type, primary_path, must_include, launch_instructions, validation_target, "
+            "allowed_external_dependencies, forbidden_local_dependencies, and notes.\n"
+            if department.key == "board_review"
+            else ""
+        )
         prompt = "\n".join(
             [
                 project_block.rstrip(),
@@ -266,6 +293,7 @@ class OpenAIDepartmentAgent(DepartmentAgent):
                 "4. Risks",
                 "5. Next Action",
                 "",
+                package_handoff_requirement.rstrip(),
                 "Keep it concrete and execution-oriented.",
             ]
         )
@@ -586,6 +614,17 @@ class CodexDepartmentAgent(DepartmentAgent):
                     "## Contradictions To Resolve",
                     "## Quality Gates",
                     "## Immediate Actions",
+                    "## Package Handoff",
+                    "",
+                    "The Package Handoff section must end with a fenced JSON object using these fields:",
+                    "- delivery_type: short delivery label such as web_demo, report_pdf, dataset, middleware, bundle, or null",
+                    "- primary_path: canonical entry file inside the package root, or null",
+                    "- must_include: relative file paths that the package must ship",
+                    "- launch_instructions: short operator instruction for using the package, or null",
+                    "- validation_target: short label for the expected validation surface, or null",
+                    "- allowed_external_dependencies: intentional external URLs, hosts, services, or empty list",
+                    "- forbidden_local_dependencies: local-machine dependencies that must not leak into the package",
+                    "- notes: short package-specific cautions or handoff notes",
                     "",
                     "Write for an operator who wants one coherent plan, not seven disconnected memos.",
                 ]

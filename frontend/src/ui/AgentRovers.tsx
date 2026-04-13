@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { StepRecord } from '../types'
 import { ACTIVE_ROVERS_PER_DEPARTMENT } from './roverPersona'
-import { getDepartmentOrganizationSpec, type RoverVisualArchetype } from '../config/organizationModel'
+import { SUPPORT_FACILITY_KEYS, getDepartmentOrganizationSpec, type RoverVisualArchetype } from '../config/organizationModel'
 import type { ProjectMaturityTier } from './projectMaturity'
 
 interface AgentRoversProps {
@@ -15,9 +15,32 @@ interface AgentRoversProps {
   speedMultiplier?: number
   unlockTier?: ProjectMaturityTier
   departmentMaturity?: Record<string, number>
+  lowPower?: boolean
 }
 
 const ROVER_COUNT = 60
+
+const ACTIVE_ROVERS_BY_UNLOCK_TIER: Record<ProjectMaturityTier, number> = {
+  0: 3,
+  1: 4,
+  2: 5,
+  3: ACTIVE_ROVERS_PER_DEPARTMENT,
+  4: ACTIVE_ROVERS_PER_DEPARTMENT,
+}
+
+const DEPARTMENT_SPEED_TUNING = {
+  base: 0.94,
+  maturity: 0.12,
+} as const
+
+const SLEEP_DIM_FACTORS = {
+  shell: 0.82,
+  outfit: 0.84,
+  trim: 0.9,
+  badge: 0.9,
+  accent: 0.88,
+  visor: 0.9,
+} as const
 
 type RoverMode = 'moving' | 'sleeping'
 type HeadStyle = 'none' | 'cap' | 'halo' | 'antenna'
@@ -76,6 +99,41 @@ function hiddenScale(): [number, number, number] {
 function dim(hex: string, factor: number) {
   const color = new THREE.Color(hex).multiplyScalar(factor)
   return `#${color.getHexString()}`
+}
+
+function applyUnlockTierStyleGate(style: RoverStyle, unlockTier: ProjectMaturityTier) {
+  if (unlockTier === 0) {
+    style.badgeScale = hiddenScale()
+    style.accentScale = hiddenScale()
+    style.packScale = hiddenScale()
+    style.scarfScale = hiddenScale()
+    style.capeScale = hiddenScale()
+    style.headScale = hiddenScale()
+    style.headStyle = 'none'
+    return
+  }
+
+  if (unlockTier === 1) {
+    style.accentScale = hiddenScale()
+    style.packScale = hiddenScale()
+    style.scarfScale = hiddenScale()
+    style.capeScale = hiddenScale()
+    style.headScale = hiddenScale()
+    style.headStyle = 'none'
+    return
+  }
+
+  if (unlockTier === 2) {
+    style.capeScale = hiddenScale()
+    style.headScale = hiddenScale()
+    style.headStyle = 'none'
+    return
+  }
+
+  if (unlockTier === 3) {
+    style.capeScale = scale3(style.capeScale[0] * 0.88, style.capeScale[1] * 0.88, style.capeScale[2] * 0.88)
+    style.headScale = scale3(style.headScale[0] * 0.94, style.headScale[1] * 0.94, style.headScale[2] * 0.94)
+  }
 }
 
 const ROVER_GEOMETRIES = {
@@ -251,37 +309,15 @@ function buildRoverStyle(
   }
 
   if (mode === 'sleeping') {
-    style.shellColor = dim(style.shellColor, 0.82)
-    style.outfitColor = dim(style.outfitColor, 0.84)
-    style.trimColor = dim(style.trimColor, 0.9)
-    style.badgeColor = dim(style.badgeColor, 0.9)
-    style.accentColor = dim(style.accentColor, 0.88)
-    style.visorColor = dim(style.visorColor, 0.9)
+    style.shellColor = dim(style.shellColor, SLEEP_DIM_FACTORS.shell)
+    style.outfitColor = dim(style.outfitColor, SLEEP_DIM_FACTORS.outfit)
+    style.trimColor = dim(style.trimColor, SLEEP_DIM_FACTORS.trim)
+    style.badgeColor = dim(style.badgeColor, SLEEP_DIM_FACTORS.badge)
+    style.accentColor = dim(style.accentColor, SLEEP_DIM_FACTORS.accent)
+    style.visorColor = dim(style.visorColor, SLEEP_DIM_FACTORS.visor)
   }
 
-  if (unlockTier === 0) {
-    style.badgeScale = hiddenScale()
-    style.accentScale = hiddenScale()
-    style.packScale = hiddenScale()
-    style.scarfScale = hiddenScale()
-    style.capeScale = hiddenScale()
-    style.headScale = hiddenScale()
-    style.headStyle = 'none'
-  } else if (unlockTier === 1) {
-    style.accentScale = hiddenScale()
-    style.packScale = hiddenScale()
-    style.scarfScale = hiddenScale()
-    style.capeScale = hiddenScale()
-    style.headScale = hiddenScale()
-    style.headStyle = 'none'
-  } else if (unlockTier === 2) {
-    style.capeScale = hiddenScale()
-    style.headScale = hiddenScale()
-    style.headStyle = 'none'
-  } else if (unlockTier === 3) {
-    style.capeScale = scale3(style.capeScale[0] * 0.88, style.capeScale[1] * 0.88, style.capeScale[2] * 0.88)
-    style.headScale = scale3(style.headScale[0] * 0.94, style.headScale[1] * 0.94, style.headScale[2] * 0.94)
-  }
+  applyUnlockTierStyleGate(style, unlockTier)
 
   return style
 }
@@ -391,13 +427,16 @@ export const AgentRovers = memo(function AgentRovers({
   speedMultiplier = 1,
   unlockTier = 0,
   departmentMaturity = {},
+  lowPower = false,
 }: AgentRoversProps) {
   const groupRefs = useRef<Array<THREE.Group | null>>([])
   const progressRef = useRef<number[]>([])
 
   const rovers = useMemo(() => {
     const arr: RoverDescriptor[] = []
-    const deptKeys = Object.keys(positions)
+    const deptKeys = Object.keys(positions).filter(
+      (key) => !SUPPORT_FACILITY_KEYS.includes(key as (typeof SUPPORT_FACILITY_KEYS)[number]),
+    )
     if (deptKeys.length === 0) {
       return arr
     }
@@ -414,10 +453,11 @@ export const AgentRovers = memo(function AgentRovers({
     const scopedRunningKeys = selectedBuilding
       ? runningKeys.filter((key) => key === selectedBuilding)
       : runningKeys
-    const activeRoversPerDepartment = [3, 4, 5, ACTIVE_ROVERS_PER_DEPARTMENT, ACTIVE_ROVERS_PER_DEPARTMENT][unlockTier]
+    const roverLimit = lowPower ? 4 : ROVER_COUNT
+    const activeRoversPerDepartment = lowPower ? 1 : ACTIVE_ROVERS_BY_UNLOCK_TIER[unlockTier]
 
     const movingCount = hasActiveRun
-      ? Math.min(ROVER_COUNT, Math.max(0, scopedRunningKeys.length * activeRoversPerDepartment))
+      ? Math.min(roverLimit, Math.max(0, scopedRunningKeys.length * activeRoversPerDepartment))
       : 0
 
     for (let i = 0; i < movingCount; i++) {
@@ -427,7 +467,8 @@ export const AgentRovers = memo(function AgentRovers({
       const styleSeed = i * 14.7 + hashKey(toKey) * 0.19 + hashKey(fromKey) * 0.07
       const archetype = getDepartmentOrganizationSpec(toKey).visualArchetype
       const style = buildRoverStyle(archetype, 'moving', styleSeed, unlockTier)
-      const departmentSpeedFactor = 0.94 + (departmentMaturity[toKey] ?? 0) * 0.12
+      const departmentSpeedFactor =
+        DEPARTMENT_SPEED_TUNING.base + (departmentMaturity[toKey] ?? 0) * DEPARTMENT_SPEED_TUNING.maturity
 
       arr.push({
         deptKey: toKey,
@@ -437,14 +478,20 @@ export const AgentRovers = memo(function AgentRovers({
         home: buildOffsetPosition(positions[toKey], i * 1.91 + 8.2, i * 6.51 + 0.4, 1.6),
         initialProgress: seeded(i * 5.5),
         renderScale: style.bodyScale,
-        speed: (0.2 + seeded(i * 1.1 + 0.3) * 0.18) * speedMultiplier * departmentSpeedFactor,
+        speed:
+          (0.2 + seeded(i * 1.1 + 0.3) * 0.18) *
+          speedMultiplier *
+          departmentSpeedFactor *
+          (lowPower ? 0.58 : 1),
         moveFirstAxis: seeded(i * 8.1) > 0.5 ? 'x' : 'z',
         sleepPhase: seeded(i * 11.3) * Math.PI * 2,
         style,
       })
     }
 
-    for (let i = movingCount; i < ROVER_COUNT; i++) {
+    const totalRoverCount = lowPower ? movingCount : roverLimit
+
+    for (let i = movingCount; i < totalRoverCount; i++) {
       const homeKey = deptKeys[(i - movingCount) % deptKeys.length]
       const styleSeed = i * 13.1 + hashKey(homeKey) * 0.17
       const archetype = getDepartmentOrganizationSpec(homeKey).visualArchetype
@@ -467,7 +514,7 @@ export const AgentRovers = memo(function AgentRovers({
     }
 
     return arr
-  }, [positions, activeDepts, steps, hasActiveRun, selectedBuilding, speedMultiplier, unlockTier, departmentMaturity])
+  }, [positions, activeDepts, steps, hasActiveRun, selectedBuilding, speedMultiplier, unlockTier, departmentMaturity, lowPower])
 
   useEffect(() => {
     progressRef.current = rovers.map((rover) => rover.initialProgress)

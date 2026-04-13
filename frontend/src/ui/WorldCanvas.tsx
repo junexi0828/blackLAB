@@ -12,7 +12,7 @@ import { AgentRovers } from './AgentRovers'
 import { DataBeams } from './DataBeams'
 import { GroundGrid } from './GroundGrid'
 import { CampusMonument } from './CampusMonument'
-import type { ProjectMaturityModel } from './projectMaturity'
+import { BUILDING_PROFILE_TUNING, type ProjectMaturityModel } from './projectMaturity'
 import { resolveLiveDepartmentKeys } from './roverPersona'
 
 interface WorldCanvasProps {
@@ -28,6 +28,7 @@ interface WorldCanvasProps {
   showMonument?: boolean
   workflowConfig?: CompanyConfig | null
   projectMaturity?: ProjectMaturityModel | null
+  renderMode?: 'normal' | 'low-power'
 }
 
 const DEFAULT_CAMERA_POSITION = new THREE.Vector3(18, 14, 18)
@@ -146,6 +147,7 @@ function areWorldCanvasPropsEqual(left: WorldCanvasProps, right: WorldCanvasProp
     left.selectedBuilding === right.selectedBuilding &&
     left.timeTheme === right.timeTheme &&
     left.showMonument === right.showMonument &&
+    left.renderMode === right.renderMode &&
     left.workflowConfig === right.workflowConfig &&
     left.projectMaturity === right.projectMaturity &&
     left.onDismissBubble === right.onDismissBubble &&
@@ -308,8 +310,10 @@ function WorldCanvasComponent({
   showMonument = true,
   workflowConfig = null,
   projectMaturity = null,
+  renderMode = 'normal',
 }: WorldCanvasProps) {
   const isNight = timeTheme === 'night'
+  const isLowPowerMode = renderMode === 'low-power'
   const [autoRotateEnabled, setAutoRotateEnabled] = useState(() => !selectedBuilding)
   const campusMaps = useMemo(
     () => buildCampusMaps(layout ?? DEFAULT_CAMPUS_LAYOUT),
@@ -346,9 +350,13 @@ function WorldCanvasComponent({
         return [
           key,
           {
-            heightMultiplier: clusterHeightMultiplier * (0.92 + departmentMaturity * 0.14),
+            heightMultiplier:
+              clusterHeightMultiplier *
+              (BUILDING_PROFILE_TUNING.departmentHeightBase + departmentMaturity * BUILDING_PROFILE_TUNING.departmentHeightWeight),
             growthRateMultiplier:
-              (projectMaturity?.buildingGrowthRateMultiplier ?? 0.92) + clusterMaturity * 0.03 + departmentMaturity * 0.03,
+              (projectMaturity?.buildingGrowthRateMultiplier ?? 0.92) +
+              clusterMaturity * BUILDING_PROFILE_TUNING.clusterGrowthRateBoost +
+              departmentMaturity * BUILDING_PROFILE_TUNING.departmentGrowthRateBoost,
             clusterMaturity,
             departmentMaturity,
           },
@@ -455,16 +463,16 @@ function WorldCanvasComponent({
   return (
     <Canvas
       camera={{ position: [18, 14, 18], fov: 45 }}
-      gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
-      dpr={[1, 1.5]}
+      gl={{ antialias: !isLowPowerMode, alpha: false, powerPreference: isLowPowerMode ? 'default' : 'high-performance' }}
+      dpr={isLowPowerMode ? 1 : [1, 1.5]}
       style={{ background: isNight ? '#06111d' : '#f5f7fa' }}
-      shadows
+      shadows={!isLowPowerMode}
     >
       <ambientLight intensity={isNight ? 0.26 : 0.6} color={isNight ? '#d7e3ff' : '#ffffff'} />
       <directionalLight
         position={isNight ? [-12, 22, 9] : [15, 25, -10]}
         intensity={isNight ? 0.72 : 1.2}
-        castShadow
+        castShadow={!isLowPowerMode}
         color={isNight ? '#c6ddff' : '#fff3e0'}
         shadow-mapSize={[1024, 1024]}
       />
@@ -475,8 +483,8 @@ function WorldCanvasComponent({
         turbidity={isNight ? 0.95 : 0.2}
         rayleigh={isNight ? 0.42 : 0.1}
       />
-      <Environment preset="city" />
-      {isNight && <Stars radius={110} depth={45} count={1800} factor={2.8} saturation={0.15} fade speed={0.18} />}
+      {!isLowPowerMode && <Environment preset="city" />}
+      {!isLowPowerMode && isNight && <Stars radius={110} depth={45} count={1800} factor={2.8} saturation={0.15} fade speed={0.18} />}
 
       <group position={isNight ? [-20, 16, -26] : [22, 18, -26]}>
         <mesh>
@@ -492,7 +500,7 @@ function WorldCanvasComponent({
       </group>
 
       {/* Ground plane */}
-      <GroundGrid timeTheme={timeTheme} />
+      <GroundGrid timeTheme={timeTheme} lowPower={isLowPowerMode} />
       {showMonument && <CampusMonument timeTheme={timeTheme} monument={monument} />}
 
       {/* Buildings per department */}
@@ -532,12 +540,13 @@ function WorldCanvasComponent({
             departmentMaturity={growthProfile?.departmentMaturity}
             onClick={() => onSelectBuilding?.(key)}
             timeTheme={timeTheme}
+            lowPower={isLowPowerMode}
           />
         )
       })}
 
       {/* Glowing data connections */}
-      {visualSelectedBuilding === null && (
+      {!isLowPowerMode && visualSelectedBuilding === null && (
         <DataBeams
           steps={steps}
           positions={positions}
@@ -559,6 +568,7 @@ function WorldCanvasComponent({
         speedMultiplier={projectMaturity?.roverSpeedMultiplier}
         unlockTier={projectMaturity?.unlockTier}
         departmentMaturity={projectMaturity?.departmentMaturity}
+        lowPower={isLowPowerMode}
       />
 
       <CameraFocusController

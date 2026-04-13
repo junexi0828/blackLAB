@@ -288,6 +288,26 @@ def test_run_force_stop_api_marks_run_failed(tmp_path: Path, monkeypatch) -> Non
     assert "force stopped" in payload["current_status"].lower()
 
 
+def test_run_storage_preserves_controller_pid_across_subsequent_saves(tmp_path: Path) -> None:
+    runner = FactoryRunner(storage_root=tmp_path)
+    state = runner.storage.create_run(
+        mission="Preserve detached controller pid",
+        company_name="blackLAB",
+        mode="mock",
+        steps=[],
+    )
+    runner.storage.attach_controller_pid(state.run_id, 43210)
+
+    stale_copy = runner.storage.load_state(state.run_id)
+    stale_copy.controller_pid = None
+    stale_copy.status = "running"
+    stale_copy.current_status = "Still running."
+    runner.storage.save_state(stale_copy)
+
+    refreshed = runner.storage.load_state(state.run_id)
+    assert refreshed.controller_pid == 43210
+
+
 def test_loop_force_stop_api_marks_loop_failed(tmp_path: Path, monkeypatch) -> None:
     supervisor = AutopilotSupervisor(storage_root=tmp_path)
     loop_state = supervisor.loop_storage.create_loop(
@@ -311,6 +331,28 @@ def test_loop_force_stop_api_marks_loop_failed(tmp_path: Path, monkeypatch) -> N
     assert payload["loop_id"] == loop_state.loop_id
     assert payload["status"] == "failed"
     assert payload["stop_requested"] is True
+
+
+def test_loop_storage_preserves_controller_pid_across_subsequent_saves(tmp_path: Path) -> None:
+    supervisor = AutopilotSupervisor(storage_root=tmp_path)
+    loop_state = supervisor.loop_storage.create_loop(
+        objective="Preserve loop controller pid",
+        loop_mode="full_auto",
+        run_mode="mock",
+        run_settings=RunSettings(),
+        interval_seconds=0,
+        max_iterations=1,
+    )
+    supervisor.loop_storage.attach_controller_pid(loop_state.loop_id, 54321)
+
+    stale_copy = supervisor.loop_storage.load_state(loop_state.loop_id)
+    stale_copy.controller_pid = None
+    stale_copy.status = "running"
+    stale_copy.latest_note = "Still iterating."
+    supervisor.loop_storage.save_state(stale_copy)
+
+    refreshed = supervisor.loop_storage.load_state(loop_state.loop_id)
+    assert refreshed.controller_pid == 54321
 
 
 def test_runs_page_shows_useful_action_links(tmp_path: Path) -> None:

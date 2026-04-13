@@ -1,9 +1,10 @@
 import json
+import os
 from datetime import timedelta
 from pathlib import Path
 
 from blacklab_factory.factory import FactoryRunner
-from blacklab_factory.models import CompanyConfig, DepartmentConfig, StepRecord, utc_now
+from blacklab_factory.models import CompanyConfig, DepartmentConfig, ProcessRecord, StepRecord, utc_now
 
 
 def test_mock_run_creates_state_and_artifacts(tmp_path: Path) -> None:
@@ -46,6 +47,29 @@ def test_running_state_becomes_stale_when_heartbeat_expires(tmp_path: Path) -> N
     assert refreshed.status == "stale"
     assert refreshed.current_department is None
     assert refreshed.current_process is None
+
+
+def test_running_state_stays_live_when_worker_pid_is_still_alive(tmp_path: Path) -> None:
+    runner = FactoryRunner(storage_root=tmp_path)
+    state = runner.start("Keep live worker detection honest", mode="mock")
+    path = tmp_path / "runs" / state.run_id / "state.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["status"] = "running"
+    payload["current_department"] = "test_lab"
+    payload["updated_at"] = (utc_now() - timedelta(minutes=10)).isoformat()
+    payload["current_processes"] = [
+        ProcessRecord(
+            label="Test Lab",
+            pid=os.getpid(),
+            command_preview="python -m live-worker",
+        ).model_dump(mode="json")
+    ]
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    refreshed = runner.get_run(state.run_id)
+
+    assert refreshed.status == "running"
+    assert refreshed.current_department == "test_lab"
 
 
 def test_full_parallel_run_waits_for_board_review_until_departments_finish(tmp_path: Path) -> None:

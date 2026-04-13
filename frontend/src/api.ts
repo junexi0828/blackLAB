@@ -63,6 +63,17 @@ export async function getProjects(): Promise<ProjectsPayload> {
   return requestJson<ProjectsPayload>('/api/projects')
 }
 
+export async function buildRelease(projectSlug: string) {
+  return requestJson<{ release_id: string; pid: number | null; log_path?: string; status: string; download_path?: string | null }>(
+    `/api/projects/${projectSlug}/releases`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    },
+  )
+}
+
 export async function launchRun(payload: Record<string, unknown>) {
   return requestJson<{ run_id: string; pid: number; log_path: string; status: string }>(
     '/api/launch/run',

@@ -125,6 +125,15 @@
       ],
       "shape": "box",
       "color": "#ffd700"
+    },
+    "release_center": {
+      "position": [
+        6.8,
+        0.0,
+        22.4
+      ],
+      "shape": "box",
+      "color": "#7dd3fc"
     }
   },
   "monument": {

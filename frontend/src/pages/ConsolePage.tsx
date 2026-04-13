@@ -1,17 +1,58 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { forceStopLoop, forceStopRun, getCampusLayout, getFeed, getOperatorProfile, getProjects, getSettings, launchLoop, launchRun, listLoops, listRuns, saveCampusLayout, stopLoop, stopRun } from '../api'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { backendUrl, buildRelease, forceStopLoop, forceStopRun, getCampusLayout, getFeed, getOperatorProfile, getProjects, getSettings, launchLoop, launchRun, listLoops, listRuns, saveCampusLayout, stopLoop, stopRun } from '../api'
 import { useJsonResource } from '../hooks/useJsonResource'
 import { useLiveRefresh } from '../hooks/useLiveRefresh'
 import { useSolarTheme } from '../hooks/useSolarTheme'
-import type { CampusLayout, EventEntry, ProjectLibraryEntry, StepRecord } from '../types'
+import type { CampusLayout, EventEntry, ProjectLibraryEntry, ReleaseSummary, StepRecord } from '../types'
+import { SUPPORT_FACILITY_KEYS } from '../config/organizationModel'
 import { ConsoleHUD } from '../ui/ConsoleHUD'
 import { EventFeedOverlay } from '../ui/EventFeedOverlay'
-import { WorldCanvas } from '../ui/WorldCanvas'
 import { resolveProjectMaturity } from '../ui/projectMaturity'
 import { buildCrewCounts, resolveLiveDepartmentKeys } from '../ui/roverPersona'
 
 const BUBBLE_TTL_MS = 14000
 const EMPTY_STEPS: StepRecord[] = []
+const CONSOLE_RENDER_MODE_STORAGE_KEY = 'blacklab.console.render_mode'
+
+type ConsoleRenderMode = 'normal' | 'low-power'
+type ReleaseStatusTone = 'standby' | 'running' | 'ready' | 'failed' | 'attention'
+
+interface ReleasePanelModel {
+  statusLabel: string
+  statusTone: ReleaseStatusTone
+  headline: string
+  summary: string
+  buildLabel: string
+  canDownload: boolean
+  timestampLabel: string | null
+}
+
+const LazyWorldCanvas = lazy(async () => {
+  const module = await import('../ui/WorldCanvas')
+  return { default: module.WorldCanvas }
+})
+
+function readConsoleRenderMode(): ConsoleRenderMode {
+  if (typeof window === 'undefined') {
+    return 'normal'
+  }
+  try {
+    return window.localStorage.getItem(CONSOLE_RENDER_MODE_STORAGE_KEY) === 'low-power' ? 'low-power' : 'normal'
+  } catch {
+    return 'normal'
+  }
+}
+
+function writeConsoleRenderMode(renderMode: ConsoleRenderMode) {
+  if (typeof window === 'undefined') {
+    return
+  }
+  try {
+    window.localStorage.setItem(CONSOLE_RENDER_MODE_STORAGE_KEY, renderMode)
+  } catch {
+    // ignore localStorage failures
+  }
+}
 
 function prettifyDepartmentKey(value: string): string {
   return value
@@ -28,6 +69,81 @@ function formatEventClock(value: string | null | undefined): string | null {
     return null
   }
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatReleaseTimestamp(value: string | null | undefined): string | null {
+  if (!value) {
+    return null
+  }
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return null
+  }
+  return `Updated ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+}
+
+function resolveReleasePanelModel(
+  projectName: string | null,
+  latestRelease: ReleaseSummary | null,
+  activeRelease: ReleaseSummary | null,
+): ReleasePanelModel {
+  if (activeRelease) {
+    return {
+      statusLabel: activeRelease.status_label,
+      statusTone: 'running',
+      headline: `Packaging ${projectName ?? 'project'}`,
+      summary: activeRelease.current_status || activeRelease.summary || 'Release Center is preparing the delivery bundle.',
+      buildLabel: 'Packaging…',
+      canDownload: false,
+      timestampLabel: formatReleaseTimestamp(activeRelease.updated_at),
+    }
+  }
+
+  if (!latestRelease) {
+    return {
+      statusLabel: 'Standby',
+      statusTone: 'standby',
+      headline: 'No delivery bundle yet',
+      summary: 'Package this project when you want a downloadable release.',
+      buildLabel: 'Build Release',
+      canDownload: false,
+      timestampLabel: null,
+    }
+  }
+
+  if (latestRelease.status === 'completed') {
+    return {
+      statusLabel: latestRelease.status_label,
+      statusTone: 'ready',
+      headline: latestRelease.download_filename || latestRelease.release_id,
+      summary: latestRelease.current_status || latestRelease.summary || 'Release bundle is ready for download.',
+      buildLabel: latestRelease.action_label,
+      canDownload: Boolean(latestRelease.download_url),
+      timestampLabel: formatReleaseTimestamp(latestRelease.updated_at),
+    }
+  }
+
+  if (latestRelease.status === 'failed') {
+    return {
+      statusLabel: latestRelease.status_label,
+      statusTone: 'failed',
+      headline: latestRelease.release_id,
+      summary: latestRelease.current_status || latestRelease.summary || 'Release packaging failed. Start a fresh build when ready.',
+      buildLabel: latestRelease.action_label,
+      canDownload: false,
+      timestampLabel: formatReleaseTimestamp(latestRelease.updated_at),
+    }
+  }
+
+  return {
+    statusLabel: latestRelease.status_label,
+    statusTone: 'attention',
+    headline: latestRelease.release_id,
+    summary: latestRelease.current_status || latestRelease.summary || 'Release Center needs operator attention before download.',
+    buildLabel: latestRelease.action_label,
+    canDownload: false,
+    timestampLabel: formatReleaseTimestamp(latestRelease.updated_at),
+  }
 }
 
 function buildRunMission(project: ProjectLibraryEntry) {
@@ -68,7 +184,8 @@ export function ConsolePage() {
   const [dismissedBubbleIds, setDismissedBubbleIds] = useState<string[]>([])
   const [feedCollapsed, setFeedCollapsed] = useState(false)
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null)
-  const [utilityDockTab, setUtilityDockTab] = useState<'runtime' | 'layout' | null>(null)
+  const [utilityDockTab, setUtilityDockTab] = useState<'runtime' | 'release' | 'layout' | 'power' | null>(null)
+  const [renderMode, setRenderMode] = useState<ConsoleRenderMode>(() => readConsoleRenderMode())
   const [editTarget, setEditTarget] = useState<string | 'monument' | null>(null)
   const [layoutDraft, setLayoutDraft] = useState<CampusLayout | null>(null)
   const [layoutNotice, setLayoutNotice] = useState<string | null>(null)
@@ -76,13 +193,20 @@ export function ConsolePage() {
   const [layoutStep, setLayoutStep] = useState(0.5)
   const [selectedProjectSlug, setSelectedProjectSlug] = useState('')
   const [runtimeBusy, setRuntimeBusy] = useState(false)
+  const [releaseBusy, setReleaseBusy] = useState(false)
   const [runtimeNotice, setRuntimeNotice] = useState<string | null>(null)
+  const [releaseNotice, setReleaseNotice] = useState<string | null>(null)
+  const releaseNotificationRef = useRef<Record<string, string>>({})
 
   useEffect(() => {
     if (layoutResource.data) {
       setLayoutDraft(layoutResource.data)
     }
   }, [layoutResource.data])
+
+  useEffect(() => {
+    writeConsoleRenderMode(renderMode)
+  }, [renderMode])
 
   const runs = useMemo(() => runsResource.data ?? [], [runsResource.data])
   const loops = useMemo(() => loopsResource.data ?? [], [loopsResource.data])
@@ -109,6 +233,8 @@ export function ConsolePage() {
         brief: '',
         run_count: 0,
         last_run_id: currentProject.entity_id,
+        latest_release: null,
+        active_release: null,
       },
       ...items,
     ]
@@ -117,31 +243,43 @@ export function ConsolePage() {
     () => projectLibrary.find((project) => project.slug === selectedProjectSlug) ?? null,
     [projectLibrary, selectedProjectSlug],
   )
+  const runtimeProjectSlug = selectedProject?.slug ?? currentProject?.slug ?? null
+  const latestRelease = selectedProject?.latest_release ?? null
+  const activeRelease = selectedProject?.active_release ?? null
+  const scopedRuns = useMemo(
+    () => (runtimeProjectSlug ? runs.filter((run) => run.project_slug === runtimeProjectSlug) : runs),
+    [runs, runtimeProjectSlug],
+  )
+  const scopedLoops = useMemo(
+    () => (runtimeProjectSlug ? loops.filter((loop) => loop.project_slug === runtimeProjectSlug) : loops),
+    [loops, runtimeProjectSlug],
+  )
   const activeRuns = useMemo(
-    () => runs.filter((run) => run.status === 'running'),
-    [runs],
+    () => scopedRuns.filter((run) => run.status === 'running' || run.status === 'stopping'),
+    [scopedRuns],
   )
 
   const activeLoop =
-    loops.find((l) => l.status === 'running' || l.status === 'stopping') ??
-    loops[0] ??
+    scopedLoops.find((loop) => loop.status === 'running' || loop.status === 'stopping') ??
+    scopedLoops[0] ??
     null
   const liveLoop = useMemo(
-    () => loops.find((loop) => loop.status === 'running' || loop.status === 'stopping') ?? null,
-    [loops],
+    () => scopedLoops.find((loop) => loop.status === 'running' || loop.status === 'stopping') ?? null,
+    [scopedLoops],
   )
   const activeRun = activeRuns[0] ?? null
   const activeRunSteps = activeRun?.steps ?? EMPTY_STEPS
-  const latestRun = runs[0] ?? null
+  const latestRun = scopedRuns[0] ?? null
   const activeRunCount = activeRuns.length
   const systemMode: 'live' | 'stopping' | 'idle' =
-    activeLoop?.status === 'stopping'
+    activeLoop?.status === 'stopping' || activeRun?.status === 'stopping'
       ? 'stopping'
       : activeLoop?.status === 'running' || activeRunCount > 0
         ? 'live'
         : 'idle'
-  const refreshIntervalMs = systemMode === 'idle' ? 12000 : 4000
-  const hiddenRefreshIntervalMs = systemMode === 'idle' ? 30000 : 12000
+  const isLowPowerMode = renderMode === 'low-power'
+  const refreshIntervalMs = systemMode === 'idle' ? (isLowPowerMode ? 18000 : 12000) : (isLowPowerMode ? 8000 : 4000)
+  const hiddenRefreshIntervalMs = systemMode === 'idle' ? (isLowPowerMode ? 60000 : 30000) : (isLowPowerMode ? 30000 : 12000)
   const liveDepartmentKeys = useMemo(
     () => resolveLiveDepartmentKeys(activeRunSteps, activeRun?.current_department ?? null),
     [activeRun?.current_department, activeRunSteps],
@@ -209,7 +347,7 @@ export function ConsolePage() {
     }
     const buildings = Object.fromEntries(
       Object.entries(layoutDraft.buildings).filter(([key]) => {
-        return activeDepartmentKeys.has(key) && !hiddenCampusItems.has(key)
+        return (activeDepartmentKeys.has(key) || SUPPORT_FACILITY_KEYS.includes(key as (typeof SUPPORT_FACILITY_KEYS)[number])) && !hiddenCampusItems.has(key)
       }),
     )
     return {
@@ -259,7 +397,19 @@ export function ConsolePage() {
     liveLoop ? 'Loop Live' : activeRun ? 'Run Live' : currentProject?.source ?? 'Ready'
   const runtimeBookmarkMeta =
     liveLoop ? 'Loop active' : activeRun ? 'Run active' : selectedProject?.name ?? currentProject?.name ?? 'Ready'
+  const releaseBookmarkMeta = activeRelease
+    ? `Packaging ${selectedProject?.name ?? currentProject?.name ?? 'project'}`
+    : latestRelease?.status === 'completed'
+      ? `Ready · ${latestRelease.download_filename ?? latestRelease.release_id}`
+      : latestRelease?.status === 'failed'
+        ? `Failed · ${latestRelease.release_id}`
+        : 'Package delivery bundle'
   const layoutBookmarkMeta = editMode ? describeLayoutTarget(editTarget) : layoutNotice ?? 'Adjust campus'
+  const powerBookmarkMeta = isLowPowerMode ? 'UI low power active' : 'UI normal rendering'
+  const releasePanel = useMemo(
+    () => resolveReleasePanelModel(selectedProject?.name ?? currentProject?.name ?? null, latestRelease, activeRelease),
+    [activeRelease, currentProject?.name, latestRelease, selectedProject?.name],
+  )
 
   const refreshConsoleRuntime = useCallback(async () => {
     await Promise.all([
@@ -299,6 +449,23 @@ export function ConsolePage() {
     selectedProjectSlug,
   ])
 
+  useEffect(() => {
+    if (!selectedProject) {
+      return
+    }
+    const previousState = releaseNotificationRef.current[selectedProject.slug]
+    const nextState = activeRelease?.status ?? latestRelease?.status ?? 'idle'
+    releaseNotificationRef.current[selectedProject.slug] = nextState
+
+    if (previousState === 'running' && !activeRelease && latestRelease?.status === 'completed') {
+      const message = `Release ${latestRelease.release_id} is ready for ${selectedProject.name}.`
+      setReleaseNotice(message)
+      if (typeof window !== 'undefined' && 'Notification' in window && document.hidden && Notification.permission === 'granted') {
+        new Notification('Release Center ready', { body: message })
+      }
+    }
+  }, [activeRelease, latestRelease, selectedProject])
+
   const dismissBubble = useCallback((eventId: string) => {
     setDismissedBubbleIds((current) => (current.includes(eventId) ? current : [...current, eventId]))
   }, [])
@@ -326,7 +493,7 @@ export function ConsolePage() {
     setFeedCollapsed(false)
   }, [])
 
-  function setUtilityDock(nextTab: 'runtime' | 'layout' | null) {
+  function setUtilityDock(nextTab: 'runtime' | 'release' | 'layout' | 'power' | null) {
     setUtilityDockTab(nextTab)
     if (nextTab === 'layout') {
       setSelectedBuilding(null)
@@ -336,7 +503,7 @@ export function ConsolePage() {
     setEditTarget(null)
   }
 
-  function toggleUtilityDock(tab: 'runtime' | 'layout') {
+  function toggleUtilityDock(tab: 'runtime' | 'release' | 'layout' | 'power') {
     setUtilityDock(utilityDockTab === tab ? null : tab)
   }
 
@@ -414,6 +581,39 @@ export function ConsolePage() {
     } finally {
       setRuntimeBusy(false)
     }
+  }
+
+  async function handleBuildRelease() {
+    if (!selectedProject) {
+      setReleaseNotice('Choose a saved project first.')
+      return
+    }
+    if (activeRelease) {
+      setReleaseNotice(`Release ${activeRelease.release_id} is already packaging.`)
+      return
+    }
+    setReleaseBusy(true)
+    setReleaseNotice(`Release Center is packaging ${selectedProject.name}...`)
+    try {
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+        void Notification.requestPermission().catch(() => {})
+      }
+      const result = await buildRelease(selectedProject.slug)
+      setReleaseNotice(`Release ${result.release_id} started for ${selectedProject.name}.`)
+      await refreshConsoleRuntime()
+    } catch (error) {
+      setReleaseNotice(error instanceof Error ? error.message : 'Release packaging failed to start.')
+    } finally {
+      setReleaseBusy(false)
+    }
+  }
+
+  function handleDownloadLatest() {
+    if (!latestRelease?.download_url) {
+      setReleaseNotice('No completed release is ready to download yet.')
+      return
+    }
+    window.location.href = backendUrl(latestRelease.download_url)
   }
 
   async function handleStopRuntime() {
@@ -589,6 +789,16 @@ export function ConsolePage() {
             </button>
             <button
               type="button"
+              className={`console-utility-dock__tool ${utilityDockTab === 'release' ? 'is-active' : ''}`}
+              onClick={() => toggleUtilityDock('release')}
+              aria-pressed={utilityDockTab === 'release'}
+              aria-label="Open release center"
+              title={releaseBookmarkMeta}
+            >
+              <span className="console-utility-dock__glyph console-utility-dock__glyph--release" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
               className={`console-utility-dock__tool ${utilityDockTab === 'layout' ? 'is-active' : ''}`}
               onClick={() => toggleUtilityDock('layout')}
               aria-pressed={utilityDockTab === 'layout'}
@@ -596,6 +806,16 @@ export function ConsolePage() {
               title={layoutBookmarkMeta}
             >
               <span className="console-utility-dock__glyph console-utility-dock__glyph--layout" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className={`console-utility-dock__tool ${utilityDockTab === 'power' ? 'is-active' : ''}`}
+              onClick={() => toggleUtilityDock('power')}
+              aria-pressed={utilityDockTab === 'power'}
+              aria-label="Open UI power controls"
+              title={powerBookmarkMeta}
+            >
+              <span className="console-utility-dock__glyph console-utility-dock__glyph--power" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -697,6 +917,97 @@ export function ConsolePage() {
                 {runtimeNotice && <p className="console-project-dock__notice">{runtimeNotice}</p>}
               </div>
             )}
+          </aside>
+        )}
+        {utilityDockTab === 'release' && (
+          <aside className="console-utility-dock__panel">
+            <div className="console-utility-dock__panel-header">
+              <div>
+                <span className="hud-small-tag">RELEASE CENTER</span>
+                <strong className="console-utility-dock__title">
+                  {selectedProject?.name ?? currentProject?.name ?? 'No saved project selected'}
+                </strong>
+              </div>
+              <div className="console-utility-dock__panel-actions">
+                <span className={`console-utility-dock__status console-utility-dock__status--${releasePanel.statusTone}`}>
+                  {releasePanel.statusLabel}
+                </span>
+                <button
+                  type="button"
+                  className="console-utility-dock__close"
+                  onClick={() => setUtilityDock(null)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="console-utility-dock__body">
+              {selectedProject ? (
+                <>
+                  <label className="console-project-dock__field">
+                    <span>Saved Project</span>
+                    <select
+                      value={selectedProjectSlug}
+                      onChange={(event) => setSelectedProjectSlug(event.target.value)}
+                      disabled={releaseBusy}
+                    >
+                      {projectLibrary.map((project) => (
+                        <option key={project.slug} value={project.slug}>
+                          {project.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="console-project-dock__brief">
+                    Build a clean downloadable delivery bundle only when the operator asks for it. Normal run and loop flows stay unchanged.
+                  </p>
+                  <div className="console-project-dock__meta">
+                    <span>{selectedProject.name}</span>
+                    <span>{activeRelease ? activeRelease.release_id : latestRelease?.release_id ?? 'No release yet'}</span>
+                    {releasePanel.timestampLabel && <span>{releasePanel.timestampLabel}</span>}
+                  </div>
+                  {(activeRelease || latestRelease) && (
+                    <div className="console-release-dock__card">
+                      <div className="console-release-dock__row">
+                        <span className="console-release-dock__label">Status</span>
+                        <strong>{releasePanel.statusLabel}</strong>
+                      </div>
+                      <strong className="console-release-dock__headline">{releasePanel.headline}</strong>
+                      <p className="console-release-dock__summary">{releasePanel.summary}</p>
+                      {latestRelease?.download_filename && (
+                        <p className="console-release-dock__filename">{latestRelease.download_filename}</p>
+                      )}
+                    </div>
+                  )}
+                  <div className="console-project-dock__actions">
+                    <button
+                      type="button"
+                      className="console-project-dock__button console-project-dock__button--accent"
+                      onClick={() => void handleBuildRelease()}
+                      disabled={releaseBusy || Boolean(activeRelease)}
+                    >
+                      {releaseBusy || activeRelease ? 'Packaging…' : releasePanel.buildLabel}
+                    </button>
+                    <button
+                      type="button"
+                      className="console-project-dock__button"
+                      onClick={handleDownloadLatest}
+                      disabled={!releasePanel.canDownload || Boolean(activeRelease) || releaseBusy}
+                    >
+                      Download
+                    </button>
+                  </div>
+                  {releaseNotice && <p className="console-project-dock__notice">{releaseNotice}</p>}
+                </>
+              ) : (
+                <>
+                  <p className="console-project-dock__brief console-project-dock__brief--muted">
+                    Choose a saved project first. Release Center only packages an existing project workspace into a delivery bundle.
+                  </p>
+                  {releaseNotice && <p className="console-project-dock__notice">{releaseNotice}</p>}
+                </>
+              )}
+            </div>
           </aside>
         )}
         {utilityDockTab === 'layout' && (
@@ -840,21 +1151,81 @@ export function ConsolePage() {
             )}
           </aside>
         )}
+        {utilityDockTab === 'power' && (
+          <aside className="console-utility-dock__panel">
+            <div className="console-utility-dock__panel-header">
+              <div>
+                <span className="hud-small-tag">UI POWER</span>
+                <strong className="console-utility-dock__title">24/7 Console Render</strong>
+              </div>
+              <div className="console-utility-dock__panel-actions">
+                <span className="console-utility-dock__status">{isLowPowerMode ? 'Low Power' : 'Normal'}</span>
+                <button
+                  type="button"
+                  className="console-utility-dock__close"
+                  onClick={() => setUtilityDock(null)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="console-utility-dock__body">
+              <div className="console-power-dock__card">
+                <p className="console-power-dock__summary">
+                  This switch only changes the local console UI. Background AI runtime and product generation stay unchanged.
+                </p>
+                <div className="console-power-dock__actions">
+                  <button
+                    type="button"
+                    className={`console-project-dock__button console-power-dock__button ${renderMode === 'normal' ? 'is-selected' : ''}`}
+                    onClick={() => setRenderMode('normal')}
+                    aria-pressed={renderMode === 'normal'}
+                  >
+                    Normal UI
+                  </button>
+                  <button
+                    type="button"
+                    className={`console-project-dock__button console-project-dock__button--accent console-power-dock__button ${renderMode === 'low-power' ? 'is-selected' : ''}`}
+                    onClick={() => setRenderMode('low-power')}
+                    aria-pressed={renderMode === 'low-power'}
+                  >
+                    Low Power UI
+                  </button>
+                </div>
+              </div>
+              <p className="console-power-dock__hint">
+                Low power reduces canvas quality, animation load, rover count, data beams, and refresh cadence for long-running operator screens.
+              </p>
+            </div>
+          </aside>
+        )}
       </div>
-      <WorldCanvas
-        steps={activeRunSteps}
-        currentDepartment={activeRun?.current_department ?? null}
-        hasActiveRun={Boolean(activeRun)}
-        bubbleEvents={bubbleEvents}
-        onDismissBubble={dismissBubble}
-        selectedBuilding={canvasSelectedBuilding}
-        onSelectBuilding={handleSelectBuilding}
-        timeTheme={timeTheme}
-        layout={visibleLayout}
-        showMonument={!hiddenCampusItems.has('monument')}
-        workflowConfig={settingsResource.data ?? null}
-        projectMaturity={projectMaturity}
-      />
+      <Suspense
+        fallback={(
+          <div className="console-world__loading" role="status" aria-live="polite">
+            <div className="console-world__loading-copy">
+              <span className="console-world__loading-title">Preparing 3D campus</span>
+              <p>{selectedProject?.name ?? currentProject?.name ?? 'Current project'}</p>
+            </div>
+          </div>
+        )}
+      >
+        <LazyWorldCanvas
+          steps={activeRunSteps}
+          currentDepartment={activeRun?.current_department ?? null}
+          hasActiveRun={Boolean(activeRun)}
+          bubbleEvents={bubbleEvents}
+          onDismissBubble={dismissBubble}
+          selectedBuilding={canvasSelectedBuilding}
+          onSelectBuilding={handleSelectBuilding}
+          timeTheme={timeTheme}
+          layout={visibleLayout}
+          showMonument={!hiddenCampusItems.has('monument')}
+          workflowConfig={settingsResource.data ?? null}
+          projectMaturity={projectMaturity}
+          renderMode={renderMode}
+        />
+      </Suspense>
       <ConsoleHUD
         mission={activeRun?.mission ?? activeLoop?.objective ?? latestRun?.mission ?? null}
         iteration={activeLoop?.current_iteration ?? null}
@@ -868,6 +1239,7 @@ export function ConsolePage() {
         systemMode={systemMode}
         maturityTierLabel={projectMaturity.tierLabel}
         maturityPercent={projectMaturity.maturityPercent}
+        lowPower={isLowPowerMode}
       />
       <EventFeedOverlay
         events={visibleFeedEvents}

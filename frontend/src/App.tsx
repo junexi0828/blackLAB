@@ -1,12 +1,31 @@
+import { Suspense, lazy } from 'react'
 import { Route, Routes } from 'react-router-dom'
-import { ConsolePage } from './pages/ConsolePage'
+
+const LazyConsolePage = lazy(async () => {
+  const module = await import('./pages/ConsolePage')
+  return { default: module.ConsolePage }
+})
 
 function App() {
   return (
-    <Routes>
-      {/* The entire React app (mounted at /console) is the Metaverse world */}
-      <Route path="*" element={<ConsolePage />} />
-    </Routes>
+    <Suspense
+      fallback={
+        <div className="console-app-loading">
+          <div className="console-app-loading__card">
+            <div className="console-app-loading__ring" />
+            <div className="console-app-loading__copy">
+              <strong>blackLAB</strong>
+              <p>Loading console shell</p>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <Routes>
+        {/* The entire React app (mounted at /console) is the Metaverse world */}
+        <Route path="*" element={<LazyConsolePage />} />
+      </Routes>
+    </Suspense>
   )
 }
 

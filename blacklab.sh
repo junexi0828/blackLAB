@@ -11,6 +11,7 @@ PID_FILE="${RUNTIME_DIR}/dashboard-${PORT}.pid"
 LOG_FILE="${RUNTIME_DIR}/dashboard-${PORT}.log"
 UVICORN_BIN="${PROJECT_ROOT}/.venv/bin/uvicorn"
 AUTO_OPEN="${BLACKLAB_AUTO_OPEN:-1}"
+ACCESS_LOG="${BLACKLAB_ACCESS_LOG:-0}"
 
 mkdir -p "${RUNTIME_DIR}"
 
@@ -32,6 +33,7 @@ Environment overrides:
   BLACKLAB_HOST   Default: 127.0.0.1
   BLACKLAB_PORT   Default: 8000
   BLACKLAB_AUTO_OPEN  Default: 1 (open the browser when ready)
+  BLACKLAB_ACCESS_LOG Default: 0 (set to 1 to enable uvicorn request logs)
 EOF
 }
 
@@ -52,6 +54,14 @@ pid_from_file() {
   fi
 }
 
+tracked_blacklab_pid() {
+  local pid
+  pid="$(pid_from_file)"
+  if [[ -n "${pid}" ]] && kill -0 "${pid}" >/dev/null 2>&1; then
+    echo "${pid}"
+  fi
+}
+
 cleanup_stale_pid_file() {
   local tracked_pid
   tracked_pid="$(pid_from_file)"
@@ -69,6 +79,17 @@ open_browser_if_enabled() {
   if [[ "${AUTO_OPEN}" == "1" ]] && command -v open >/dev/null 2>&1; then
     open "${URL}" >/dev/null 2>&1 || true
   fi
+}
+
+access_log_enabled() {
+  case "${ACCESS_LOG:l}" in
+    1|true|yes|on)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
 }
 
 announce_ready() {
@@ -122,7 +143,14 @@ wait_until_ready() {
 start_foreground_server() {
   require_runtime
 
-  local existing_pid
+  local existing_pid tracked_pid
+  tracked_pid="$(tracked_blacklab_pid)"
+  if [[ -n "${tracked_pid}" ]]; then
+    echo "blackLAB is already listening on ${URL} (pid=${tracked_pid})."
+    print_clickable_url
+    open_browser_if_enabled
+    return 0
+  fi
   existing_pid="$(listening_pid)"
   if [[ -n "${existing_pid}" ]]; then
     echo "blackLAB is already listening on ${URL} (pid=${existing_pid})."
@@ -133,14 +161,26 @@ start_foreground_server() {
 
   cd "${PROJECT_ROOT}"
   announce_ready_when_available
-  exec "${UVICORN_BIN}" blacklab_factory.web:create_app --factory --host "${HOST}" --port "${PORT}"
+  local -a uvicorn_args=(blacklab_factory.web:create_app --factory --host "${HOST}" --port "${PORT}")
+  if ! access_log_enabled; then
+    uvicorn_args+=(--no-access-log)
+  fi
+  exec "${UVICORN_BIN}" "${uvicorn_args[@]}"
 }
 
 start_background_server() {
   require_runtime
   cleanup_stale_pid_file
 
-  local existing_pid
+  local existing_pid tracked_pid
+  tracked_pid="$(tracked_blacklab_pid)"
+  if [[ -n "${tracked_pid}" ]]; then
+    echo "blackLAB is already listening on ${URL} (pid=${tracked_pid})."
+    echo "log=${LOG_FILE}"
+    print_clickable_url
+    open_browser_if_enabled
+    return 0
+  fi
   existing_pid="$(listening_pid)"
   if [[ -n "${existing_pid}" ]]; then
     echo "blackLAB is already listening on ${URL} (pid=${existing_pid})."
@@ -151,7 +191,11 @@ start_background_server() {
   fi
 
   cd "${PROJECT_ROOT}"
-  nohup "${UVICORN_BIN}" blacklab_factory.web:create_app --factory --host "${HOST}" --port "${PORT}" < /dev/null >> "${LOG_FILE}" 2>&1 &
+  local -a uvicorn_args=(blacklab_factory.web:create_app --factory --host "${HOST}" --port "${PORT}")
+  if ! access_log_enabled; then
+    uvicorn_args+=(--no-access-log)
+  fi
+  nohup "${UVICORN_BIN}" "${uvicorn_args[@]}" < /dev/null >> "${LOG_FILE}" 2>&1 &
   local pid=$!
   disown "${pid}" 2>/dev/null || true
   echo "${pid}" > "${PID_FILE}"
@@ -159,7 +203,7 @@ start_background_server() {
 }
 
 stop_server() {
-  local pid
+  local pid existing_pid
   pid="$(pid_from_file)"
 
   if [[ -n "${pid}" ]] && kill -0 "${pid}" >/dev/null 2>&1; then
@@ -176,11 +220,18 @@ stop_server() {
     exit 1
   fi
 
-  local existing_pid
   existing_pid="$(listening_pid)"
   if [[ -n "${existing_pid}" ]]; then
-    echo "Port ${PORT} is still in use by pid=${existing_pid}, but it is not tracked by ${PID_FILE}."
-    echo "Stop it manually if this is an old server instance."
+    kill "${existing_pid}" >/dev/null 2>&1 || true
+    for _ in {1..25}; do
+      if ! kill -0 "${existing_pid}" >/dev/null 2>&1; then
+        rm -f "${PID_FILE}"
+        echo "blackLAB stopped."
+        return 0
+      fi
+      sleep 0.2
+    done
+    echo "Timed out while waiting for untracked pid=${existing_pid} to stop."
     exit 1
   fi
 
@@ -191,6 +242,17 @@ stop_server() {
 show_status() {
   local existing_pid tracked_pid
   cleanup_stale_pid_file
+  tracked_pid="$(tracked_blacklab_pid)"
+  if [[ -n "${tracked_pid}" ]]; then
+    echo "url=${URL}"
+    echo "log=${LOG_FILE}"
+    echo "status=running"
+    echo "listening_pid=${tracked_pid}"
+    echo "tracked_pid=${tracked_pid}"
+    echo "tracking=tracked"
+    return 0
+  fi
+
   existing_pid="$(listening_pid)"
   tracked_pid="$(pid_from_file)"
 
@@ -200,6 +262,11 @@ show_status() {
   if [[ -n "${existing_pid}" ]]; then
     echo "status=running"
     echo "listening_pid=${existing_pid}"
+    if [[ -n "${tracked_pid}" ]] && [[ "${tracked_pid}" == "${existing_pid}" ]]; then
+      echo "tracking=tracked"
+    else
+      echo "tracking=untracked"
+    fi
   else
     echo "status=stopped"
   fi

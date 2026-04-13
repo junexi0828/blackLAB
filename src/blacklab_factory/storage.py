@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
+import os
 import re
+import tempfile
 from datetime import timedelta
 from pathlib import Path
 
@@ -15,6 +18,8 @@ from blacklab_factory.models import (
     OperatorChatState,
     OperatorProfile,
     ProjectRecord,
+    ProcessRecord,
+    ReleaseState,
     RunSettings,
     RunState,
     StepRecord,
@@ -26,6 +31,52 @@ def slugify(value: str) -> str:
     lowered = value.lower().strip()
     lowered = re.sub(r"[^a-z0-9]+", "-", lowered)
     return lowered.strip("-") or "artifact"
+
+
+def _pid_is_alive(pid: int | None) -> bool:
+    if pid is None or pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _has_live_runtime_pid(controller_pid: int | None, process_records: list[ProcessRecord]) -> bool:
+    if _pid_is_alive(controller_pid):
+        return True
+    return any(
+        process.status == "running" and _pid_is_alive(process.pid)
+        for process in process_records
+    )
+
+
+def _existing_controller_pid(path: Path) -> int | None:
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    pid = payload.get("controller_pid")
+    return pid if isinstance(pid, int) and pid > 0 else None
+
+
+def _atomic_write(path: Path, content: str) -> None:
+    with tempfile.NamedTemporaryFile(
+        "w",
+        encoding="utf-8",
+        dir=path.parent,
+        prefix=f"{path.name}.",
+        suffix=".tmp",
+        delete=False,
+    ) as handle:
+        handle.write(content)
+        tmp_path = Path(handle.name)
+    tmp_path.replace(path)
 
 
 class RunStorage:
@@ -96,11 +147,10 @@ class RunStorage:
         return self.run_dir(run_id) / "directives.json"
 
     def save_state(self, state: RunState) -> None:
+        if state.controller_pid is None:
+            state.controller_pid = _existing_controller_pid(self.state_path(state.run_id))
         state.updated_at = utc_now()
-        self.state_path(state.run_id).write_text(
-            state.model_dump_json(indent=2),
-            encoding="utf-8",
-        )
+        _atomic_write(self.state_path(state.run_id), state.model_dump_json(indent=2))
 
     def load_state(self, run_id: str) -> RunState:
         payload = self.state_path(run_id).read_text(encoding="utf-8")
@@ -219,6 +269,8 @@ class RunStorage:
     def _mark_stale_if_needed(self, state: RunState) -> RunState:
         if state.status not in {"running", "stopping"}:
             return state
+        if _has_live_runtime_pid(state.controller_pid, state.current_processes):
+            return state
         if utc_now() - state.updated_at <= self.stale_after:
             return state
         state.status = "stale"
@@ -249,7 +301,7 @@ class RunStorage:
         return OperatorDirectiveInbox.model_validate_json(path.read_text(encoding="utf-8"))
 
     def _save_inbox(self, path: Path, inbox: OperatorDirectiveInbox) -> None:
-        path.write_text(inbox.model_dump_json(indent=2), encoding="utf-8")
+        _atomic_write(path, inbox.model_dump_json(indent=2))
 
     def _directive_id(self, prefix: str) -> str:
         return f"{prefix}-{utc_now().strftime('%Y%m%dT%H%M%S%fZ')}"
@@ -299,11 +351,10 @@ class LoopStorage:
         return self.loop_dir(loop_id) / "directives.json"
 
     def save_state(self, state: LoopState) -> None:
+        if state.controller_pid is None:
+            state.controller_pid = _existing_controller_pid(self.state_path(state.loop_id))
         state.updated_at = utc_now()
-        self.state_path(state.loop_id).write_text(
-            state.model_dump_json(indent=2),
-            encoding="utf-8",
-        )
+        _atomic_write(self.state_path(state.loop_id), state.model_dump_json(indent=2))
 
     def load_state(self, loop_id: str) -> LoopState:
         state = LoopState.model_validate_json(self.state_path(loop_id).read_text(encoding="utf-8"))
@@ -396,6 +447,9 @@ class LoopStorage:
         if state.status not in {"running", "stopping"}:
             return state
 
+        if _pid_is_alive(state.controller_pid):
+            return state
+
         grace = max(self.stale_after, timedelta(seconds=max(180, state.interval_seconds + 90)))
         if utc_now() - state.updated_at <= grace:
             return state
@@ -407,7 +461,7 @@ class LoopStorage:
             except FileNotFoundError:
                 active_run = None
 
-        if active_run is not None and active_run.status == "running":
+        if active_run is not None and active_run.status in {"running", "stopping"}:
             return state
 
         if state.stop_requested:
@@ -439,7 +493,7 @@ class LoopStorage:
         return OperatorDirectiveInbox.model_validate_json(path.read_text(encoding="utf-8"))
 
     def _save_inbox(self, path: Path, inbox: OperatorDirectiveInbox) -> None:
-        path.write_text(inbox.model_dump_json(indent=2), encoding="utf-8")
+        _atomic_write(path, inbox.model_dump_json(indent=2))
 
     def _directive_id(self, prefix: str) -> str:
         return f"{prefix}-{utc_now().strftime('%Y%m%dT%H%M%S%fZ')}"
@@ -463,15 +517,22 @@ class OperatorStorage:
             profile = OperatorProfile()
             self.save_profile(profile)
             return profile
-        profile = OperatorProfile.model_validate_json(path.read_text(encoding="utf-8"))
+        payload = path.read_text(encoding="utf-8").strip()
+        if not payload:
+            profile = OperatorProfile()
+            self.save_profile(profile)
+            return profile
+        try:
+            profile = OperatorProfile.model_validate_json(payload)
+        except ValidationError:
+            profile = OperatorProfile()
+            self.save_profile(profile)
+            return profile
         self.save_profile(profile)
         return profile
 
     def save_profile(self, profile: OperatorProfile) -> OperatorProfile:
-        self.profile_path().write_text(
-            profile.model_dump_json(indent=2),
-            encoding="utf-8",
-        )
+        _atomic_write(self.profile_path(), profile.model_dump_json(indent=2))
         return profile
 
     def load_chat(self) -> OperatorChatState:
@@ -480,13 +541,20 @@ class OperatorStorage:
             state = OperatorChatState()
             self.save_chat(state)
             return state
-        return OperatorChatState.model_validate_json(path.read_text(encoding="utf-8"))
+        payload = path.read_text(encoding="utf-8").strip()
+        if not payload:
+            state = OperatorChatState()
+            self.save_chat(state)
+            return state
+        try:
+            return OperatorChatState.model_validate_json(payload)
+        except ValidationError:
+            state = OperatorChatState()
+            self.save_chat(state)
+            return state
 
     def save_chat(self, chat_state: OperatorChatState) -> OperatorChatState:
-        self.chat_path().write_text(
-            chat_state.model_dump_json(indent=2),
-            encoding="utf-8",
-        )
+        _atomic_write(self.chat_path(), chat_state.model_dump_json(indent=2))
         return chat_state
 
     def append_chat_message(self, role: str, content: str, limit: int = 80) -> OperatorChatState:
@@ -733,3 +801,155 @@ class ProjectStorage:
         if not parts:
             return ""
         return "\n\n".join(parts) + "\n\n"
+
+
+class ReleaseStorage:
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.releases_dir = self.root / "releases"
+        self.releases_dir.mkdir(parents=True, exist_ok=True)
+        self.stale_after = timedelta(minutes=5)
+
+    def create_release(
+        self,
+        project_slug: str,
+        project_name: str,
+        requested_by: str = "operator",
+        source_run_id: str | None = None,
+    ) -> ReleaseState:
+        stamp = utc_now().strftime("%Y%m%dT%H%M%SZ")
+        release_id = self._next_available_id(
+            stamp=stamp,
+            slug=slugify(project_slug)[:40],
+            root=self.releases_dir,
+        )
+        state = ReleaseState(
+            release_id=release_id,
+            project_slug=project_slug,
+            project_name=project_name,
+            requested_by=requested_by,
+            source_run_id=source_run_id,
+        )
+        self.release_dir(release_id).mkdir(parents=True, exist_ok=True)
+        self.bundle_dir(release_id).mkdir(parents=True, exist_ok=True)
+        self.save_state(state)
+        return state
+
+    def release_dir(self, release_id: str) -> Path:
+        return self.releases_dir / release_id
+
+    def state_path(self, release_id: str) -> Path:
+        return self.release_dir(release_id) / "state.json"
+
+    def bundle_dir(self, release_id: str) -> Path:
+        path = self.release_dir(release_id) / "bundle"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def log_path(self, release_id: str) -> Path:
+        return self.release_dir(release_id) / "release.log"
+
+    def save_state(self, state: ReleaseState) -> None:
+        if state.controller_pid is None:
+            state.controller_pid = _existing_controller_pid(self.state_path(state.release_id))
+        state.updated_at = utc_now()
+        _atomic_write(self.state_path(state.release_id), state.model_dump_json(indent=2))
+
+    def load_state(self, release_id: str) -> ReleaseState:
+        payload = self.state_path(release_id).read_text(encoding="utf-8")
+        state = ReleaseState.model_validate_json(payload)
+        return self._mark_stale_if_needed(state)
+
+    def list_releases(self, project_slug: str | None = None, limit: int | None = None) -> list[ReleaseState]:
+        paths = sorted(self.releases_dir.glob("*/state.json"), reverse=True)
+        states: list[ReleaseState] = []
+        for path in paths:
+            try:
+                state = ReleaseState.model_validate_json(path.read_text(encoding="utf-8"))
+            except ValidationError:
+                continue
+            state = self._mark_stale_if_needed(state)
+            if project_slug and state.project_slug != project_slug:
+                continue
+            states.append(state)
+            if limit is not None and len(states) >= limit:
+                break
+        return states
+
+    def attach_controller_pid(self, release_id: str, pid: int) -> ReleaseState:
+        state = self.load_state(release_id)
+        state.controller_pid = pid
+        self.save_state(state)
+        self.append_log(release_id, f"Release controller pid registered: {pid}")
+        return state
+
+    def append_log(self, release_id: str, message: str) -> None:
+        with self.log_path(release_id).open("a", encoding="utf-8") as handle:
+            for raw_line in message.splitlines() or [""]:
+                cleaned = raw_line.strip()
+                if not cleaned:
+                    continue
+                handle.write(f"[{utc_now().isoformat()}] {cleaned}\n")
+
+    def read_log_tail(self, release_id: str, limit: int = 120) -> str:
+        path = self.log_path(release_id)
+        if not path.exists():
+            return ""
+        lines = path.read_text(encoding="utf-8").splitlines()
+        return "\n".join(lines[-limit:])
+
+    def mark_force_stopped(self, release_id: str, reason: str) -> ReleaseState:
+        state = self.load_state(release_id)
+        state.status = "failed"
+        state.current_status = "Release packaging force stopped by operator."
+        state.next_action = "Start a fresh release build when you are ready to package again."
+        state.summary = reason
+        self.save_state(state)
+        self.append_log(release_id, reason)
+        return state
+
+    def _mark_stale_if_needed(self, state: ReleaseState) -> ReleaseState:
+        if state.status != "running":
+            return state
+        if _pid_is_alive(state.controller_pid):
+            return state
+        if utc_now() - state.updated_at <= self.stale_after:
+            return state
+        if self._recover_completed_release_if_present(state):
+            return state
+        state.status = "stale"
+        state.current_status = "Release packaging no longer has a live heartbeat."
+        state.next_action = "Start a fresh release build or inspect the existing bundle directory."
+        self.save_state(state)
+        self.append_log(state.release_id, "Release marked stale because no live controller remained and no completed archive was found.")
+        return state
+
+    def _next_available_id(self, stamp: str, slug: str, root: Path) -> str:
+        candidate = f"{stamp}-{slug}"
+        if not (root / candidate).exists():
+            return candidate
+        counter = 2
+        while (root / f"{candidate}-{counter:02d}").exists():
+            counter += 1
+        return f"{candidate}-{counter:02d}"
+
+    def _recover_completed_release_if_present(self, state: ReleaseState) -> bool:
+        archive_path = Path(state.download_path) if state.download_path else self.release_dir(state.release_id) / f"{state.project_slug}-{state.release_id}.zip"
+        if not archive_path.exists():
+            return False
+
+        bundle_dir = self.bundle_dir(state.release_id)
+        manifest_path = bundle_dir / "manifest.json"
+
+        state.status = "completed"
+        state.download_path = str(archive_path)
+        state.bundle_root = state.bundle_root or str(bundle_dir)
+        if manifest_path.exists():
+            state.manifest_path = state.manifest_path or str(manifest_path)
+        state.current_status = "Release bundle recovered after the packaging controller exited."
+        state.next_action = "Download the latest package from the Release Center."
+        if not state.summary:
+            state.summary = "Release bundle is ready for download."
+        self.save_state(state)
+        self.append_log(state.release_id, f"Recovered completed release from existing archive: {archive_path.name}.")
+        return True

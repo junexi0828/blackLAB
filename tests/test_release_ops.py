@@ -1,0 +1,321 @@
+from __future__ import annotations
+
+from datetime import timedelta
+import json
+import os
+import zipfile
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+
+import blacklab_factory.dashboard as dashboard_module
+from blacklab_factory.launcher import DetachedLaunch
+from blacklab_factory.release_ops import ReleaseManager
+from blacklab_factory.storage import ProjectStorage, ReleaseStorage
+from blacklab_factory.web import create_app
+
+
+def _seed_project_workspace(root: Path, slug: str = "train") -> Path:
+    projects = ProjectStorage(root)
+    projects.create_project(slug=slug, name="Train")
+    workspace = projects.workspace_dir(slug)
+    (workspace / "index.html").write_text("<!doctype html><title>demo</title>", encoding="utf-8")
+    (workspace / "main.js").write_text("console.log('demo')", encoding="utf-8")
+    (workspace / "style.css").write_text("body { background: #000; }", encoding="utf-8")
+    (workspace / ".test_lab_server.log").write_text("ignore", encoding="utf-8")
+    (workspace / "validation_smoke.sh").write_text("#!/bin/sh\necho smoke\n", encoding="utf-8")
+    (workspace / "notes_ARTIFACT.md").write_text("internal", encoding="utf-8")
+    test_results = workspace / "test-results"
+    test_results.mkdir(parents=True, exist_ok=True)
+    (test_results / "report.txt").write_text("ignore", encoding="utf-8")
+    return workspace
+
+
+def _write_package_handoff(root: Path, slug: str, payload: dict[str, object]) -> None:
+    projects = ProjectStorage(root)
+    content = "\n".join(
+        [
+            "# Operator Briefing",
+            "",
+            "## Company Thesis",
+            "- Freeze one canonical delivery surface before packaging.",
+            "",
+            "## Package Handoff",
+            "```json",
+            json.dumps(payload, indent=2),
+            "```",
+            "",
+        ]
+    )
+    projects.write_live_context(slug, run_id="test-run", title="Operator Briefing", content=content)
+
+
+def test_release_manager_builds_clean_bundle(tmp_path: Path) -> None:
+    _seed_project_workspace(tmp_path)
+    _write_package_handoff(
+        tmp_path,
+        "train",
+        {
+            "delivery_type": "web_demo",
+            "primary_path": "index.html",
+            "must_include": ["index.html", "main.js", "style.css"],
+            "launch_instructions": "Serve the extracted package root with a static file server.",
+            "validation_target": "static_entrypoint",
+            "allowed_external_dependencies": ["cdn.example.test"],
+            "forbidden_local_dependencies": ["machine-specific absolute paths"],
+            "notes": ["Keep the package rooted at the extracted folder."],
+        },
+    )
+    manager = ReleaseManager(tmp_path)
+
+    release = manager.start_build("train")
+
+    assert release.status == "completed"
+    assert release.release_type == "web_demo"
+    assert release.download_path is not None
+    assert Path(release.download_path).exists()
+    assert any(file.role == "primary" and file.path == "index.html" for file in release.included_files)
+    assert ".test_lab_server.log" in release.excluded_files
+    assert "validation_smoke.sh" in release.excluded_files
+    assert "notes_ARTIFACT.md" in release.excluded_files
+
+    with zipfile.ZipFile(release.download_path) as archive:
+        names = set(archive.namelist())
+
+    assert "index.html" in names
+    assert "main.js" in names
+    assert "style.css" in names
+    assert "manifest.json" in names
+    assert ".test_lab_server.log" not in names
+    assert "validation_smoke.sh" not in names
+    assert "notes_ARTIFACT.md" not in names
+    assert "test-results/report.txt" not in names
+    manifest = json.loads((Path(release.bundle_root or "") / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["package_handoff"]["primary_path"] == "index.html"
+    assert manifest["package_handoff_source"] == "current.md"
+
+
+def test_release_manager_infers_release_type_when_package_handoff_leaves_it_empty(tmp_path: Path) -> None:
+    _seed_project_workspace(tmp_path, slug="implicit-type")
+    _write_package_handoff(
+        tmp_path,
+        "implicit-type",
+        {
+            "delivery_type": None,
+            "primary_path": "index.html",
+            "must_include": ["index.html", "main.js", "style.css"],
+        },
+    )
+    manager = ReleaseManager(tmp_path)
+
+    release = manager.start_build("implicit-type")
+
+    assert release.status == "completed"
+    assert release.release_type == "web_demo"
+
+
+def test_release_manager_fails_when_package_handoff_requires_missing_file(tmp_path: Path) -> None:
+    _seed_project_workspace(tmp_path, slug="broken")
+    _write_package_handoff(
+        tmp_path,
+        "broken",
+        {
+            "delivery_type": "web_demo",
+            "primary_path": "index.html",
+            "must_include": ["index.html", "runtime/config.json"],
+        },
+    )
+    manager = ReleaseManager(tmp_path)
+
+    release = manager.start_build("broken")
+
+    assert release.status == "failed"
+    assert "runtime/config.json" in release.summary
+
+
+def test_release_manager_fails_when_bundle_leaks_local_machine_path(tmp_path: Path) -> None:
+    workspace = _seed_project_workspace(tmp_path, slug="leaky")
+    _write_package_handoff(
+        tmp_path,
+        "leaky",
+        {
+            "delivery_type": "web_demo",
+            "primary_path": "index.html",
+            "must_include": ["index.html", "main.js", "style.css"],
+        },
+    )
+    (workspace / "main.js").write_text("console.log('/Users/demo/workspace/private.txt')", encoding="utf-8")
+    manager = ReleaseManager(tmp_path)
+
+    release = manager.start_build("leaky")
+
+    assert release.status == "failed"
+    assert "local path dependency" in release.summary
+
+
+def test_release_manager_fails_when_package_handoff_path_escapes_package_root(tmp_path: Path) -> None:
+    _seed_project_workspace(tmp_path, slug="escape")
+    _write_package_handoff(
+        tmp_path,
+        "escape",
+        {
+            "delivery_type": "web_demo",
+            "primary_path": "../outside/index.html",
+            "must_include": ["index.html"],
+        },
+    )
+    manager = ReleaseManager(tmp_path)
+
+    release = manager.start_build("escape")
+
+    assert release.status == "failed"
+    assert "package root" in release.summary.lower()
+
+
+def test_release_manager_allows_root_relative_runtime_route_without_local_file(tmp_path: Path) -> None:
+    workspace = _seed_project_workspace(tmp_path, slug="runtime-route")
+    _write_package_handoff(
+        tmp_path,
+        "runtime-route",
+        {
+            "delivery_type": "web_demo",
+            "primary_path": "index.html",
+            "must_include": ["index.html", "main.js", "style.css"],
+            "validation_target": "server_route",
+        },
+    )
+    (workspace / "index.html").write_text(
+        "\n".join(
+            [
+                "<!doctype html>",
+                "<title>demo</title>",
+                '<script src="/app-shell"></script>',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    manager = ReleaseManager(tmp_path)
+
+    release = manager.start_build("runtime-route")
+
+    assert release.status == "completed"
+    assert release.release_type == "web_demo"
+
+
+def test_release_manager_ignores_stale_package_handoff_instead_of_failing_build(tmp_path: Path) -> None:
+    _seed_project_workspace(tmp_path, slug="stale-handoff")
+    _write_package_handoff(
+        tmp_path,
+        "stale-handoff",
+        {
+            "delivery_type": "report_pdf",
+            "primary_path": "deliverable/report.pdf",
+            "must_include": ["deliverable/report.pdf"],
+        },
+    )
+    projects = ProjectStorage(tmp_path)
+    live_context_path = projects.live_context_path("stale-handoff")
+    stale_time = live_context_path.stat().st_mtime - 120
+    os.utime(live_context_path, (stale_time, stale_time))
+    manager = ReleaseManager(tmp_path)
+
+    release = manager.start_build("stale-handoff")
+
+    assert release.status == "completed"
+    assert release.release_type == "web_demo"
+    manifest = json.loads((Path(release.bundle_root or "") / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["package_handoff_freshness"] == "stale"
+    assert "ignored the stale handoff" in manifest["package_handoff_warning"]
+
+
+def test_release_api_lists_and_downloads_completed_release(tmp_path: Path) -> None:
+    _seed_project_workspace(tmp_path, slug="artifact")
+    manager = ReleaseManager(tmp_path)
+    release = manager.start_build("artifact")
+
+    client = TestClient(create_app(storage_root=tmp_path))
+
+    projects_response = client.get("/api/projects")
+    assert projects_response.status_code == 200
+    projects_payload = projects_response.json()["projects"]
+    artifact_project = next(project for project in projects_payload if project["slug"] == "artifact")
+    assert artifact_project["latest_release"]["release_id"] == release.release_id
+    assert artifact_project["latest_release"]["status"] == "completed"
+    assert artifact_project["latest_release"]["status_label"] == "Ready"
+    assert artifact_project["latest_release"]["action_label"] == "Rebuild Release"
+
+    list_response = client.get("/api/releases", params={"project_slug": "artifact"})
+    assert list_response.status_code == 200
+    releases_payload = list_response.json()["releases"]
+    assert len(releases_payload) == 1
+    assert releases_payload[0]["release_id"] == release.release_id
+
+    download_response = client.get(f"/api/releases/{release.release_id}/download")
+    assert download_response.status_code == 200
+    assert download_response.headers["content-type"] == "application/zip"
+    assert len(download_response.content) > 0
+
+
+def test_release_storage_recovers_completed_archive_after_controller_exit(tmp_path: Path) -> None:
+    _seed_project_workspace(tmp_path, slug="recover")
+    storage = ReleaseStorage(tmp_path)
+    release = storage.create_release(project_slug="recover", project_name="Recover")
+    release.status = "running"
+    release.current_status = "Release Center is copying deliverables into the bundle."
+    release.updated_at = release.updated_at - timedelta(minutes=10)
+    bundle_dir = storage.bundle_dir(release.release_id)
+    (bundle_dir / "manifest.json").write_text("{}", encoding="utf-8")
+    archive_path = storage.release_dir(release.release_id) / f"{release.project_slug}-{release.release_id}.zip"
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("manifest.json", "{}")
+    storage.state_path(release.release_id).write_text(release.model_dump_json(indent=2), encoding="utf-8")
+
+    recovered = storage.load_state(release.release_id)
+
+    assert recovered.status == "completed"
+    assert recovered.download_path == str(archive_path)
+    assert recovered.current_status == "Release bundle recovered after the packaging controller exited."
+
+
+def test_release_storage_preserves_controller_pid_across_subsequent_saves(tmp_path: Path) -> None:
+    _seed_project_workspace(tmp_path, slug="persist-release")
+    storage = ReleaseStorage(tmp_path)
+    release = storage.create_release(project_slug="persist-release", project_name="Persist Release")
+    storage.attach_controller_pid(release.release_id, 65432)
+
+    stale_copy = storage.load_state(release.release_id)
+    stale_copy.controller_pid = None
+    stale_copy.status = "running"
+    stale_copy.current_status = "Packaging continues."
+    storage.save_state(stale_copy)
+
+    refreshed = storage.load_state(release.release_id)
+    assert refreshed.controller_pid == 65432
+
+
+def test_release_build_api_starts_detached_release(tmp_path: Path, monkeypatch) -> None:
+    _seed_project_workspace(tmp_path, slug="bundle")
+
+    def fake_launch_detached_release(project_slug: str, storage_root: Path) -> DetachedLaunch:
+        storage = ReleaseStorage(storage_root)
+        state = storage.create_release(
+            project_slug=project_slug,
+            project_name="Bundle",
+            requested_by="operator",
+        )
+        return DetachedLaunch(
+            entity_id=state.release_id,
+            pid=42424,
+            log_path=storage_root / "launchers" / "fake.release.log",
+        )
+
+    monkeypatch.setattr(dashboard_module, "launch_detached_release", fake_launch_detached_release)
+    client = TestClient(create_app(storage_root=tmp_path))
+
+    response = client.post("/api/projects/bundle/releases")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "detached"
+    release_state = ReleaseStorage(tmp_path).load_state(payload["release_id"])
+    assert release_state.controller_pid == 42424

@@ -54,6 +54,14 @@ pid_from_file() {
   fi
 }
 
+tracked_blacklab_pid() {
+  local pid
+  pid="$(pid_from_file)"
+  if [[ -n "${pid}" ]] && kill -0 "${pid}" >/dev/null 2>&1; then
+    echo "${pid}"
+  fi
+}
+
 cleanup_stale_pid_file() {
   local tracked_pid
   tracked_pid="$(pid_from_file)"
@@ -135,7 +143,14 @@ wait_until_ready() {
 start_foreground_server() {
   require_runtime
 
-  local existing_pid
+  local existing_pid tracked_pid
+  tracked_pid="$(tracked_blacklab_pid)"
+  if [[ -n "${tracked_pid}" ]]; then
+    echo "blackLAB is already listening on ${URL} (pid=${tracked_pid})."
+    print_clickable_url
+    open_browser_if_enabled
+    return 0
+  fi
   existing_pid="$(listening_pid)"
   if [[ -n "${existing_pid}" ]]; then
     echo "blackLAB is already listening on ${URL} (pid=${existing_pid})."
@@ -157,7 +172,15 @@ start_background_server() {
   require_runtime
   cleanup_stale_pid_file
 
-  local existing_pid
+  local existing_pid tracked_pid
+  tracked_pid="$(tracked_blacklab_pid)"
+  if [[ -n "${tracked_pid}" ]]; then
+    echo "blackLAB is already listening on ${URL} (pid=${tracked_pid})."
+    echo "log=${LOG_FILE}"
+    print_clickable_url
+    open_browser_if_enabled
+    return 0
+  fi
   existing_pid="$(listening_pid)"
   if [[ -n "${existing_pid}" ]]; then
     echo "blackLAB is already listening on ${URL} (pid=${existing_pid})."
@@ -180,7 +203,7 @@ start_background_server() {
 }
 
 stop_server() {
-  local pid
+  local pid existing_pid
   pid="$(pid_from_file)"
 
   if [[ -n "${pid}" ]] && kill -0 "${pid}" >/dev/null 2>&1; then
@@ -197,11 +220,18 @@ stop_server() {
     exit 1
   fi
 
-  local existing_pid
   existing_pid="$(listening_pid)"
   if [[ -n "${existing_pid}" ]]; then
-    echo "Port ${PORT} is still in use by pid=${existing_pid}, but it is not tracked by ${PID_FILE}."
-    echo "Stop it manually if this is an old server instance."
+    kill "${existing_pid}" >/dev/null 2>&1 || true
+    for _ in {1..25}; do
+      if ! kill -0 "${existing_pid}" >/dev/null 2>&1; then
+        rm -f "${PID_FILE}"
+        echo "blackLAB stopped."
+        return 0
+      fi
+      sleep 0.2
+    done
+    echo "Timed out while waiting for untracked pid=${existing_pid} to stop."
     exit 1
   fi
 
@@ -212,6 +242,17 @@ stop_server() {
 show_status() {
   local existing_pid tracked_pid
   cleanup_stale_pid_file
+  tracked_pid="$(tracked_blacklab_pid)"
+  if [[ -n "${tracked_pid}" ]]; then
+    echo "url=${URL}"
+    echo "log=${LOG_FILE}"
+    echo "status=running"
+    echo "listening_pid=${tracked_pid}"
+    echo "tracked_pid=${tracked_pid}"
+    echo "tracking=tracked"
+    return 0
+  fi
+
   existing_pid="$(listening_pid)"
   tracked_pid="$(pid_from_file)"
 
@@ -221,6 +262,11 @@ show_status() {
   if [[ -n "${existing_pid}" ]]; then
     echo "status=running"
     echo "listening_pid=${existing_pid}"
+    if [[ -n "${tracked_pid}" ]] && [[ "${tracked_pid}" == "${existing_pid}" ]]; then
+      echo "tracking=tracked"
+    else
+      echo "tracking=untracked"
+    fi
   else
     echo "status=stopped"
   fi

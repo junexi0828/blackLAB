@@ -21,6 +21,10 @@
   <img src="docs/images/console_v2.png" alt="blackLAB 3D Campus Console" width="100%" />
   <img width="1466" height="836" alt="image" src="https://github.com/user-attachments/assets/1fd163a6-aef1-4bb0-bf18-27411df28c83" />
   <img width="1466" height="825" alt="image" src="https://github.com/user-attachments/assets/0f9caabe-8848-4154-aaeb-93a4c7e92867" />
+  <img width="2940" height="1702" alt="image" src="https://github.com/user-attachments/assets/001d672f-3b57-4bad-ba6e-50e9782cb441" />
+  <img width="1458" height="847" alt="image" src="https://github.com/user-attachments/assets/2149e23c-f690-4ec1-9223-842d130d9da9" />
+
+
 
 ## What This Is
 

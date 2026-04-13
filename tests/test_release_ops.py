@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import timedelta
+import json
+import os
 import zipfile
 from pathlib import Path
 
@@ -29,8 +31,41 @@ def _seed_project_workspace(root: Path, slug: str = "train") -> Path:
     return workspace
 
 
+def _write_package_handoff(root: Path, slug: str, payload: dict[str, object]) -> None:
+    projects = ProjectStorage(root)
+    content = "\n".join(
+        [
+            "# Operator Briefing",
+            "",
+            "## Company Thesis",
+            "- Freeze one canonical delivery surface before packaging.",
+            "",
+            "## Package Handoff",
+            "```json",
+            json.dumps(payload, indent=2),
+            "```",
+            "",
+        ]
+    )
+    projects.write_live_context(slug, run_id="test-run", title="Operator Briefing", content=content)
+
+
 def test_release_manager_builds_clean_bundle(tmp_path: Path) -> None:
     _seed_project_workspace(tmp_path)
+    _write_package_handoff(
+        tmp_path,
+        "train",
+        {
+            "delivery_type": "web_demo",
+            "primary_path": "index.html",
+            "must_include": ["index.html", "main.js", "style.css"],
+            "launch_instructions": "Serve the extracted package root with a static file server.",
+            "validation_target": "static_entrypoint",
+            "allowed_external_dependencies": ["cdn.example.test"],
+            "forbidden_local_dependencies": ["machine-specific absolute paths"],
+            "notes": ["Keep the package rooted at the extracted folder."],
+        },
+    )
     manager = ReleaseManager(tmp_path)
 
     release = manager.start_build("train")
@@ -55,6 +90,142 @@ def test_release_manager_builds_clean_bundle(tmp_path: Path) -> None:
     assert "validation_smoke.sh" not in names
     assert "notes_ARTIFACT.md" not in names
     assert "test-results/report.txt" not in names
+    manifest = json.loads((Path(release.bundle_root or "") / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["package_handoff"]["primary_path"] == "index.html"
+    assert manifest["package_handoff_source"] == "current.md"
+
+
+def test_release_manager_infers_release_type_when_package_handoff_leaves_it_empty(tmp_path: Path) -> None:
+    _seed_project_workspace(tmp_path, slug="implicit-type")
+    _write_package_handoff(
+        tmp_path,
+        "implicit-type",
+        {
+            "delivery_type": None,
+            "primary_path": "index.html",
+            "must_include": ["index.html", "main.js", "style.css"],
+        },
+    )
+    manager = ReleaseManager(tmp_path)
+
+    release = manager.start_build("implicit-type")
+
+    assert release.status == "completed"
+    assert release.release_type == "web_demo"
+
+
+def test_release_manager_fails_when_package_handoff_requires_missing_file(tmp_path: Path) -> None:
+    _seed_project_workspace(tmp_path, slug="broken")
+    _write_package_handoff(
+        tmp_path,
+        "broken",
+        {
+            "delivery_type": "web_demo",
+            "primary_path": "index.html",
+            "must_include": ["index.html", "runtime/config.json"],
+        },
+    )
+    manager = ReleaseManager(tmp_path)
+
+    release = manager.start_build("broken")
+
+    assert release.status == "failed"
+    assert "runtime/config.json" in release.summary
+
+
+def test_release_manager_fails_when_bundle_leaks_local_machine_path(tmp_path: Path) -> None:
+    workspace = _seed_project_workspace(tmp_path, slug="leaky")
+    _write_package_handoff(
+        tmp_path,
+        "leaky",
+        {
+            "delivery_type": "web_demo",
+            "primary_path": "index.html",
+            "must_include": ["index.html", "main.js", "style.css"],
+        },
+    )
+    (workspace / "main.js").write_text("console.log('/Users/demo/workspace/private.txt')", encoding="utf-8")
+    manager = ReleaseManager(tmp_path)
+
+    release = manager.start_build("leaky")
+
+    assert release.status == "failed"
+    assert "local path dependency" in release.summary
+
+
+def test_release_manager_fails_when_package_handoff_path_escapes_package_root(tmp_path: Path) -> None:
+    _seed_project_workspace(tmp_path, slug="escape")
+    _write_package_handoff(
+        tmp_path,
+        "escape",
+        {
+            "delivery_type": "web_demo",
+            "primary_path": "../outside/index.html",
+            "must_include": ["index.html"],
+        },
+    )
+    manager = ReleaseManager(tmp_path)
+
+    release = manager.start_build("escape")
+
+    assert release.status == "failed"
+    assert "package root" in release.summary.lower()
+
+
+def test_release_manager_allows_root_relative_runtime_route_without_local_file(tmp_path: Path) -> None:
+    workspace = _seed_project_workspace(tmp_path, slug="runtime-route")
+    _write_package_handoff(
+        tmp_path,
+        "runtime-route",
+        {
+            "delivery_type": "web_demo",
+            "primary_path": "index.html",
+            "must_include": ["index.html", "main.js", "style.css"],
+            "validation_target": "server_route",
+        },
+    )
+    (workspace / "index.html").write_text(
+        "\n".join(
+            [
+                "<!doctype html>",
+                "<title>demo</title>",
+                '<script src="/app-shell"></script>',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    manager = ReleaseManager(tmp_path)
+
+    release = manager.start_build("runtime-route")
+
+    assert release.status == "completed"
+    assert release.release_type == "web_demo"
+
+
+def test_release_manager_ignores_stale_package_handoff_instead_of_failing_build(tmp_path: Path) -> None:
+    _seed_project_workspace(tmp_path, slug="stale-handoff")
+    _write_package_handoff(
+        tmp_path,
+        "stale-handoff",
+        {
+            "delivery_type": "report_pdf",
+            "primary_path": "deliverable/report.pdf",
+            "must_include": ["deliverable/report.pdf"],
+        },
+    )
+    projects = ProjectStorage(tmp_path)
+    live_context_path = projects.live_context_path("stale-handoff")
+    stale_time = live_context_path.stat().st_mtime - 120
+    os.utime(live_context_path, (stale_time, stale_time))
+    manager = ReleaseManager(tmp_path)
+
+    release = manager.start_build("stale-handoff")
+
+    assert release.status == "completed"
+    assert release.release_type == "web_demo"
+    manifest = json.loads((Path(release.bundle_root or "") / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["package_handoff_freshness"] == "stale"
+    assert "ignored the stale handoff" in manifest["package_handoff_warning"]
 
 
 def test_release_api_lists_and_downloads_completed_release(tmp_path: Path) -> None:

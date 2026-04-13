@@ -183,7 +183,7 @@ ORGANIZATION_GROUPS = {
 SUPPORT_FACILITY_SPECS = {
     "release_center": {
         "public_name": "Release Center",
-        "public_summary": "Packages the finished project into a downloadable delivery bundle when the operator requests it.",
+        "public_summary": "Packages the finished project into a downloadable delivery bundle using the latest package handoff when the operator requests it.",
         "group": "quality_testing",
         "reports_to": "board_review",
         "order": 140,

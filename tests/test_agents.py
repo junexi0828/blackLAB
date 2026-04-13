@@ -85,3 +85,46 @@ def test_codex_agent_raises_clear_error_when_binary_cannot_be_resolved(monkeypat
 
     assert "BLACKLAB_CODEX_BIN" in message
     assert "PATH=/tmp/nowhere" in message
+
+
+def test_codex_agent_board_review_prompt_requests_package_handoff() -> None:
+    agent = CodexDepartmentAgent()
+    settings = RunSettings(
+        codex_model="gpt-5.4",
+        codex_autonomy="read_only",
+        codex_review_model="gpt-5.4-mini",
+        codex_review_autonomy="read_only",
+    )
+    department = DepartmentConfig(
+        key="board_review",
+        label="Board Review",
+        purpose="Review all artifacts.",
+        output_title="Operator Briefing",
+        runtime_tier="review",
+    )
+    state = agents_module.RunState(
+        run_id="run-1",
+        mission="Package a transferable train demo.",
+        company_name="blackLAB",
+        mode="codex",
+        steps=[],
+        settings=settings,
+    )
+
+    prompt = agent._build_prompt(
+        company=agents_module.CompanyConfig(
+            company_name="blackLAB",
+            mission_style="profit-first operator",
+            departments=[],
+            review_departments=[],
+        ),
+        department=department,
+        state=state,
+        workspace_path=Path("/tmp/workspace"),
+        project_context="",
+        directive_context="",
+    )
+
+    assert "## Package Handoff" in prompt
+    assert "delivery_type" in prompt
+    assert "primary_path" in prompt

@@ -11,6 +11,7 @@ PID_FILE="${RUNTIME_DIR}/dashboard-${PORT}.pid"
 LOG_FILE="${RUNTIME_DIR}/dashboard-${PORT}.log"
 UVICORN_BIN="${PROJECT_ROOT}/.venv/bin/uvicorn"
 AUTO_OPEN="${BLACKLAB_AUTO_OPEN:-1}"
+ACCESS_LOG="${BLACKLAB_ACCESS_LOG:-0}"
 
 mkdir -p "${RUNTIME_DIR}"
 
@@ -32,6 +33,7 @@ Environment overrides:
   BLACKLAB_HOST   Default: 127.0.0.1
   BLACKLAB_PORT   Default: 8000
   BLACKLAB_AUTO_OPEN  Default: 1 (open the browser when ready)
+  BLACKLAB_ACCESS_LOG Default: 0 (set to 1 to enable uvicorn request logs)
 EOF
 }
 
@@ -69,6 +71,17 @@ open_browser_if_enabled() {
   if [[ "${AUTO_OPEN}" == "1" ]] && command -v open >/dev/null 2>&1; then
     open "${URL}" >/dev/null 2>&1 || true
   fi
+}
+
+access_log_enabled() {
+  case "${ACCESS_LOG:l}" in
+    1|true|yes|on)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
 }
 
 announce_ready() {
@@ -133,7 +146,11 @@ start_foreground_server() {
 
   cd "${PROJECT_ROOT}"
   announce_ready_when_available
-  exec "${UVICORN_BIN}" blacklab_factory.web:create_app --factory --host "${HOST}" --port "${PORT}"
+  local -a uvicorn_args=(blacklab_factory.web:create_app --factory --host "${HOST}" --port "${PORT}")
+  if ! access_log_enabled; then
+    uvicorn_args+=(--no-access-log)
+  fi
+  exec "${UVICORN_BIN}" "${uvicorn_args[@]}"
 }
 
 start_background_server() {
@@ -151,7 +168,11 @@ start_background_server() {
   fi
 
   cd "${PROJECT_ROOT}"
-  nohup "${UVICORN_BIN}" blacklab_factory.web:create_app --factory --host "${HOST}" --port "${PORT}" < /dev/null >> "${LOG_FILE}" 2>&1 &
+  local -a uvicorn_args=(blacklab_factory.web:create_app --factory --host "${HOST}" --port "${PORT}")
+  if ! access_log_enabled; then
+    uvicorn_args+=(--no-access-log)
+  fi
+  nohup "${UVICORN_BIN}" "${uvicorn_args[@]}" < /dev/null >> "${LOG_FILE}" 2>&1 &
   local pid=$!
   disown "${pid}" 2>/dev/null || true
   echo "${pid}" > "${PID_FILE}"

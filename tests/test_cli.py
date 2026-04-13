@@ -1,8 +1,13 @@
 import time
 from pathlib import Path
 
+import blacklab_factory.cli as cli_module
 from blacklab_factory.factory import FactoryRunner
 from blacklab_factory.launcher import launch_detached_run
+from typer.testing import CliRunner
+
+
+runner = CliRunner()
 
 
 def test_detached_launch_returns_run_id_and_completes(tmp_path: Path) -> None:
@@ -42,3 +47,38 @@ def test_detached_launch_returns_run_id_and_completes(tmp_path: Path) -> None:
     assert len(state.artifacts) == 13
     assert state.settings.codex_model == "gpt-5.4"
     assert state.settings.codex_review_model == "gpt-5.4-mini"
+
+
+def test_dashboard_access_log_defaults_to_disabled(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(cli_module, "create_app", lambda storage_root=None: object())
+
+    def fake_run(app_instance, **kwargs):
+        captured["app_instance"] = app_instance
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli_module.uvicorn, "run", fake_run)
+
+    result = runner.invoke(cli_module.app, ["dashboard"])
+
+    assert result.exit_code == 0
+    assert captured["access_log"] is False
+
+
+def test_dashboard_access_log_can_be_enabled_from_env(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(cli_module, "create_app", lambda storage_root=None: object())
+
+    def fake_run(app_instance, **kwargs):
+        captured["app_instance"] = app_instance
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli_module.uvicorn, "run", fake_run)
+    monkeypatch.setenv("BLACKLAB_ACCESS_LOG", "1")
+
+    result = runner.invoke(cli_module.app, ["dashboard"])
+
+    assert result.exit_code == 0
+    assert captured["access_log"] is True

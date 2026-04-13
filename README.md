@@ -1,7 +1,5 @@
 # blackLAB Factory
 
-</p>
-
 <p align="center">
   <strong>Local-first autonomous venture studio.</strong><br />
   Persistent project memory, multi-department orchestration, 3D campus monitoring, and 24/7 recovery-aware loops.
@@ -9,6 +7,7 @@
 
 <p align="center">
   <a href="https://github.com/junexi0828/blackLAB/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/junexi0828/blackLAB?style=for-the-badge" /></a>
+  <a href="https://github.com/sponsors/junexi0828"><img alt="GitHub Sponsors" src="https://img.shields.io/badge/GitHub-Sponsors-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white" /></a>
   <img alt="Python" src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" />
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-control%20plane-009688?style=for-the-badge&logo=fastapi&logoColor=white" />
   <img alt="React" src="https://img.shields.io/badge/React-3D%20campus-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" />
@@ -43,17 +42,18 @@ The goal is not to run one-off demos. The goal is to keep one project moving for
 | `Project` | A long-lived product/company effort with persistent memory and shared workspace |
 | `Run` | One company work cycle that produces department artifacts and a final operator briefing |
 | `Loop` | A long-running automation layer that keeps launching runs for the same project |
+| `Release Center` | A manual packaging facility that creates a downloadable delivery bundle for the current project |
 | `Launch` | Start one run manually |
 | `Autopilot` | Start one loop that keeps improving the same project |
 | `Operator Chat` | Natural-language control room for status, launch, stop, and defaults |
-| `3D Campus` | Visual-only metaverse view of the company state |
+| `3D Campus` | Live 3D operations console for monitoring, runtime control, layout editing, and release packaging |
 
 ## Control Surfaces
 
 | Surface | Purpose |
 | --- | --- |
-| `/` | Executive overview of current project, recent runs, loops, and event feed |
-| `/console` | Primary visual monitoring surface with 3D campus and live event layer |
+| `/` | Executive overview of current project, recent runs, loops, event feed, and latest release status |
+| `/console` | Primary 3D operations surface with runtime controls, Release Center, layout tools, and live event layer |
 | `/launch` | Manual single-run execution |
 | `/autopilot` | Continuous loop execution |
 | `/operator` | Natural-language control channel |
@@ -111,6 +111,18 @@ Optional background mode:
 5. Open `/loops` to inspect long-running automation and recovery incidents.
 6. Open `/operator` if you want to control the whole system in natural language.
 
+## Release Packaging
+
+Release packaging is manual by design.
+
+- it is not part of the normal run flow
+- it is not part of the autopilot loop
+- it only runs when the operator asks for a deliverable package
+
+Use the `Release Center` in `/console` when you want to package the current project workspace into a downloadable bundle.
+
+The dashboard overview also shows the latest release status and gives you a minimal `Build Release` / `Download` control surface.
+
 ## Departments
 
 The default company layout is:
@@ -133,6 +145,8 @@ Core departments focus on planning, design, and implementation.
 
 Review departments focus on validation, testing, and final synthesis.
 
+`Release Center` is not a normal production department. It is a support facility for final packaging and download delivery.
+
 ## Persistent Project Memory
 
 Every project gets its own directory under `.factory/projects/<project-slug>/`.
@@ -143,6 +157,7 @@ Every project gets its own directory under `.factory/projects/<project-slug>/`.
 | `current.md` | Latest authoritative context from the newest successful run |
 | `memory.md` | Rolling memory of previous runs, decisions, risks, and next hints |
 | `workspace/` | Shared project workspace for future implementation files |
+| `releases/` | Download-ready release bundles, manifests, and archives |
 
 This means the next run does not start from zero.
 
@@ -243,10 +258,38 @@ npm run build
 src/blacklab_factory/     core runtime, orchestration, dashboard, storage
 frontend/                 React-based 3D campus and console UI
 config/company.yaml       department definitions and company defaults
-.factory/                 runtime data, runs, loops, projects, operator state
+.factory/                 runtime data, runs, loops, projects, releases, launchers, operator state
 docs/                     architecture notes, references, screenshots
 tests/                    backend and web test suite
 ```
+
+## Contributing And Collaboration
+
+`blackLAB Factory` is being developed as a local-first open source system.
+
+If you want to help:
+
+- open an issue for bugs, usability gaps, or architectural problems
+- open a pull request for focused improvements
+- share reproduction steps, logs, screenshots, or project context when reporting runtime issues
+
+If you want to collaborate more closely on the product direction:
+
+- open a GitHub issue describing your use case, operating environment, and what you want to build with it
+- include whether you are using it for solo work, an internal team workflow, or a client delivery pipeline
+
+The most useful contributions right now are:
+
+- runtime stability and recovery handling
+- release packaging and delivery workflows
+- console performance and 3D interaction quality
+- documentation, onboarding, and reproducible local setup
+
+## Support
+
+If `blackLAB Factory` is useful in your local workflow, you can support ongoing maintenance on GitHub Sponsors:
+
+- https://github.com/sponsors/junexi0828
 
 ## Advanced Notes
 

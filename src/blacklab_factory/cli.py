@@ -169,9 +169,15 @@ def dashboard(
     host: str = typer.Option("127.0.0.1", help="Bind host."),
     port: int = typer.Option(8000, help="Bind port."),
     storage_root: Path | None = typer.Option(None, help="Override storage path."),
+    access_log: bool = typer.Option(
+        False,
+        "--access-log/--no-access-log",
+        envvar="BLACKLAB_ACCESS_LOG",
+        help="Enable uvicorn per-request access logs.",
+    ),
 ) -> None:
     app_instance = create_app(storage_root=storage_root)
-    uvicorn.run(app_instance, host=host, port=port, log_level="info")
+    uvicorn.run(app_instance, host=host, port=port, log_level="info", access_log=access_log)
 
 
 @autopilot_app.command("start")

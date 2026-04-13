@@ -220,6 +220,36 @@ def _resolve_process_group_id(pid: int) -> int | None:
         return pid
 
 
+def _terminate_single_process(pid: int, grace_seconds: float) -> bool:
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return False
+
+    deadline = time.monotonic() + grace_seconds
+    while time.monotonic() < deadline:
+        if not _is_process_alive(pid):
+            return True
+        time.sleep(0.1)
+
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except ProcessLookupError:
+        return True
+    except PermissionError:
+        return False
+
+    deadline = time.monotonic() + 1.0
+    while time.monotonic() < deadline:
+        if not _is_process_alive(pid):
+            return True
+        time.sleep(0.05)
+
+    return not _is_process_alive(pid)
+
+
 def terminate_process_group(pid: int, grace_seconds: float = 2.5) -> bool:
     process_group_id = _resolve_process_group_id(pid)
     if process_group_id is None:
@@ -229,6 +259,8 @@ def terminate_process_group(pid: int, grace_seconds: float = 2.5) -> bool:
         os.killpg(process_group_id, signal.SIGTERM)
     except ProcessLookupError:
         return False
+    except PermissionError:
+        return _terminate_single_process(pid, grace_seconds)
 
     deadline = time.monotonic() + grace_seconds
     while time.monotonic() < deadline:
@@ -240,6 +272,8 @@ def terminate_process_group(pid: int, grace_seconds: float = 2.5) -> bool:
         os.killpg(process_group_id, signal.SIGKILL)
     except ProcessLookupError:
         return True
+    except PermissionError:
+        return _terminate_single_process(pid, 0)
 
     deadline = time.monotonic() + 1.0
     while time.monotonic() < deadline:

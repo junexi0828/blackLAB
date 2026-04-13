@@ -94,3 +94,23 @@ def test_terminate_process_group_uses_process_group_id(monkeypatch) -> None:
 
     assert launcher_module.terminate_process_group(17160) is True
     assert signals == [(91000, launcher_module.signal.SIGTERM)]
+
+
+def test_terminate_process_group_falls_back_to_single_process_on_permission_error(monkeypatch) -> None:
+    group_signals: list[tuple[int, int]] = []
+    process_signals: list[tuple[int, int]] = []
+    alive_checks = iter([True, False])
+
+    monkeypatch.setattr(launcher_module.os, "getpgid", lambda pid: 91000)
+
+    def fake_killpg(pgid: int, sig: int) -> None:
+        group_signals.append((pgid, sig))
+        raise PermissionError("operation not permitted")
+
+    monkeypatch.setattr(launcher_module.os, "killpg", fake_killpg)
+    monkeypatch.setattr(launcher_module.os, "kill", lambda pid, sig: process_signals.append((pid, sig)))
+    monkeypatch.setattr(launcher_module, "_is_process_alive", lambda pid: next(alive_checks, False))
+
+    assert launcher_module.terminate_process_group(17160) is True
+    assert group_signals == [(91000, launcher_module.signal.SIGTERM)]
+    assert process_signals == [(17160, launcher_module.signal.SIGTERM)]

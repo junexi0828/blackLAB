@@ -388,6 +388,7 @@ def create_app(storage: RunStorage) -> FastAPI:
                     message=message,
                     status=step.status,
                     timestamp=timestamp,
+                    project_slug=run.project_slug,
                     run_id=run.run_id,
                     department_key=step.department_key,
                     department_label=step.department_label,
@@ -404,6 +405,7 @@ def create_app(storage: RunStorage) -> FastAPI:
                     message=run.current_status,
                     status=run.status,
                     timestamp=run.updated_at,
+                    project_slug=run.project_slug,
                     run_id=run.run_id,
                 )
             )
@@ -419,6 +421,7 @@ def create_app(storage: RunStorage) -> FastAPI:
                 message=loop_state.latest_note,
                 status=loop_state.status,
                 timestamp=loop_state.updated_at,
+                project_slug=loop_state.project_slug,
                 loop_id=loop_state.loop_id,
                 is_live=loop_state.status in {"running", "stopping"},
             )
@@ -473,6 +476,7 @@ def create_app(storage: RunStorage) -> FastAPI:
                 message=message,
                 status=release_state.status,
                 timestamp=release_state.updated_at,
+                project_slug=release_state.project_slug,
                 department_key="release_center",
                 department_label=SUPPORT_FACILITY_SPECS["release_center"]["public_name"],
                 is_live=release_state.status == "running",
@@ -1135,7 +1139,7 @@ def create_app(storage: RunStorage) -> FastAPI:
     @app.get("/launch")
     def launch_page(request: Request):
         context = build_overview_context()
-        context["recent_runs"] = context["runs"][:10]
+        context["recent_runs"] = context["runs"][:6]
         context["company_config"] = company_config
         context["current_project"] = build_default_project_payload(
             context["operator_profile"].launch.project_slug,
@@ -1711,8 +1715,8 @@ def create_app(storage: RunStorage) -> FastAPI:
         operator_profile = operator.load_profile()
         project_slug = project_storage.normalize_slug(payload.project_slug) if payload.project_slug else None
         if project_slug:
-            project = get_project_or_404(project_slug)
-            if project.status == "archived":
+            project = project_storage.get_project(project_slug)
+            if project and project.status == "archived":
                 raise HTTPException(status_code=409, detail="Archived project must be restored before starting a new run.")
         launch = launch_detached_run(
             mission=payload.mission,
@@ -1752,8 +1756,8 @@ def create_app(storage: RunStorage) -> FastAPI:
         operator_profile = operator.load_profile()
         project_slug = project_storage.normalize_slug(payload.project_slug) if payload.project_slug else None
         if project_slug:
-            project = get_project_or_404(project_slug)
-            if project.status == "archived":
+            project = project_storage.get_project(project_slug)
+            if project and project.status == "archived":
                 raise HTTPException(status_code=409, detail="Archived project must be restored before starting a new loop.")
         launch = launch_detached_loop(
             objective=payload.objective,

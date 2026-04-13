@@ -368,6 +368,7 @@ class EventEntry(BaseModel):
     message: str
     status: str
     timestamp: datetime
+    project_slug: str | None = None
     run_id: str | None = None
     loop_id: str | None = None
     department_key: str | None = None

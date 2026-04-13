@@ -135,6 +135,47 @@ def test_dashboard_routes_render(tmp_path: Path) -> None:
     assert loop_detail_response.json()["loop_id"] == loop_id
 
 
+def test_launch_and_autopilot_allow_new_project_slugs(tmp_path: Path) -> None:
+    client = TestClient(create_app(storage_root=tmp_path))
+
+    launch_response = client.post(
+        "/api/launch/run",
+        json={
+            "mission": "Start a brand new project from launch",
+            "project_slug": "Brand New Launch Project",
+            "mode": "mock",
+            "codex_model": "gpt-5.4",
+            "codex_autonomy": "read_only",
+            "codex_review_model": "gpt-5.4-mini",
+            "codex_review_autonomy": "read_only",
+            "max_parallel_departments": 7,
+            "pause_between_departments": 0,
+        },
+    )
+    assert launch_response.status_code == 200
+    assert "run_id" in launch_response.json()
+
+    loop_launch_response = client.post(
+        "/api/launch/loop",
+        json={
+            "objective": "Start a brand new project from autopilot",
+            "project_slug": "Brand New Autopilot Project",
+            "run_mode": "mock",
+            "loop_mode": "full_auto",
+            "codex_model": "gpt-5.4",
+            "codex_autonomy": "full_auto",
+            "codex_review_model": "gpt-5.4-mini",
+            "codex_review_autonomy": "read_only",
+            "max_parallel_departments": 7,
+            "pause_between_departments": 0,
+            "interval_seconds": 0,
+            "max_iterations": 1,
+        },
+    )
+    assert loop_launch_response.status_code == 200
+    assert "loop_id" in loop_launch_response.json()
+
+
 def test_loop_detail_cycles_are_paginated(tmp_path: Path) -> None:
     supervisor = AutopilotSupervisor(storage_root=tmp_path)
     loop_state = supervisor.start_loop(

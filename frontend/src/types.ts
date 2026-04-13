@@ -196,6 +196,7 @@ export interface EventEntry {
   message: string
   status: string
   timestamp: string
+  project_slug: string | null
   run_id: string | null
   loop_id: string | null
   department_key: string | null

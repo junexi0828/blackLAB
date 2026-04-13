@@ -307,9 +307,16 @@ export function ConsolePage() {
     () => projectLibrary.find((project) => project.slug === selectedProjectSlug) ?? null,
     [projectLibrary, selectedProjectSlug],
   )
-  const runtimeProjectSlug = selectedProject?.slug ?? currentProject?.slug ?? null
-  const latestRelease = selectedProject?.latest_release ?? null
-  const activeRelease = selectedProject?.active_release ?? null
+  const currentProjectIsLive = currentProject?.source === 'active run' || currentProject?.source === 'active loop' || currentProject?.source === 'current loop'
+  const runtimeProjectSlug = currentProjectIsLive
+    ? currentProject?.slug ?? selectedProject?.slug ?? null
+    : selectedProject?.slug ?? currentProject?.slug ?? null
+  const runtimeProject = useMemo(
+    () => projectLibrary.find((project) => project.slug === runtimeProjectSlug) ?? selectedProject ?? null,
+    [projectLibrary, runtimeProjectSlug, selectedProject],
+  )
+  const latestRelease = runtimeProject?.latest_release ?? null
+  const activeRelease = runtimeProject?.active_release ?? null
   const scopedRuns = useMemo(
     () => (runtimeProjectSlug ? runs.filter((run) => run.project_slug === runtimeProjectSlug) : runs),
     [runs, runtimeProjectSlug],
@@ -361,8 +368,7 @@ export function ConsolePage() {
         activeRun,
         activeLoop,
         projectLibrary,
-        currentProjectSlug: currentProject?.slug ?? null,
-        selectedProjectSlug,
+        focusProjectSlug: runtimeProjectSlug,
         liveDepartmentKeys,
       }),
     [
@@ -372,25 +378,39 @@ export function ConsolePage() {
       activeRun,
       activeLoop,
       projectLibrary,
-      currentProject?.slug,
-      selectedProjectSlug,
+      runtimeProjectSlug,
       liveDepartmentKeys,
     ],
   )
 
+  const scopedBubbleEvents = useMemo(() => {
+    const allEvents = Object.values(rawBubbleEvents)
+    if (!runtimeProjectSlug) {
+      return allEvents
+    }
+    return allEvents.filter((event) => event.project_slug === runtimeProjectSlug)
+  }, [rawBubbleEvents, runtimeProjectSlug])
+
   const bubbleEvents = useMemo(() => {
     const bubbleCutoff = Date.now() - BUBBLE_TTL_MS
-    const visible = Object.values(rawBubbleEvents)
+    const visible = scopedBubbleEvents
       .filter((event) => !dismissedBubbleIds.includes(event.event_id))
       .filter((event) => new Date(event.timestamp).getTime() >= bubbleCutoff)
       .sort((left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime())
       .slice(0, 6)
     return Object.fromEntries(visible.map((event) => [event.department_key ?? event.event_id, event]))
-  }, [rawBubbleEvents, dismissedBubbleIds])
+  }, [scopedBubbleEvents, dismissedBubbleIds])
+
+  const scopedFeedEvents = useMemo(() => {
+    if (!runtimeProjectSlug) {
+      return feedEvents
+    }
+    return feedEvents.filter((event) => event.project_slug === runtimeProjectSlug)
+  }, [feedEvents, runtimeProjectSlug])
 
   const visibleFeedEvents = useMemo(
-    () => feedEvents.filter((event) => !dismissedFeedIds.includes(event.event_id)),
-    [feedEvents, dismissedFeedIds],
+    () => scopedFeedEvents.filter((event) => !dismissedFeedIds.includes(event.event_id)),
+    [scopedFeedEvents, dismissedFeedIds],
   )
 
   const { timeTheme, themeSource } = useSolarTheme()
@@ -460,9 +480,9 @@ export function ConsolePage() {
   const runtimeSourceLabel =
     liveLoop ? 'Loop Live' : activeRun ? 'Run Live' : currentProject?.source ?? 'Ready'
   const runtimeBookmarkMeta =
-    liveLoop ? 'Loop active' : activeRun ? 'Run active' : selectedProject?.name ?? currentProject?.name ?? 'Ready'
+    liveLoop ? 'Loop active' : activeRun ? 'Run active' : runtimeProject?.name ?? currentProject?.name ?? 'Ready'
   const releaseBookmarkMeta = activeRelease
-    ? `Packaging ${selectedProject?.name ?? currentProject?.name ?? 'project'}`
+    ? `Packaging ${runtimeProject?.name ?? currentProject?.name ?? 'project'}`
     : latestRelease?.status === 'completed'
       ? `Ready · ${latestRelease.download_filename ?? latestRelease.release_id}`
       : latestRelease?.status === 'failed'
@@ -473,8 +493,8 @@ export function ConsolePage() {
     cameraSettings.autoRotate ? `rotate ${formatSignedSpeed(cameraSettings.autoRotateSpeed)}` : 'rotate off'
   }`
   const releasePanel = useMemo(
-    () => resolveReleasePanelModel(selectedProject?.name ?? currentProject?.name ?? null, latestRelease, activeRelease),
-    [activeRelease, currentProject?.name, latestRelease, selectedProject?.name],
+    () => resolveReleasePanelModel(runtimeProject?.name ?? currentProject?.name ?? null, latestRelease, activeRelease),
+    [activeRelease, currentProject?.name, latestRelease, runtimeProject?.name],
   )
 
   const refreshConsoleRuntime = useCallback(async () => {
@@ -495,6 +515,10 @@ export function ConsolePage() {
   )
 
   useEffect(() => {
+    if (currentProjectIsLive && currentProject?.slug && selectedProjectSlug !== currentProject.slug) {
+      setSelectedProjectSlug(currentProject.slug)
+      return
+    }
     if (selectedProjectSlug && projectLibrary.some((project) => project.slug === selectedProjectSlug)) {
       return
     }
@@ -508,6 +532,7 @@ export function ConsolePage() {
       setSelectedProjectSlug(fallbackSlug)
     }
   }, [
+    currentProjectIsLive,
     currentProject?.slug,
     operatorProfile?.autopilot.project_slug,
     operatorProfile?.launch.project_slug,
@@ -891,7 +916,7 @@ export function ConsolePage() {
               <div>
                 <span className="hud-small-tag">PROJECT RUNTIME</span>
                 <strong className="console-utility-dock__title">
-                  {selectedProject?.name ?? currentProject?.name ?? 'No saved project selected'}
+                  {runtimeProject?.name ?? currentProject?.name ?? 'No saved project selected'}
                 </strong>
               </div>
               <div className="console-utility-dock__panel-actions">
@@ -929,7 +954,7 @@ export function ConsolePage() {
                   </p>
                 )}
                 <div className="console-project-dock__meta">
-                  <span>{selectedProject?.run_count ?? 0} saved run{selectedProject?.run_count === 1 ? '' : 's'}</span>
+                  <span>{runtimeProject?.run_count ?? 0} saved run{runtimeProject?.run_count === 1 ? '' : 's'}</span>
                   {currentProject?.slug === selectedProjectSlug && <span>{currentProject.reference_label}</span>}
                 </div>
                 <div className="console-project-dock__actions">
@@ -991,7 +1016,7 @@ export function ConsolePage() {
               <div>
                 <span className="hud-small-tag">RELEASE CENTER</span>
                 <strong className="console-utility-dock__title">
-                  {selectedProject?.name ?? currentProject?.name ?? 'No saved project selected'}
+                  {runtimeProject?.name ?? currentProject?.name ?? 'No saved project selected'}
                 </strong>
               </div>
               <div className="console-utility-dock__panel-actions">
@@ -1329,12 +1354,12 @@ export function ConsolePage() {
       <Suspense
         fallback={(
           <div className="console-world__loading" role="status" aria-live="polite">
-            <div className="console-world__loading-copy">
-              <span className="console-world__loading-title">Preparing 3D campus</span>
-              <p>{selectedProject?.name ?? currentProject?.name ?? 'Current project'}</p>
+              <div className="console-world__loading-copy">
+                <span className="console-world__loading-title">Preparing 3D campus</span>
+                <p>{runtimeProject?.name ?? currentProject?.name ?? 'Current project'}</p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
       >
         <LazyWorldCanvas
           steps={activeRunSteps}

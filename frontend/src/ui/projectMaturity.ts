@@ -109,8 +109,7 @@ interface ResolveProjectMaturityInput {
   activeRun: RunState | null
   activeLoop: LoopState | null
   projectLibrary: ProjectLibraryEntry[]
-  currentProjectSlug: string | null
-  selectedProjectSlug: string | null
+  focusProjectSlug: string | null
   liveDepartmentKeys: Set<string>
 }
 
@@ -161,15 +160,13 @@ function statusProgress(status: string | undefined) {
 function selectFocusProjectSlug({
   activeRun,
   activeLoop,
-  currentProjectSlug,
-  selectedProjectSlug,
+  focusProjectSlug,
   runs,
-}: Pick<ResolveProjectMaturityInput, 'activeRun' | 'activeLoop' | 'currentProjectSlug' | 'selectedProjectSlug' | 'runs'>) {
+}: Pick<ResolveProjectMaturityInput, 'activeRun' | 'activeLoop' | 'focusProjectSlug' | 'runs'>) {
   return (
     activeRun?.project_slug ??
     activeLoop?.project_slug ??
-    selectedProjectSlug ??
-    currentProjectSlug ??
+    focusProjectSlug ??
     runs[0]?.project_slug ??
     null
   )
@@ -439,8 +436,7 @@ export function resolveProjectMaturity({
   activeRun,
   activeLoop,
   projectLibrary,
-  currentProjectSlug,
-  selectedProjectSlug,
+  focusProjectSlug: preferredProjectSlug,
   liveDepartmentKeys,
 }: ResolveProjectMaturityInput): ProjectMaturityModel {
   if (!settings) {
@@ -450,8 +446,7 @@ export function resolveProjectMaturity({
   const focusProjectSlug = selectFocusProjectSlug({
     activeRun,
     activeLoop,
-    currentProjectSlug,
-    selectedProjectSlug,
+    focusProjectSlug: preferredProjectSlug,
     runs,
   })
 

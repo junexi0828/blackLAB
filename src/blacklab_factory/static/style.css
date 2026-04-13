@@ -280,8 +280,14 @@ a {
 }
 
 .control-page {
-  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.92fr);
+  grid-template-columns: minmax(0, 1.34fr) minmax(360px, 1fr);
   align-items: start;
+}
+
+.launch-stack {
+  display: grid;
+  gap: 1.15rem;
+  align-content: start;
 }
 
 .control-page__main,
@@ -1252,6 +1258,12 @@ a {
   margin: 0;
   display: grid;
   gap: 0.8rem;
+}
+
+.list-scroll {
+  max-height: 24rem;
+  overflow: auto;
+  padding-right: 0.3rem;
 }
 
 .chat-log {

@@ -165,11 +165,13 @@ export interface ProjectLibraryEntry {
 export interface ReleaseSummary {
   release_id: string
   status: ReleaseStatus
+  status_label: string
   created_at: string
   updated_at: string
   summary: string
   current_status: string
   release_type: string | null
+  action_label: string
   download_url: string | null
   download_filename: string | null
 }

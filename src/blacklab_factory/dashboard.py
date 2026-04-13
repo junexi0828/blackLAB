@@ -425,14 +425,28 @@ def create_app(storage: RunStorage) -> FastAPI:
         ]
 
     def summarize_release_state(release_state: ReleaseState) -> dict:
+        status_label = {
+            "running": "Packaging",
+            "completed": "Ready",
+            "failed": "Failed",
+            "stale": "Attention",
+            "queued": "Queued",
+        }.get(release_state.status, release_state.status.title())
+        action_label = {
+            "completed": "Rebuild Release",
+            "failed": "Retry Release",
+            "stale": "Rebuild Release",
+        }.get(release_state.status, "Build Release")
         return {
             "release_id": release_state.release_id,
             "status": release_state.status,
+            "status_label": status_label,
             "created_at": release_state.created_at.isoformat(),
             "updated_at": release_state.updated_at.isoformat(),
             "summary": release_state.summary,
             "current_status": release_state.current_status,
             "release_type": release_state.release_type,
+            "action_label": action_label,
             "download_url": (
                 f"/api/releases/{release_state.release_id}/download"
                 if release_state.status == "completed" and release_state.download_path

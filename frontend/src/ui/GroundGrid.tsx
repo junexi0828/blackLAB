@@ -56,7 +56,7 @@ function LowPolyTrees() {
   )
 }
 
-export function GroundGrid({ timeTheme = 'day' }: { timeTheme?: 'day' | 'night' }) {
+export function GroundGrid({ timeTheme = 'day', lowPower = false }: { timeTheme?: 'day' | 'night'; lowPower?: boolean }) {
   const isNight = timeTheme === 'night'
 
   return (
@@ -68,7 +68,7 @@ export function GroundGrid({ timeTheme = 'day' }: { timeTheme?: 'day' | 'night' 
       
       <gridHelper args={[100, 50, isNight ? '#223245' : '#e2e8f0', isNight ? '#152231' : '#f1f5f9']} position={[0, 0, 0]} />
 
-      <LowPolyTrees />
+      {!lowPower && <LowPolyTrees />}
     </group>
   )
 }

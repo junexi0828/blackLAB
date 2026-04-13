@@ -877,9 +877,13 @@ class ReleaseStorage:
             return state
         if utc_now() - state.updated_at <= self.stale_after:
             return state
+        if self._recover_completed_release_if_present(state):
+            return state
         state.status = "stale"
         state.current_status = "Release packaging no longer has a live heartbeat."
         state.next_action = "Start a fresh release build or inspect the existing bundle directory."
+        self.save_state(state)
+        self.append_log(state.release_id, "Release marked stale because no live controller remained and no completed archive was found.")
         return state
 
     def _next_available_id(self, stamp: str, slug: str, root: Path) -> str:
@@ -890,3 +894,24 @@ class ReleaseStorage:
         while (root / f"{candidate}-{counter:02d}").exists():
             counter += 1
         return f"{candidate}-{counter:02d}"
+
+    def _recover_completed_release_if_present(self, state: ReleaseState) -> bool:
+        archive_path = Path(state.download_path) if state.download_path else self.release_dir(state.release_id) / f"{state.project_slug}-{state.release_id}.zip"
+        if not archive_path.exists():
+            return False
+
+        bundle_dir = self.bundle_dir(state.release_id)
+        manifest_path = bundle_dir / "manifest.json"
+
+        state.status = "completed"
+        state.download_path = str(archive_path)
+        state.bundle_root = state.bundle_root or str(bundle_dir)
+        if manifest_path.exists():
+            state.manifest_path = state.manifest_path or str(manifest_path)
+        state.current_status = "Release bundle recovered after the packaging controller exited."
+        state.next_action = "Download the latest package from the Release Center."
+        if not state.summary:
+            state.summary = "Release bundle is ready for download."
+        self.save_state(state)
+        self.append_log(state.release_id, f"Recovered completed release from existing archive: {archive_path.name}.")
+        return True

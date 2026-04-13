@@ -416,6 +416,49 @@ a {
   color: var(--muted);
 }
 
+.project-progress-release__status {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: 0.16rem;
+  padding: 0.18rem 0.48rem;
+  border-radius: 999px;
+  border: 1px solid rgba(25, 19, 13, 0.08);
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.project-progress-release__status--running {
+  color: #8c5d15;
+  background: rgba(255, 244, 221, 0.92);
+}
+
+.project-progress-release__status--completed,
+.project-progress-release__status--ready {
+  color: #295a43;
+  background: rgba(232, 252, 242, 0.92);
+}
+
+.project-progress-release__status--failed {
+  color: #8c2b2b;
+  background: rgba(255, 238, 238, 0.92);
+}
+
+.project-progress-release__status--stale,
+.project-progress-release__status--attention {
+  color: #7a4e12;
+  background: rgba(255, 242, 221, 0.92);
+}
+
+.project-progress-release__status--standby {
+  color: #5d4b36;
+  background: rgba(255, 255, 255, 0.72);
+}
+
 .project-progress-release__copy strong {
   font-size: 0.95rem;
 }

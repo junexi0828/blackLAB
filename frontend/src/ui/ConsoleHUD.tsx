@@ -14,6 +14,7 @@ interface ConsoleHUDProps {
   systemMode: 'live' | 'stopping' | 'idle'
   maturityTierLabel: string
   maturityPercent: number
+  lowPower?: boolean
 }
 
 export function ConsoleHUD({
@@ -29,6 +30,7 @@ export function ConsoleHUD({
   systemMode,
   maturityTierLabel,
   maturityPercent,
+  lowPower = false,
 }: ConsoleHUDProps) {
   const isLive = systemMode === 'live' || systemMode === 'stopping' || loopStatus === 'running'
   const phaseIcon = timeTheme === 'day' ? '☀' : '☾'
@@ -39,9 +41,9 @@ export function ConsoleHUD({
   // Ticker clock
   const [clock, setClock] = useState(() => Date.now())
   useEffect(() => {
-    const id = window.setInterval(() => setClock(Date.now()), 1000)
+    const id = window.setInterval(() => setClock(Date.now()), lowPower ? 30000 : 1000)
     return () => clearInterval(id)
-  }, [])
+  }, [lowPower])
   const clockDate = new Date(clock)
   const localClockLabel = clockDate.toLocaleTimeString([], {
     hour: '2-digit',

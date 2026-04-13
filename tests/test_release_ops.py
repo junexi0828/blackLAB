@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timedelta
 import zipfile
 from pathlib import Path
 
@@ -69,6 +70,8 @@ def test_release_api_lists_and_downloads_completed_release(tmp_path: Path) -> No
     artifact_project = next(project for project in projects_payload if project["slug"] == "artifact")
     assert artifact_project["latest_release"]["release_id"] == release.release_id
     assert artifact_project["latest_release"]["status"] == "completed"
+    assert artifact_project["latest_release"]["status_label"] == "Ready"
+    assert artifact_project["latest_release"]["action_label"] == "Rebuild Release"
 
     list_response = client.get("/api/releases", params={"project_slug": "artifact"})
     assert list_response.status_code == 200
@@ -80,6 +83,27 @@ def test_release_api_lists_and_downloads_completed_release(tmp_path: Path) -> No
     assert download_response.status_code == 200
     assert download_response.headers["content-type"] == "application/zip"
     assert len(download_response.content) > 0
+
+
+def test_release_storage_recovers_completed_archive_after_controller_exit(tmp_path: Path) -> None:
+    _seed_project_workspace(tmp_path, slug="recover")
+    storage = ReleaseStorage(tmp_path)
+    release = storage.create_release(project_slug="recover", project_name="Recover")
+    release.status = "running"
+    release.current_status = "Release Center is copying deliverables into the bundle."
+    release.updated_at = release.updated_at - timedelta(minutes=10)
+    bundle_dir = storage.bundle_dir(release.release_id)
+    (bundle_dir / "manifest.json").write_text("{}", encoding="utf-8")
+    archive_path = storage.release_dir(release.release_id) / f"{release.project_slug}-{release.release_id}.zip"
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("manifest.json", "{}")
+    storage.state_path(release.release_id).write_text(release.model_dump_json(indent=2), encoding="utf-8")
+
+    recovered = storage.load_state(release.release_id)
+
+    assert recovered.status == "completed"
+    assert recovered.download_path == str(archive_path)
+    assert recovered.current_status == "Release bundle recovered after the packaging controller exited."
 
 
 def test_release_build_api_starts_detached_release(tmp_path: Path, monkeypatch) -> None:

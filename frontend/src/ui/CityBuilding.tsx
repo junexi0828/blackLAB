@@ -27,6 +27,7 @@ interface CityBuildingProps {
   departmentMaturity?: number
   onClick?: () => void
   timeTheme?: 'day' | 'night'
+  lowPower?: boolean
 }
 
 const STATUS_HEIGHT: Record<string, number> = {
@@ -36,6 +37,59 @@ const STATUS_HEIGHT: Record<string, number> = {
   stale:     1.2,
   queued:    1.4,
 }
+
+const WINDOW_REVEAL_BY_TIER: Record<ProjectMaturityTier, number> = {
+  0: 0.58,
+  1: 0.7,
+  2: 0.82,
+  3: 0.94,
+  4: 1,
+}
+
+const WINDOW_REVEAL_MATURITY_WEIGHTS = {
+  department: 0.16,
+  cluster: 0.04,
+} as const
+
+const GLOW_INTENSITY_BY_TIER: Record<ProjectMaturityTier, number> = {
+  0: 0.82,
+  1: 0.9,
+  2: 0.98,
+  3: 1.04,
+  4: 1.1,
+}
+
+const GLOW_INTENSITY_DEPARTMENT_WEIGHT = {
+  base: 0.94,
+  maturity: 0.12,
+} as const
+
+const IDLE_CORE_LIGHT_INTENSITY = {
+  day: 0.06,
+  night: 0.18,
+} as const
+
+const INACTIVE_ANTENNA_INTENSITY = {
+  day: 0.16,
+  night: 0.35,
+} as const
+
+const TWEEN_SPEEDS = {
+  height: 1.8,
+  opacity: 3,
+} as const
+
+const LOW_POWER_BUILDING_TUNING = {
+  windowRevealScale: 0.88,
+  heightTweenScale: 0.58,
+  opacityTweenScale: 0.62,
+  pulseSpeedScale: 0.52,
+  pulseAmplitudeScale: 0.4,
+  glowLightScale: 0.62,
+  idleLightScale: 0.7,
+  antennaPulseScale: 0.58,
+  haloOpacityScale: 0.72,
+} as const
 
 // Seeded deterministic — no Math.random in render
 function seeded(s: number): number {
@@ -555,6 +609,7 @@ function CityBuildingComponent({
   departmentMaturity = 0,
   onClick,
   timeTheme = 'day',
+  lowPower = false,
 }: CityBuildingProps) {
   const isNight = timeTheme === 'night'
   const bodyRef  = useRef<THREE.Mesh>(null)
@@ -597,9 +652,15 @@ function CityBuildingComponent({
   const seed = Math.abs(Math.floor(position[0] * 17 + position[2] * 31))
   const windows = useMemo(() => buildWindows(shape, buildingId, seed), [shape, buildingId, seed])
   const windowRevealRatio = useMemo(() => {
-    const tierRatio = [0.58, 0.7, 0.82, 0.94, 1][unlockTier]
-    return Math.min(1, tierRatio + departmentMaturity * 0.16 + clusterMaturity * 0.04)
-  }, [clusterMaturity, departmentMaturity, unlockTier])
+    const tierRatio = WINDOW_REVEAL_BY_TIER[unlockTier]
+    const revealed = Math.min(
+      1,
+      tierRatio +
+        departmentMaturity * WINDOW_REVEAL_MATURITY_WEIGHTS.department +
+        clusterMaturity * WINDOW_REVEAL_MATURITY_WEIGHTS.cluster,
+    )
+    return lowPower ? Math.max(0.44, revealed * LOW_POWER_BUILDING_TUNING.windowRevealScale) : revealed
+  }, [clusterMaturity, departmentMaturity, lowPower, unlockTier])
   const visibleWindows = useMemo(() => {
     return selectVisibleWindows(windows, windowRevealRatio, seed)
   }, [seed, windowRevealRatio, windows])
@@ -644,12 +705,16 @@ function CityBuildingComponent({
     side: THREE.DoubleSide,
   }), [windowHaloColor])
   const windowInstances = useMemo(() => buildWindowInstances(visibleWindows), [visibleWindows])
-  const glowIntensityFactor = [0.82, 0.9, 0.98, 1.04, 1.1][unlockTier] * (0.94 + departmentMaturity * 0.12)
+  const glowIntensityFactor =
+    GLOW_INTENSITY_BY_TIER[unlockTier] *
+    (GLOW_INTENSITY_DEPARTMENT_WEIGHT.base + departmentMaturity * GLOW_INTENSITY_DEPARTMENT_WEIGHT.maturity)
 
-  const idleCoreLightIntensity = isNight ? 0.18 : 0.06
-  const inactiveAntennaIntensity = isNight ? 0.35 : 0.16
-  const showCoreLight = !isDimmed && (isActive || isSelected || isNight)
-  const showGlowLight = !isDimmed && (unlockTier >= 1 || isSelected || (isNight && isActive))
+  const idleCoreLightIntensity =
+    (isNight ? IDLE_CORE_LIGHT_INTENSITY.night : IDLE_CORE_LIGHT_INTENSITY.day) *
+    (lowPower ? LOW_POWER_BUILDING_TUNING.idleLightScale : 1)
+  const inactiveAntennaIntensity = isNight ? INACTIVE_ANTENNA_INTENSITY.night : INACTIVE_ANTENNA_INTENSITY.day
+  const showCoreLight = !isDimmed && (isActive || isSelected || (!lowPower && isNight))
+  const showGlowLight = !isDimmed && (isSelected || (unlockTier >= 1 && isActive))
 
   const syncHeightTransforms = (height: number) => {
     if (bodyRef.current) {
@@ -696,10 +761,10 @@ function CityBuildingComponent({
       : isDimmed
         ? 0
         : isActive
-          ? (isNight ? 0.34 : 0.24)
-          : (isNight ? 0.14 : 0.08)
-    allHaloMat.opacity = isSelected ? 0 : isDimmed ? 0.04 : 0
-  }, [allHaloMat, darkPaneMat, isActive, isDimmed, isNight, isSelected, litHaloMat, litPaneMat])
+          ? (isNight ? 0.34 : 0.24) * (lowPower ? LOW_POWER_BUILDING_TUNING.haloOpacityScale : 1)
+          : (isNight ? 0.14 : 0.08) * (lowPower ? LOW_POWER_BUILDING_TUNING.haloOpacityScale : 1)
+    allHaloMat.opacity = (isSelected ? 0 : isDimmed ? 0.04 : 0) * (lowPower ? LOW_POWER_BUILDING_TUNING.haloOpacityScale : 1)
+  }, [allHaloMat, darkPaneMat, isActive, isDimmed, isNight, isSelected, litHaloMat, litPaneMat, lowPower])
 
   useEffect(() => {
     applyInstanceMatrices(litPaneRef.current, windowInstances.litPaneMatrices)
@@ -726,24 +791,47 @@ function CityBuildingComponent({
       heightRef.current = THREE.MathUtils.lerp(
         heightRef.current,
         target,
-        delta * (1.8 * growthRateMultiplier),
+        delta *
+          (TWEEN_SPEEDS.height *
+            growthRateMultiplier *
+            (lowPower ? LOW_POWER_BUILDING_TUNING.heightTweenScale : 1)),
       )
       syncHeightTransforms(heightRef.current)
     }
 
     if (needsOpacityTween) {
-      glassMat.opacity = THREE.MathUtils.lerp(glassMat.opacity, targetGlassOpacity, delta * 3)
-      frameMat.opacity = THREE.MathUtils.lerp(frameMat.opacity, targetFrameOpacity, delta * 3)
+      glassMat.opacity = THREE.MathUtils.lerp(
+        glassMat.opacity,
+        targetGlassOpacity,
+        delta * TWEEN_SPEEDS.opacity * (lowPower ? LOW_POWER_BUILDING_TUNING.opacityTweenScale : 1),
+      )
+      frameMat.opacity = THREE.MathUtils.lerp(
+        frameMat.opacity,
+        targetFrameOpacity,
+        delta * TWEEN_SPEEDS.opacity * (lowPower ? LOW_POWER_BUILDING_TUNING.opacityTweenScale : 1),
+      )
     }
 
     if (needsPulse) {
       const t = state.clock.getElapsedTime()
+      const pulseSpeed = lowPower ? LOW_POWER_BUILDING_TUNING.pulseSpeedScale : 1
+      const pulseAmplitude = lowPower ? LOW_POWER_BUILDING_TUNING.pulseAmplitudeScale : 1
       if (lightRef.current) {
-        lightRef.current.intensity = (isNight ? 3.4 : 2.5) + Math.sin(t * 1.8) * 0.8
+        const baseIntensity = (isNight ? 3.4 : 2.5) * (lowPower ? LOW_POWER_BUILDING_TUNING.glowLightScale : 1)
+        lightRef.current.intensity = baseIntensity + Math.sin(t * 1.8 * pulseSpeed) * 0.8 * pulseAmplitude
       }
       if (antRef.current) {
         const mat = antRef.current.material as THREE.MeshStandardMaterial
-        mat.emissiveIntensity = Math.sin(t * 3) > 0.5 ? (isNight ? 4.2 : 3) : (isNight ? 0.9 : 0.5)
+        const antennaFloor = isNight ? 0.9 : 0.5
+        const antennaCeiling = isNight ? 4.2 : 3
+        if (lowPower) {
+          const easedPulse = (Math.sin(t * 1.5) + 1) / 2
+          mat.emissiveIntensity =
+            antennaFloor +
+            (antennaCeiling - antennaFloor) * easedPulse * LOW_POWER_BUILDING_TUNING.antennaPulseScale
+        } else {
+          mat.emissiveIntensity = Math.sin(t * 3) > 0.5 ? antennaCeiling : antennaFloor
+        }
         mat.opacity = 1.0
         mat.transparent = true
       }
@@ -830,12 +918,12 @@ function CityBuildingComponent({
       {showCoreLight && (
         <pointLight
           position={[0, target / 2, 0]}
-          distance={4}
+          distance={lowPower ? 3.1 : 4}
         intensity={
           isSelected
-            ? 0.5
+            ? (lowPower ? 0.38 : 0.5)
             : isActive
-              ? (isNight ? 2.6 : 2) * glowIntensityFactor
+              ? (isNight ? 2.6 : 2) * glowIntensityFactor * (lowPower ? LOW_POWER_BUILDING_TUNING.glowLightScale : 1)
               : idleCoreLightIntensity
         }
         color={color}
@@ -863,8 +951,12 @@ function CityBuildingComponent({
         <pointLight
           ref={lightRef}
           color={color}
-          intensity={isActive && !isSelected ? 2.5 * glowIntensityFactor : idleCoreLightIntensity}
-          distance={9}
+          intensity={
+            isActive && !isSelected
+              ? 2.5 * glowIntensityFactor * (lowPower ? LOW_POWER_BUILDING_TUNING.glowLightScale : 1)
+              : idleCoreLightIntensity
+          }
+          distance={lowPower ? 6.2 : 9}
           position={[0, target + 1.5, 0]}
         />
       )}
@@ -873,7 +965,12 @@ function CityBuildingComponent({
       {unlockTier >= 2 && isActive && !isDimmed && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
           <ringGeometry args={[1.2, 2.2, 32]} />
-          <meshBasicMaterial color={color} transparent opacity={0.06 + clusterMaturity * 0.04} side={THREE.FrontSide} />
+          <meshBasicMaterial
+            color={color}
+            transparent
+            opacity={(0.06 + clusterMaturity * 0.04) * (lowPower ? LOW_POWER_BUILDING_TUNING.haloOpacityScale : 1)}
+            side={THREE.FrontSide}
+          />
         </mesh>
       )}
 
@@ -943,6 +1040,7 @@ function areCityBuildingPropsEqual(prev: CityBuildingProps, next: CityBuildingPr
     prev.clusterMaturity === next.clusterMaturity &&
     prev.departmentMaturity === next.departmentMaturity &&
     prev.timeTheme === next.timeTheme &&
+    prev.lowPower === next.lowPower &&
     prev.event?.event_id === next.event?.event_id &&
     prev.event?.status === next.event?.status &&
     prev.event?.message === next.event?.message &&

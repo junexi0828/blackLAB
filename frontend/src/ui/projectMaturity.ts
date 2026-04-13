@@ -3,6 +3,90 @@ import { DEPARTMENT_ORGANIZATION, SUPPORT_FACILITY_KEYS, getDepartmentOrganizati
 
 export type ProjectMaturityTier = 0 | 1 | 2 | 3 | 4
 
+const STATUS_PROGRESS: Record<string, number> = {
+  completed: 1,
+  running: 0.62,
+  failed: 0.12,
+}
+
+const TIER_LABELS: Record<ProjectMaturityTier, string> = {
+  0: 'L0',
+  1: 'L1',
+  2: 'L2',
+  3: 'L3',
+  4: 'L4',
+}
+
+const DEFAULT_MULTIPLIERS = {
+  roverSpeed: 0.9,
+  buildingGrowthRate: 0.9,
+  buildingHeight: 0.88,
+} as const
+
+const BASE_MATURITY_WEIGHTS = {
+  coreCompletion: 0.5,
+  reviewReadiness: 0.25,
+  iterationDepth: 0.15,
+  projectHistoryDepth: 0.1,
+} as const
+
+const CLUSTER_MATURITY_TUNING = {
+  directSignalWeight: 0.82,
+  baseMaturityWeight: 0.18,
+  reviewWeightBoost: 1.08,
+  leadershipWeightBoost: 1.05,
+} as const
+
+const DEPARTMENT_MATURITY_WEIGHTS = {
+  directSignal: 0.7,
+  upstreamSignal: 0.14,
+  parentSignal: 0.06,
+  reviewSupport: 0.04,
+  bucketSupport: 0.06,
+} as const
+
+const RAW_TIER_THRESHOLDS: Record<Exclude<ProjectMaturityTier, 0>, number> = {
+  1: 0.18,
+  2: 0.38,
+  3: 0.58,
+  4: 0.8,
+}
+
+const LIVE_INTENSITY_WEIGHTS = {
+  activeRun: 0.22,
+  activeDepartmentRatio: 0.48,
+  activeProcessRatio: 0.2,
+  loopMomentumBase: 0.18,
+  loopMomentumScale: 0.22,
+} as const
+
+const ROVER_SPEED_TUNING = {
+  min: 0.9,
+  max: 1.14,
+  baseMaturityWeight: 0.78,
+  liveIntensityWeight: 0.22,
+} as const
+
+const BUILDING_GROWTH_TUNING = {
+  min: 0.92,
+  max: 1.18,
+  baseMaturityWeight: 0.7,
+  liveIntensityWeight: 0.3,
+} as const
+
+export const BUILDING_PROFILE_TUNING = {
+  departmentHeightBase: 0.92,
+  departmentHeightWeight: 0.14,
+  clusterGrowthRateBoost: 0.03,
+  departmentGrowthRateBoost: 0.03,
+} as const
+
+const BUILDING_HEIGHT_LIMITS: Record<RoverHudBucket, { min: number; max: number }> = {
+  hq: { min: DEFAULT_MULTIPLIERS.buildingHeight, max: 1.22 },
+  rnd: { min: DEFAULT_MULTIPLIERS.buildingHeight, max: 1.24 },
+  operations: { min: DEFAULT_MULTIPLIERS.buildingHeight, max: 1.2 },
+}
+
 export interface ProjectMaturityModel {
   focusProjectSlug: string | null
   baseMaturity: number
@@ -42,16 +126,16 @@ export const DEFAULT_PROJECT_MATURITY: ProjectMaturityModel = {
   liveIntensity: 0,
   maturityPercent: 0,
   tier: 0,
-  tierLabel: 'L0',
+  tierLabel: TIER_LABELS[0],
   unlockTier: 0,
   clusterMaturity: DEFAULT_CLUSTER_MATURITY,
   departmentMaturity: {},
-  roverSpeedMultiplier: 0.9,
-  buildingGrowthRateMultiplier: 0.9,
+  roverSpeedMultiplier: DEFAULT_MULTIPLIERS.roverSpeed,
+  buildingGrowthRateMultiplier: DEFAULT_MULTIPLIERS.buildingGrowthRate,
   buildingHeightMultiplier: {
-    hq: 0.88,
-    rnd: 0.88,
-    operations: 0.88,
+    hq: DEFAULT_MULTIPLIERS.buildingHeight,
+    rnd: DEFAULT_MULTIPLIERS.buildingHeight,
+    operations: DEFAULT_MULTIPLIERS.buildingHeight,
   },
 }
 
@@ -71,16 +155,7 @@ function logScale(value: number, reference: number) {
 }
 
 function statusProgress(status: string | undefined) {
-  switch (status) {
-    case 'completed':
-      return 1
-    case 'running':
-      return 0.62
-    case 'failed':
-      return 0.12
-    default:
-      return 0
-  }
+  return STATUS_PROGRESS[status ?? ''] ?? 0
 }
 
 function selectFocusProjectSlug({
@@ -123,7 +198,7 @@ function computeAverageProgress(keys: string[], stepProgressMap: Map<string, num
 }
 
 function resolveTierLabel(tier: ProjectMaturityTier) {
-  return `L${tier}`
+  return TIER_LABELS[tier]
 }
 
 function average(values: number[]) {
@@ -220,17 +295,30 @@ function computeClusterMaturity(
     const spec = getDepartmentOrganizationSpec(key)
     const workflow = workflowDepartments.get(key)
     const signal = departmentSignals.get(key) ?? 0
-    const reviewWeight = workflow?.resource_lane === 'review' || key === 'board_review' ? 1.08 : 1
-    const leadershipWeight = !spec.reportsToKey || spec.reportsToKey === 'ceo' ? 1.05 : 1
+    const reviewWeight = workflow?.resource_lane === 'review' || key === 'board_review'
+      ? CLUSTER_MATURITY_TUNING.reviewWeightBoost
+      : 1
+    const leadershipWeight = !spec.reportsToKey || spec.reportsToKey === 'ceo'
+      ? CLUSTER_MATURITY_TUNING.leadershipWeightBoost
+      : 1
     const weight = resolvePriorityWeight(workflow?.priority) * reviewWeight * leadershipWeight
     totals[spec.hudBucket].weightedProgress += signal * weight
     totals[spec.hudBucket].totalWeight += weight
   }
 
   return {
-    hq: clamp01((totals.hq.weightedProgress / Math.max(totals.hq.totalWeight, 1)) * 0.82 + baseMaturity * 0.18),
-    rnd: clamp01((totals.rnd.weightedProgress / Math.max(totals.rnd.totalWeight, 1)) * 0.82 + baseMaturity * 0.18),
-    operations: clamp01((totals.operations.weightedProgress / Math.max(totals.operations.totalWeight, 1)) * 0.82 + baseMaturity * 0.18),
+    hq: clamp01(
+      (totals.hq.weightedProgress / Math.max(totals.hq.totalWeight, 1)) * CLUSTER_MATURITY_TUNING.directSignalWeight +
+        baseMaturity * CLUSTER_MATURITY_TUNING.baseMaturityWeight,
+    ),
+    rnd: clamp01(
+      (totals.rnd.weightedProgress / Math.max(totals.rnd.totalWeight, 1)) * CLUSTER_MATURITY_TUNING.directSignalWeight +
+        baseMaturity * CLUSTER_MATURITY_TUNING.baseMaturityWeight,
+    ),
+    operations: clamp01(
+      (totals.operations.weightedProgress / Math.max(totals.operations.totalWeight, 1)) * CLUSTER_MATURITY_TUNING.directSignalWeight +
+        baseMaturity * CLUSTER_MATURITY_TUNING.baseMaturityWeight,
+    ),
   }
 }
 
@@ -265,11 +353,11 @@ function computeDepartmentMaturity(
     values.set(
       key,
       clamp01(
-        directSignal * 0.7 +
-          upstreamSignal * 0.14 +
-          parentSignal * 0.06 +
-          reviewSupport * 0.04 +
-          bucketSupport * 0.06,
+        directSignal * DEPARTMENT_MATURITY_WEIGHTS.directSignal +
+          upstreamSignal * DEPARTMENT_MATURITY_WEIGHTS.upstreamSignal +
+          parentSignal * DEPARTMENT_MATURITY_WEIGHTS.parentSignal +
+          reviewSupport * DEPARTMENT_MATURITY_WEIGHTS.reviewSupport +
+          bucketSupport * DEPARTMENT_MATURITY_WEIGHTS.bucketSupport,
       ),
     )
   }
@@ -300,16 +388,16 @@ function resolveIterationDepth(loops: LoopState[], focusProjectSlug: string | nu
 }
 
 function resolveRawTier(baseMaturity: number): ProjectMaturityTier {
-  if (baseMaturity >= 0.8) {
+  if (baseMaturity >= RAW_TIER_THRESHOLDS[4]) {
     return 4
   }
-  if (baseMaturity >= 0.58) {
+  if (baseMaturity >= RAW_TIER_THRESHOLDS[3]) {
     return 3
   }
-  if (baseMaturity >= 0.38) {
+  if (baseMaturity >= RAW_TIER_THRESHOLDS[2]) {
     return 2
   }
-  if (baseMaturity >= 0.18) {
+  if (baseMaturity >= RAW_TIER_THRESHOLDS[1]) {
     return 1
   }
   return 0
@@ -397,10 +485,10 @@ export function resolveProjectMaturity({
   const projectHistoryDepth = logScale(projectRecord?.run_count ?? 0, 8)
 
   const baseMaturity = clamp01(
-    coreCompletion * 0.5 +
-      reviewReadiness * 0.25 +
-      iterationDepth * 0.15 +
-      projectHistoryDepth * 0.1,
+    coreCompletion * BASE_MATURITY_WEIGHTS.coreCompletion +
+      reviewReadiness * BASE_MATURITY_WEIGHTS.reviewReadiness +
+      iterationDepth * BASE_MATURITY_WEIGHTS.iterationDepth +
+      projectHistoryDepth * BASE_MATURITY_WEIGHTS.projectHistoryDepth,
   )
 
   const departmentSignals = resolveDepartmentSignalMap(trackedKeys, stepProgressMap, organizationChildrenMap)
@@ -422,11 +510,13 @@ export function resolveProjectMaturity({
     liveDepartmentKeys.size / Math.max(2, settings.max_parallel_departments || 6),
   )
   const activeProcessRatio = clamp01((activeRun?.current_processes.length ?? 0) / 4)
-  const loopMomentum = activeLoop ? clamp01(0.18 + iterationDepth * 0.22) : 0
+  const loopMomentum = activeLoop
+    ? clamp01(LIVE_INTENSITY_WEIGHTS.loopMomentumBase + iterationDepth * LIVE_INTENSITY_WEIGHTS.loopMomentumScale)
+    : 0
   const liveIntensity = clamp01(
-    (activeRun ? 0.22 : 0) +
-      activeDepartmentRatio * 0.48 +
-      activeProcessRatio * 0.2 +
+    (activeRun ? LIVE_INTENSITY_WEIGHTS.activeRun : 0) +
+      activeDepartmentRatio * LIVE_INTENSITY_WEIGHTS.activeDepartmentRatio +
+      activeProcessRatio * LIVE_INTENSITY_WEIGHTS.activeProcessRatio +
       loopMomentum,
   )
 
@@ -443,12 +533,26 @@ export function resolveProjectMaturity({
     unlockTier,
     clusterMaturity,
     departmentMaturity,
-    roverSpeedMultiplier: smoothLerp(0.9, 1.14, baseMaturity * 0.78 + liveIntensity * 0.22),
-    buildingGrowthRateMultiplier: smoothLerp(0.92, 1.18, baseMaturity * 0.7 + liveIntensity * 0.3),
+    roverSpeedMultiplier: smoothLerp(
+      ROVER_SPEED_TUNING.min,
+      ROVER_SPEED_TUNING.max,
+      baseMaturity * ROVER_SPEED_TUNING.baseMaturityWeight +
+        liveIntensity * ROVER_SPEED_TUNING.liveIntensityWeight,
+    ),
+    buildingGrowthRateMultiplier: smoothLerp(
+      BUILDING_GROWTH_TUNING.min,
+      BUILDING_GROWTH_TUNING.max,
+      baseMaturity * BUILDING_GROWTH_TUNING.baseMaturityWeight +
+        liveIntensity * BUILDING_GROWTH_TUNING.liveIntensityWeight,
+    ),
     buildingHeightMultiplier: {
-      hq: smoothLerp(0.88, 1.22, clusterMaturity.hq),
-      rnd: smoothLerp(0.88, 1.24, clusterMaturity.rnd),
-      operations: smoothLerp(0.88, 1.2, clusterMaturity.operations),
+      hq: smoothLerp(BUILDING_HEIGHT_LIMITS.hq.min, BUILDING_HEIGHT_LIMITS.hq.max, clusterMaturity.hq),
+      rnd: smoothLerp(BUILDING_HEIGHT_LIMITS.rnd.min, BUILDING_HEIGHT_LIMITS.rnd.max, clusterMaturity.rnd),
+      operations: smoothLerp(
+        BUILDING_HEIGHT_LIMITS.operations.min,
+        BUILDING_HEIGHT_LIMITS.operations.max,
+        clusterMaturity.operations,
+      ),
     },
   }
 }

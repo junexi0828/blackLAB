@@ -1,7 +1,8 @@
 const feedbackNode = document.querySelector("#action-feedback");
-let autoRefreshEnabled = true;
+let autoRefreshEnabled = false;
 let autoRefreshTimer = null;
 const chatLogNode = document.querySelector("#operator-chat-log");
+const AUTO_REFRESH_INTERVAL_MS = 12000;
 
 function setFeedback(message, isError = false) {
   if (!feedbackNode) {
@@ -9,6 +10,212 @@ function setFeedback(message, isError = false) {
   }
   feedbackNode.textContent = message;
   feedbackNode.style.color = isError ? "#b42318" : "";
+}
+
+function readStoredJson(key) {
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function writeStoredJson(key, value) {
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify(value));
+  } catch (_error) {
+    // Ignore storage errors and keep the page usable.
+  }
+}
+
+function removeStoredJson(key) {
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch (_error) {
+    // Ignore storage errors and keep the page usable.
+  }
+}
+
+function getRefreshToggle() {
+  return document.querySelector('[data-toggle-refresh][data-refresh-scope="observe"]');
+}
+
+function clearScheduledRefresh() {
+  if (!autoRefreshTimer) {
+    return;
+  }
+  clearTimeout(autoRefreshTimer);
+  autoRefreshTimer = null;
+}
+
+function updateRefreshToggle(toggle) {
+  if (!toggle) {
+    return;
+  }
+  const activeLabel = toggle.getAttribute("data-toggle-label-on") || "Auto refresh on";
+  const inactiveLabel = toggle.getAttribute("data-toggle-label-off") || "Auto refresh off";
+  toggle.textContent = autoRefreshEnabled ? activeLabel : inactiveLabel;
+  toggle.setAttribute("data-active", autoRefreshEnabled ? "true" : "false");
+}
+
+function disableAutoRefreshForEditing() {
+  if (!autoRefreshEnabled && !autoRefreshTimer) {
+    return;
+  }
+  autoRefreshEnabled = false;
+  clearScheduledRefresh();
+  updateRefreshToggle(getRefreshToggle());
+}
+
+function getDraftStorageKey(form) {
+  const draftKey = form.getAttribute("data-draft-key");
+  return draftKey ? `blacklab:draft:${draftKey}` : null;
+}
+
+function setTogglePanelState(button, panel, isOpen) {
+  if (isOpen) {
+    panel.removeAttribute("hidden");
+    const openLabel = button.getAttribute("data-toggle-label-open");
+    if (openLabel) {
+      button.textContent = openLabel;
+    }
+    return;
+  }
+  panel.setAttribute("hidden", "");
+  const closedLabel = button.getAttribute("data-toggle-label-closed");
+  if (closedLabel) {
+    button.textContent = closedLabel;
+  }
+}
+
+function collectFormDraftState(form) {
+  const values = {};
+  form.querySelectorAll("input[name], textarea[name], select[name]").forEach((field) => {
+    if (
+      !(
+        field instanceof HTMLInputElement ||
+        field instanceof HTMLTextAreaElement ||
+        field instanceof HTMLSelectElement
+      )
+    ) {
+      return;
+    }
+    if (field instanceof HTMLInputElement && ["button", "submit", "hidden"].includes(field.type)) {
+      return;
+    }
+    if (field instanceof HTMLInputElement && field.type === "radio") {
+      if (field.checked) {
+        values[field.name] = field.value;
+      }
+      return;
+    }
+    if (field instanceof HTMLInputElement && field.type === "checkbox") {
+      values[field.name] = field.checked;
+      return;
+    }
+    values[field.name] = field.value;
+  });
+
+  const panels = {};
+  form.querySelectorAll("[data-toggle-target]").forEach((button) => {
+    const targetId = button.getAttribute("data-toggle-target");
+    const panel = targetId ? document.getElementById(targetId) : null;
+    if (!targetId || !panel) {
+      return;
+    }
+    panels[targetId] = !panel.hasAttribute("hidden");
+  });
+
+  return { values, panels };
+}
+
+function persistFormDraft(form) {
+  const storageKey = getDraftStorageKey(form);
+  if (!storageKey) {
+    return;
+  }
+  writeStoredJson(storageKey, collectFormDraftState(form));
+}
+
+function clearFormDraft(form) {
+  const storageKey = getDraftStorageKey(form);
+  if (!storageKey) {
+    return;
+  }
+  removeStoredJson(storageKey);
+}
+
+function restoreFormDraft(form) {
+  const storageKey = getDraftStorageKey(form);
+  if (!storageKey) {
+    return;
+  }
+  const state = readStoredJson(storageKey);
+  if (!state || typeof state !== "object") {
+    return;
+  }
+
+  const values = state.values || {};
+  Object.entries(values).forEach(([name, value]) => {
+    form.querySelectorAll(`[name="${name}"]`).forEach((field) => {
+      if (
+        !(
+          field instanceof HTMLInputElement ||
+          field instanceof HTMLTextAreaElement ||
+          field instanceof HTMLSelectElement
+        )
+      ) {
+        return;
+      }
+      if (field instanceof HTMLInputElement && ["button", "submit", "hidden"].includes(field.type)) {
+        return;
+      }
+      if (field instanceof HTMLInputElement && field.type === "radio") {
+        field.checked = field.value === value;
+        return;
+      }
+      if (field instanceof HTMLInputElement && field.type === "checkbox") {
+        field.checked = Boolean(value);
+        return;
+      }
+      field.value = value ?? "";
+    });
+  });
+
+  const panels = state.panels || {};
+  form.querySelectorAll("[data-toggle-target]").forEach((button) => {
+    const targetId = button.getAttribute("data-toggle-target");
+    const panel = targetId ? document.getElementById(targetId) : null;
+    if (!targetId || !panel) {
+      return;
+    }
+    setTogglePanelState(button, panel, Boolean(panels[targetId]));
+  });
+}
+
+function bindDraftableForms() {
+  document.querySelectorAll("form[data-draft-key]").forEach((form) => {
+    restoreFormDraft(form);
+    form.addEventListener("focusin", (event) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement
+      ) {
+        disableAutoRefreshForEditing();
+      }
+    });
+    form.addEventListener("input", () => {
+      disableAutoRefreshForEditing();
+      persistFormDraft(form);
+    });
+    form.addEventListener("change", () => {
+      disableAutoRefreshForEditing();
+      persistFormDraft(form);
+    });
+  });
 }
 
 async function postJson(url, payload) {
@@ -37,6 +244,7 @@ function bindRunLaunchForm() {
     try {
       setFeedback("Starting run...");
       const result = await postJson("/api/launch/run", payload);
+      clearFormDraft(form);
       setFeedback(`Run ${result.run_id} is starting now.`);
       window.setTimeout(() => window.location.reload(), 800);
     } catch (error) {
@@ -60,6 +268,7 @@ function bindLoopLaunchForm() {
     try {
       setFeedback("Starting autopilot...");
       const result = await postJson("/api/launch/loop", payload);
+      clearFormDraft(form);
       setFeedback(`Loop ${result.loop_id} is starting now.`);
       window.setTimeout(() => window.location.reload(), 800);
     } catch (error) {
@@ -112,50 +321,45 @@ function bindRefreshControls() {
     refreshButton.addEventListener("click", () => window.location.reload());
   }
 
-  const toggle = document.querySelector("[data-toggle-refresh]");
+  const toggle = getRefreshToggle();
   if (!toggle) {
     return;
   }
+  autoRefreshEnabled = toggle.getAttribute("data-active") === "true";
+  updateRefreshToggle(toggle);
   toggle.addEventListener("click", () => {
     autoRefreshEnabled = !autoRefreshEnabled;
-    toggle.textContent = autoRefreshEnabled ? "Auto refresh on" : "Auto refresh off";
-    toggle.setAttribute("data-active", autoRefreshEnabled ? "true" : "false");
+    updateRefreshToggle(toggle);
     if (autoRefreshEnabled) {
       scheduleRefresh();
-    } else if (autoRefreshTimer) {
-      clearTimeout(autoRefreshTimer);
-      autoRefreshTimer = null;
+    } else {
+      clearScheduledRefresh();
     }
   });
+  if (autoRefreshEnabled) {
+    scheduleRefresh();
+  }
 }
 
 function bindTogglePanels() {
   document.querySelectorAll('[data-toggle-target]').forEach((button) => {
     button.addEventListener('click', () => {
-      const targetId = button.getAttribute('data-toggle-target')
+      const targetId = button.getAttribute('data-toggle-target');
       if (!targetId) {
-        return
+        return;
       }
-      const panel = document.getElementById(targetId)
+      const panel = document.getElementById(targetId);
       if (!panel) {
-        return
+        return;
       }
-      const nextHidden = !panel.hasAttribute('hidden')
-      if (nextHidden) {
-        panel.setAttribute('hidden', '')
-        const closedLabel = button.getAttribute('data-toggle-label-closed')
-        if (closedLabel) {
-          button.textContent = closedLabel
-        }
-      } else {
-        panel.removeAttribute('hidden')
-        const openLabel = button.getAttribute('data-toggle-label-open')
-        if (openLabel) {
-          button.textContent = openLabel
-        }
+      const nextIsOpen = panel.hasAttribute("hidden");
+      setTogglePanelState(button, panel, nextIsOpen);
+      const form = button.closest("form[data-draft-key]");
+      if (form instanceof HTMLFormElement) {
+        persistFormDraft(form);
       }
-    })
-  })
+    });
+  });
 }
 
 function bindProjectSelectors() {
@@ -183,17 +387,15 @@ function bindProjectSelectors() {
 }
 
 function scheduleRefresh() {
-  const autoRefreshToggle = document.querySelector("[data-toggle-refresh]");
+  const autoRefreshToggle = getRefreshToggle();
   if (!autoRefreshToggle) {
     return;
   }
   if (!autoRefreshEnabled) {
     return;
   }
-  if (autoRefreshTimer) {
-    clearTimeout(autoRefreshTimer);
-  }
-  autoRefreshTimer = window.setTimeout(() => window.location.reload(), 12000);
+  clearScheduledRefresh();
+  autoRefreshTimer = window.setTimeout(() => window.location.reload(), AUTO_REFRESH_INTERVAL_MS);
 }
 
 function escapeHtml(value) {
@@ -365,6 +567,6 @@ bindLoopStopButtons();
 bindRefreshControls();
 bindTogglePanels();
 bindProjectSelectors();
+bindDraftableForms();
 bindOperatorSettingsForm();
 bindOperatorChat();
-scheduleRefresh();

@@ -968,8 +968,15 @@ def create_app(storage: RunStorage) -> FastAPI:
             "name": name or slug,
             "source": project_source_label(source),
             "entity_id": entity_id,
-            "reference_label": reference_label or entity_id or "Saved default",
+            "reference_label": reference_label or entity_id or default_project_reference_label(source),
         }
+
+    def default_project_reference_label(source: str) -> str:
+        labels = {
+            "launch default": "Launch preset",
+            "autopilot default": "Autopilot preset",
+        }
+        return labels.get(source, "Operator preset")
 
     def build_default_project_payload(slug: str | None, source: str) -> dict | None:
         if not slug:

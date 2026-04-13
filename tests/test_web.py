@@ -30,11 +30,14 @@ def test_dashboard_routes_render(tmp_path: Path) -> None:
     assert launch_page.status_code == 200
     assert "New Run" in launch_page.text
     assert "Project" in launch_page.text
+    assert 'data-draft-key="launch"' in launch_page.text
 
     autopilot_page = client.get("/autopilot")
     assert autopilot_page.status_code == 200
     assert "Start Autopilot" in autopilot_page.text
     assert "Project" in autopilot_page.text
+    assert 'data-draft-key="autopilot"' in autopilot_page.text
+    assert "data-toggle-refresh" not in autopilot_page.text
 
     runs_page = client.get("/runs")
     assert runs_page.status_code == 200
@@ -669,6 +672,7 @@ def test_launch_page_sidebar_uses_launch_default_project_context(tmp_path: Path)
     assert "Launch Project" in response.text
     assert "launch-project" in response.text
     assert "Saved for launch" in response.text
+    assert "Launch preset" in response.text
     assert "Recent run" not in response.text
 
 
@@ -740,5 +744,5 @@ def test_loop_detail_sidebar_falls_back_to_autopilot_default(tmp_path: Path) -> 
     assert "Current Project" in response.text
     assert "Loop Home" in response.text
     assert "Saved for autopilot" in response.text
-    assert "Saved default" in response.text
+    assert "Autopilot preset" in response.text
     assert "Recent run" not in response.text

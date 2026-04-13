@@ -583,7 +583,7 @@ function WorldCanvasComponent({
         enableDamping
         dampingFactor={0.06}
         autoRotate={autoRotateEnabled && !selectedBuilding && !cameraTransitionActive}
-        autoRotateSpeed={-0.72}
+        autoRotateSpeed={-0.42}
         maxPolarAngle={Math.PI / 2.1}
         minDistance={6}
         maxDistance={40}

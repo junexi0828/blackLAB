@@ -147,6 +147,39 @@ def launch_detached_loop(
     )
 
 
+def launch_detached_release(
+    project_slug: str,
+    storage_root: Path,
+) -> DetachedLaunch:
+    launcher_dir = storage_root / "launchers"
+    launcher_dir.mkdir(parents=True, exist_ok=True)
+
+    stamp = time.strftime("%Y%m%dT%H%M%S")
+    slug = slugify(project_slug)[:40]
+    handoff_path = launcher_dir / f"{stamp}-{slug}.release-id"
+    log_path = launcher_dir / f"{stamp}-{slug}.release.log"
+
+    command = [
+        sys.executable,
+        "-m",
+        "blacklab_factory.cli",
+        "release",
+        "build",
+        project_slug,
+        "--storage-root",
+        str(storage_root),
+        "--release-id-file",
+        str(handoff_path),
+    ]
+
+    process = _spawn(command=command, log_path=log_path)
+    return DetachedLaunch(
+        entity_id=_wait_for_handoff(handoff_path=handoff_path, log_path=log_path, process=process, label="release_id"),
+        pid=process.pid,
+        log_path=log_path,
+    )
+
+
 def _spawn(command: list[str], log_path: Path) -> subprocess.Popen:
     with log_path.open("w", encoding="utf-8") as log_handle:
         return subprocess.Popen(

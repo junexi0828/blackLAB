@@ -63,8 +63,8 @@ export const ORGANIZATION_DIVISIONS: OrganizationDivisionSpec[] = [
   },
   {
     key: 'quality_testing',
-    label: 'Quality & Testing',
-    description: 'Release readiness, validation, and test coverage.',
+    label: 'Review & Release',
+    description: 'Validation, testing, final review, and delivery packaging.',
     order: 40,
   },
   {
@@ -216,7 +216,19 @@ export const DEPARTMENT_ORGANIZATION: Record<string, DepartmentOrganizationSpec>
     hudBucket: 'operations',
     sortOrder: 130,
   },
+  release_center: {
+    key: 'release_center',
+    publicName: 'Release Center',
+    publicSummary: 'Packages finished project work into a downloadable delivery bundle when the operator requests it.',
+    divisionKey: 'quality_testing',
+    reportsToKey: 'board_review',
+    visualArchetype: 'quality_assurance',
+    hudBucket: 'operations',
+    sortOrder: 140,
+  },
 }
+
+export const SUPPORT_FACILITY_KEYS = ['release_center'] as const
 
 function prettifyKey(value: string) {
   return value

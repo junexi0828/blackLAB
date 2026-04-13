@@ -1,5 +1,5 @@
 import type { CompanyConfig, DepartmentConfig, LoopState, ProjectLibraryEntry, RunState } from '../types'
-import { DEPARTMENT_ORGANIZATION, getDepartmentOrganizationSpec, type RoverHudBucket } from '../config/organizationModel'
+import { DEPARTMENT_ORGANIZATION, SUPPORT_FACILITY_KEYS, getDepartmentOrganizationSpec, type RoverHudBucket } from '../config/organizationModel'
 
 export type ProjectMaturityTier = 0 | 1 | 2 | 3 | 4
 
@@ -139,6 +139,7 @@ function buildWorkflowDepartmentMap(settings: CompanyConfig) {
 }
 
 function collectTrackedDepartmentKeys(settings: CompanyConfig, referenceRun: RunState | null) {
+  const supportKeys = new Set<string>(SUPPORT_FACILITY_KEYS)
   return Array.from(
     new Set([
       ...Object.keys(DEPARTMENT_ORGANIZATION),
@@ -146,7 +147,7 @@ function collectTrackedDepartmentKeys(settings: CompanyConfig, referenceRun: Run
       ...settings.review_departments.map((department) => department.key),
       ...(referenceRun?.steps ?? []).map((step) => step.department_key),
     ]),
-  )
+  ).filter((key) => !supportKeys.has(key))
 }
 
 function buildOrganizationChildrenMap(keys: string[]) {

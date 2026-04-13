@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { StepRecord } from '../types'
 import { ACTIVE_ROVERS_PER_DEPARTMENT } from './roverPersona'
-import { getDepartmentOrganizationSpec, type RoverVisualArchetype } from '../config/organizationModel'
+import { SUPPORT_FACILITY_KEYS, getDepartmentOrganizationSpec, type RoverVisualArchetype } from '../config/organizationModel'
 import type { ProjectMaturityTier } from './projectMaturity'
 
 interface AgentRoversProps {
@@ -397,7 +397,9 @@ export const AgentRovers = memo(function AgentRovers({
 
   const rovers = useMemo(() => {
     const arr: RoverDescriptor[] = []
-    const deptKeys = Object.keys(positions)
+    const deptKeys = Object.keys(positions).filter(
+      (key) => !SUPPORT_FACILITY_KEYS.includes(key as (typeof SUPPORT_FACILITY_KEYS)[number]),
+    )
     if (deptKeys.length === 0) {
       return arr
     }

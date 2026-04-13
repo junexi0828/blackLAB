@@ -7,25 +7,26 @@ from pathlib import Path
 import markdown
 from pydantic import BaseModel
 from fastapi import Body, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.cors import CORSMiddleware
 
 from .autopilot import AutopilotSupervisor
 from .config import load_company_config, repo_root
-from .launcher import launch_detached_loop, launch_detached_run, terminate_process_group
+from .launcher import launch_detached_loop, launch_detached_release, launch_detached_run, terminate_process_group
 from .models import (
     DEFAULT_CORE_CODEX_MODEL,
     DEFAULT_REVIEW_CODEX_AUTONOMY,
     DEFAULT_REVIEW_CODEX_MODEL,
     EventEntry,
     OperatorProfile,
+    ReleaseState,
     RunSettings,
 )
 from .operator_control import OperatorCommander
 from .resources import RuntimeResourceManager
-from .storage import LoopStorage, ProjectStorage, RunStorage
+from .storage import LoopStorage, ProjectStorage, ReleaseStorage, RunStorage
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -168,14 +169,24 @@ ORGANIZATION_GROUPS = {
         "order": 30,
     },
     "quality_testing": {
-        "label": "Quality & Testing",
-        "description": "Validation, testing, and release readiness.",
+        "label": "Review & Release",
+        "description": "Validation, testing, final review, and delivery packaging.",
         "order": 40,
     },
     "growth_marketing": {
         "label": "Growth & Marketing",
         "description": "Launch support, positioning, and audience growth.",
         "order": 50,
+    },
+}
+
+SUPPORT_FACILITY_SPECS = {
+    "release_center": {
+        "public_name": "Release Center",
+        "public_summary": "Packages the finished project into a downloadable delivery bundle when the operator requests it.",
+        "group": "quality_testing",
+        "reports_to": "board_review",
+        "order": 140,
     },
 }
 
@@ -298,6 +309,7 @@ def create_app(storage: RunStorage) -> FastAPI:
     base_root = storage.root
     loop_storage = AutopilotSupervisor(storage_root=base_root).loop_storage
     project_storage = ProjectStorage(base_root)
+    release_storage = ReleaseStorage(base_root)
     company_config = load_company_config()
     operator = OperatorCommander(base_root)
     resource_manager = RuntimeResourceManager()
@@ -412,12 +424,64 @@ def create_app(storage: RunStorage) -> FastAPI:
             )
         ]
 
-    def build_operator_feed(runs, loops, limit: int | None = 18) -> list[EventEntry]:
+    def summarize_release_state(release_state: ReleaseState) -> dict:
+        return {
+            "release_id": release_state.release_id,
+            "status": release_state.status,
+            "created_at": release_state.created_at.isoformat(),
+            "updated_at": release_state.updated_at.isoformat(),
+            "summary": release_state.summary,
+            "current_status": release_state.current_status,
+            "release_type": release_state.release_type,
+            "download_url": (
+                f"/api/releases/{release_state.release_id}/download"
+                if release_state.status == "completed" and release_state.download_path
+                else None
+            ),
+            "download_filename": Path(release_state.download_path).name if release_state.download_path else None,
+        }
+
+    def build_release_events(release_state: ReleaseState) -> list[EventEntry]:
+        if release_state.status not in {"running", "completed", "failed", "stale"}:
+            return []
+        title_suffix = {
+            "running": "packaging",
+            "completed": "ready",
+            "failed": "failed",
+            "stale": "stale",
+        }.get(release_state.status, release_state.status)
+        message = release_state.current_status or release_state.summary or "Release Center updated the delivery bundle."
+        return [
+            EventEntry(
+                event_id=f"{release_state.release_id}:release:{release_state.status}:{release_state.updated_at.isoformat()}",
+                scope="release",
+                title=f"Release Center {title_suffix}",
+                message=message,
+                status=release_state.status,
+                timestamp=release_state.updated_at,
+                department_key="release_center",
+                department_label=SUPPORT_FACILITY_SPECS["release_center"]["public_name"],
+                is_live=release_state.status == "running",
+            )
+        ]
+
+    def build_release_maps(releases: list[ReleaseState]) -> tuple[dict[str, ReleaseState], dict[str, ReleaseState]]:
+        latest_by_project: dict[str, ReleaseState] = {}
+        active_by_project: dict[str, ReleaseState] = {}
+        for release_state in releases:
+            latest_by_project.setdefault(release_state.project_slug, release_state)
+            if release_state.status == "running":
+                active_by_project.setdefault(release_state.project_slug, release_state)
+        return latest_by_project, active_by_project
+
+    def build_operator_feed(runs, loops, releases, limit: int | None = 18) -> list[EventEntry]:
         feed: list[EventEntry] = []
         for run in runs[:6]:
             feed.extend(build_run_events(run)[:12])
         for loop_state in loops[:4]:
             feed.extend(build_loop_events(loop_state))
+        for release_state in releases[:6]:
+            feed.extend(build_release_events(release_state))
         feed.sort(key=lambda event: event.timestamp, reverse=True)
         if limit is None:
             return feed
@@ -451,14 +515,21 @@ def create_app(storage: RunStorage) -> FastAPI:
         risks.sort(key=lambda item: item["timestamp"], reverse=True)
         return risks[:limit]
 
-    def build_department_bubbles(runs) -> dict[str, EventEntry]:
+    def build_department_bubbles(runs, releases) -> dict[str, EventEntry]:
         bubbles: dict[str, EventEntry] = {}
-        max_departments = len(company_config.departments) + len(company_config.review_departments) + 1
+        max_departments = len(company_config.departments) + len(company_config.review_departments) + 1 + len(SUPPORT_FACILITY_SPECS)
         for run in runs:
             for event in build_run_events(run):
                 if not event.department_key or event.department_key in bubbles:
                     continue
                 if event.status not in {"running", "completed", "failed"}:
+                    continue
+                bubbles[event.department_key] = event
+            if len(bubbles) >= max_departments:
+                break
+        for release_state in releases:
+            for event in build_release_events(release_state):
+                if not event.department_key or event.department_key in bubbles:
                     continue
                 bubbles[event.department_key] = event
             if len(bubbles) >= max_departments:
@@ -608,8 +679,36 @@ def create_app(storage: RunStorage) -> FastAPI:
             )
         return sorted(catalog, key=lambda item: item["display_order"])
 
+    def build_support_facility_catalog(operator_profile: OperatorProfile) -> list[dict]:
+        hidden_campus = set(operator_profile.roster.hidden_campus_items)
+        facilities = []
+        for key, spec in SUPPORT_FACILITY_SPECS.items():
+            group = ORGANIZATION_GROUPS.get(spec["group"], ORGANIZATION_GROUPS["quality_testing"])
+            facilities.append(
+                {
+                    "key": key,
+                    "label": spec["public_name"],
+                    "purpose": spec["public_summary"],
+                    "output_title": "Downloadable Release Bundle",
+                    "resource_lane": "review",
+                    "priority": spec["order"],
+                    "runtime_tier": "review",
+                    "public_name": spec["public_name"],
+                    "public_summary": spec["public_summary"],
+                    "group_label": group["label"],
+                    "reports_to": spec["reports_to"],
+                    "display_order": spec["order"],
+                    "is_active": False,
+                    "is_visible_on_campus": key not in hidden_campus,
+                }
+            )
+        return facilities
+
     def build_organization_chart(operator_profile: OperatorProfile) -> list[dict]:
-        active_teams = {item["key"]: item for item in build_department_catalog(operator_profile)}
+        active_teams = {
+            item["key"]: item
+            for item in [*build_department_catalog(operator_profile), *build_support_facility_catalog(operator_profile)]
+        }
         nodes = {}
         for key, item in active_teams.items():
             nodes[key] = {
@@ -639,10 +738,20 @@ def create_app(storage: RunStorage) -> FastAPI:
         return roots
 
     def build_organization_directory(operator_profile: OperatorProfile) -> list[dict]:
-        catalog = build_department_catalog(operator_profile)
+        catalog = [*build_department_catalog(operator_profile), *build_support_facility_catalog(operator_profile)]
         groups = []
         for key, group in sorted(ORGANIZATION_GROUPS.items(), key=lambda entry: entry[1]["order"]):
-            teams = [item for item in catalog if ORGANIZATION_TEAM_SPECS.get(item["key"], {}).get("group", "research_engineering") == key]
+            teams = [
+                item
+                for item in catalog
+                if (
+                    ORGANIZATION_TEAM_SPECS.get(item["key"], SUPPORT_FACILITY_SPECS.get(item["key"], {})).get(
+                        "group",
+                        "research_engineering",
+                    )
+                    == key
+                )
+            ]
             if not teams:
                 continue
             groups.append(
@@ -656,6 +765,7 @@ def create_app(storage: RunStorage) -> FastAPI:
         return groups
 
     def build_project_library() -> list[dict]:
+        latest_release_by_project, active_release_by_project = build_release_maps(release_storage.list_releases())
         projects = sorted(
             project_storage.list_projects(),
             key=lambda record: record.last_run_at or record.updated_at,
@@ -668,6 +778,16 @@ def create_app(storage: RunStorage) -> FastAPI:
                 "brief": record.brief,
                 "run_count": record.run_count,
                 "last_run_id": record.last_run_id,
+                "latest_release": (
+                    summarize_release_state(latest_release_by_project[record.slug])
+                    if record.slug in latest_release_by_project
+                    else None
+                ),
+                "active_release": (
+                    summarize_release_state(active_release_by_project[record.slug])
+                    if record.slug in active_release_by_project
+                    else None
+                ),
             }
             for record in projects
         ]
@@ -705,11 +825,12 @@ def create_app(storage: RunStorage) -> FastAPI:
     def build_overview_context(activity_page: int = 1) -> dict:
         runs, _ = storage.list_runs()
         loops, _ = loop_storage.list_loops()
+        releases = release_storage.list_releases()
         operator_profile = operator.load_profile()
         if activity_page < 1:
             activity_page = 1
         activity_page_size = 8
-        all_operator_feed = build_operator_feed(runs, loops, limit=None)
+        all_operator_feed = build_operator_feed(runs, loops, releases, limit=None)
         activity_total_count = len(all_operator_feed)
         activity_total_pages = max(1, (activity_total_count + activity_page_size - 1) // activity_page_size)
         if activity_page > activity_total_pages:
@@ -725,13 +846,25 @@ def create_app(storage: RunStorage) -> FastAPI:
         project_library = build_project_library()
         latest_decisions = build_latest_decisions(runs)
         top_risks = build_top_risks(runs)
-        current_project = build_current_project(runs, loops, operator_profile)
+        current_project = build_current_project(runs, loops, releases, operator_profile)
         current_project_memory = build_current_project_memory(current_project)
+        current_project_release = next(
+            (
+                {
+                    "latest_release": project["latest_release"],
+                    "active_release": project["active_release"],
+                }
+                for project in project_library
+                if current_project and project["slug"] == current_project["slug"]
+            ),
+            {"latest_release": None, "active_release": None},
+        )
         return {
             "runs": runs,
             "loops": loops,
+            "releases": releases,
             "operator_feed": operator_feed,
-            "bubble_events": build_department_bubbles(runs),
+            "bubble_events": build_department_bubbles(runs, releases),
             "recent_run_reports": [build_run_report(run) for run in runs[:6]],
             "recent_loop_reports": [build_loop_report(loop) for loop in loops[:4]],
             "active_runs": active_runs,
@@ -749,6 +882,7 @@ def create_app(storage: RunStorage) -> FastAPI:
             "resource_snapshot": resource_snapshot,
             "current_project": current_project,
             "current_project_memory": current_project_memory,
+            "current_project_release": current_project_release,
             "operator_route": operator_route,
             "activity_current_page": activity_page,
             "activity_total_pages": activity_total_pages,
@@ -791,6 +925,7 @@ def create_app(storage: RunStorage) -> FastAPI:
         labels = {
             "active run": "Current run",
             "active loop": "Current loop",
+            "release center": "Release Center",
             "listed run": "Run on this page",
             "listed loop": "Loop on this page",
             "recent run": "Recent run",
@@ -869,7 +1004,7 @@ def create_app(storage: RunStorage) -> FastAPI:
             return build_default_project_payload(default_slug, default_source)
         return None
 
-    def build_current_project(runs, loops, operator_profile) -> dict | None:
+    def build_current_project(runs, loops, releases, operator_profile) -> dict | None:
         for run in runs:
             if run.status == "running" and run.project_slug:
                 return current_project_payload(
@@ -885,6 +1020,15 @@ def create_app(storage: RunStorage) -> FastAPI:
                     name=loop_state.project_name,
                     source="active loop",
                     entity_id=loop_state.loop_id,
+                )
+        for release_state in releases:
+            if release_state.status == "running":
+                return current_project_payload(
+                    slug=release_state.project_slug,
+                    name=release_state.project_name,
+                    source="release center",
+                    entity_id=release_state.release_id,
+                    reference_label=release_state.release_id,
                 )
         for run in runs:
             if run.project_slug:
@@ -1097,7 +1241,7 @@ def create_app(storage: RunStorage) -> FastAPI:
                 "cycles_total_pages": cycles_total_pages,
                 "log_tail": loop_storage.read_log_tail(loop_id),
                 "loop_report": build_loop_report(loop_state),
-                "event_feed": build_operator_feed(linked_run_states, [loop_state]),
+                "event_feed": build_operator_feed(linked_run_states, [loop_state], []),
                 "current_project": (
                     {
                         "slug": loop_state.project_slug,
@@ -1284,8 +1428,9 @@ def create_app(storage: RunStorage) -> FastAPI:
     def operator_feed_api():
         runs, _ = storage.list_runs()
         loops, _ = loop_storage.list_loops()
-        feed = build_operator_feed(runs, loops)
-        bubbles = build_department_bubbles(runs)
+        releases = release_storage.list_releases()
+        feed = build_operator_feed(runs, loops, releases)
+        bubbles = build_department_bubbles(runs, releases)
         return JSONResponse(
             {
                 "events": [event.model_dump(mode="json") for event in feed],
@@ -1309,13 +1454,81 @@ def create_app(storage: RunStorage) -> FastAPI:
     def projects_api():
         runs, _ = storage.list_runs()
         loops, _ = loop_storage.list_loops()
+        releases = release_storage.list_releases()
         operator_profile = operator.load_profile()
         return JSONResponse(
             {
                 "projects": build_project_library(),
-                "current_project": build_current_project(runs, loops, operator_profile),
+                "current_project": build_current_project(runs, loops, releases, operator_profile),
             }
         )
+
+    @app.get("/api/releases")
+    def releases_api(project_slug: str | None = None):
+        releases = release_storage.list_releases(project_slug=project_slug)
+        return JSONResponse({"releases": [release.model_dump(mode="json") for release in releases]})
+
+    @app.get("/api/releases/{release_id}")
+    def release_detail_api(release_id: str):
+        try:
+            release_state = release_storage.load_state(release_id)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="Release not found") from exc
+        return JSONResponse(release_state.model_dump(mode="json"))
+
+    def start_release_build(project_slug: str) -> dict:
+        normalized_slug = project_storage.normalize_slug(project_slug)
+        project = project_storage.get_project(normalized_slug)
+        if project is None:
+            raise HTTPException(status_code=404, detail="Project not found")
+        active_release = next(
+            (
+                release
+                for release in release_storage.list_releases(project_slug=normalized_slug)
+                if release.status == "running"
+            ),
+            None,
+        )
+        if active_release is not None:
+            return {
+                "release_id": active_release.release_id,
+                "pid": active_release.controller_pid,
+                "status": "running",
+                "download_path": active_release.download_path,
+            }
+        launch = launch_detached_release(
+            project_slug=normalized_slug,
+            storage_root=base_root,
+        )
+        release_storage.attach_controller_pid(launch.entity_id, launch.pid)
+        return {
+            "release_id": launch.entity_id,
+            "pid": launch.pid,
+            "log_path": str(launch.log_path),
+            "status": "detached",
+        }
+
+    @app.post("/api/projects/{project_slug}/releases")
+    def build_release_api(project_slug: str):
+        return JSONResponse(start_release_build(project_slug))
+
+    @app.post("/projects/{project_slug}/releases", include_in_schema=False)
+    def build_release_redirect(project_slug: str, request: Request):
+        start_release_build(project_slug)
+        return RedirectResponse(url=request.headers.get("referer") or "/", status_code=303)
+
+    @app.get("/api/releases/{release_id}/download")
+    def download_release_api(release_id: str):
+        try:
+            release_state = release_storage.load_state(release_id)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="Release not found") from exc
+        if release_state.status != "completed" or not release_state.download_path:
+            raise HTTPException(status_code=409, detail="Release package is not ready for download.")
+        download_path = Path(release_state.download_path)
+        if not download_path.exists():
+            raise HTTPException(status_code=404, detail="Release archive not found")
+        return FileResponse(download_path, filename=download_path.name, media_type="application/zip")
 
     @app.post("/api/operator/profile")
     def save_operator_profile_api(profile: OperatorProfile = Body(...)):

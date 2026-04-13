@@ -394,7 +394,7 @@ def seed_operator_profile(profile: OperatorProfile, company_config: CompanyConfi
             profile.roster.active_department_keys = [
                 key for key in profile.roster.active_department_keys if key in allowed
             ]
-        allowed_campus = set(all_department_keys + ["monument"])
+        allowed_campus = set(all_department_keys + ["monument", "release_center"])
         profile.roster.hidden_campus_items = [
             key for key in profile.roster.hidden_campus_items if key in allowed_campus
         ]

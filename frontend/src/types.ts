@@ -1,5 +1,6 @@
 export type RunStatus = 'queued' | 'running' | 'stopping' | 'completed' | 'failed' | 'stale'
 export type LoopStatus = 'queued' | 'running' | 'stopping' | 'completed' | 'failed'
+export type ReleaseStatus = 'queued' | 'running' | 'completed' | 'failed' | 'stale'
 
 export interface RunSettings {
   codex_model: string
@@ -157,6 +158,20 @@ export interface ProjectLibraryEntry {
   brief: string
   run_count: number
   last_run_id: string | null
+  latest_release: ReleaseSummary | null
+  active_release: ReleaseSummary | null
+}
+
+export interface ReleaseSummary {
+  release_id: string
+  status: ReleaseStatus
+  created_at: string
+  updated_at: string
+  summary: string
+  current_status: string
+  release_type: string | null
+  download_url: string | null
+  download_filename: string | null
 }
 
 export interface CurrentProjectData {

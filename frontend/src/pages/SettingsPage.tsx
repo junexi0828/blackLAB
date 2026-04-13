@@ -3,6 +3,7 @@ import {
   buildOrganizationDirectory,
   buildOrganizationHierarchy,
   getOrganizationDivision,
+  SUPPORT_FACILITY_KEYS,
   type OrganizationChartNode,
   type OrganizationDirectoryGroup,
 } from '../config/organizationModel'
@@ -86,8 +87,9 @@ export function SettingsPage() {
     ...settings.review_departments,
     ...(settings.enable_final_review ? [getBoardReviewStub(settings.final_review_label, settings.final_review_output_title)] : []),
   ]
-  const hierarchy = buildOrganizationHierarchy(departments.map((department) => department.key))
-  const directory = buildOrganizationDirectory(departments.map((department) => department.key))
+  const organizationKeys = [...departments.map((department) => department.key), ...SUPPORT_FACILITY_KEYS]
+  const hierarchy = buildOrganizationHierarchy(organizationKeys)
+  const directory = buildOrganizationDirectory(organizationKeys)
 
   return (
     <>

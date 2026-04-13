@@ -18,6 +18,7 @@ CodexRuntimeTier = Literal["core", "review"]
 OrchestrationLane = Literal["strategy", "delivery", "review"]
 LoopMode = Literal["full_auto", "always_on"]
 LoopStatus = Literal["queued", "running", "stopping", "completed", "failed"]
+ReleaseStatus = Literal["queued", "running", "completed", "failed", "stale"]
 ChatRole = Literal["user", "assistant"]
 ProjectStatus = Literal["active", "paused", "archived"]
 
@@ -323,6 +324,41 @@ class ProjectRecord(BaseModel):
     last_run_id: str | None = None
     last_run_at: datetime | None = None
     brief: str = ""  # first line of project.md, shown in dashboard lists
+
+
+class ReleaseFileRecord(BaseModel):
+    path: str
+    size_bytes: int
+    role: Literal["primary", "support", "manifest", "archive"] = "support"
+
+    @property
+    def filename(self) -> str:
+        return Path(self.path).name
+
+
+class ReleaseState(BaseModel):
+    release_id: str
+    project_slug: str
+    project_name: str
+    status: ReleaseStatus = "queued"
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+    controller_pid: int | None = None
+    source_run_id: str | None = None
+    requested_by: str = "operator"
+    current_status: str = "Waiting to package the release."
+    next_action: str = "Ready to collect final delivery files."
+    summary: str = ""
+    release_type: str | None = None
+    bundle_root: str | None = None
+    manifest_path: str | None = None
+    download_path: str | None = None
+    included_files: list[ReleaseFileRecord] = Field(default_factory=list)
+    excluded_files: list[str] = Field(default_factory=list)
+
+    @property
+    def display_title(self) -> str:
+        return self.project_name or self.project_slug
 
 
 class EventEntry(BaseModel):

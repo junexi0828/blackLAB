@@ -17,6 +17,7 @@ from blacklab_factory.models import (
     OperatorProfile,
     ProjectRecord,
     ProcessRecord,
+    ReleaseState,
     RunSettings,
     RunState,
     StepRecord,
@@ -761,3 +762,131 @@ class ProjectStorage:
         if not parts:
             return ""
         return "\n\n".join(parts) + "\n\n"
+
+
+class ReleaseStorage:
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.releases_dir = self.root / "releases"
+        self.releases_dir.mkdir(parents=True, exist_ok=True)
+        self.stale_after = timedelta(minutes=5)
+
+    def create_release(
+        self,
+        project_slug: str,
+        project_name: str,
+        requested_by: str = "operator",
+        source_run_id: str | None = None,
+    ) -> ReleaseState:
+        stamp = utc_now().strftime("%Y%m%dT%H%M%SZ")
+        release_id = self._next_available_id(
+            stamp=stamp,
+            slug=slugify(project_slug)[:40],
+            root=self.releases_dir,
+        )
+        state = ReleaseState(
+            release_id=release_id,
+            project_slug=project_slug,
+            project_name=project_name,
+            requested_by=requested_by,
+            source_run_id=source_run_id,
+        )
+        self.release_dir(release_id).mkdir(parents=True, exist_ok=True)
+        self.bundle_dir(release_id).mkdir(parents=True, exist_ok=True)
+        self.save_state(state)
+        return state
+
+    def release_dir(self, release_id: str) -> Path:
+        return self.releases_dir / release_id
+
+    def state_path(self, release_id: str) -> Path:
+        return self.release_dir(release_id) / "state.json"
+
+    def bundle_dir(self, release_id: str) -> Path:
+        path = self.release_dir(release_id) / "bundle"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def log_path(self, release_id: str) -> Path:
+        return self.release_dir(release_id) / "release.log"
+
+    def save_state(self, state: ReleaseState) -> None:
+        state.updated_at = utc_now()
+        self.state_path(state.release_id).write_text(
+            state.model_dump_json(indent=2),
+            encoding="utf-8",
+        )
+
+    def load_state(self, release_id: str) -> ReleaseState:
+        payload = self.state_path(release_id).read_text(encoding="utf-8")
+        state = ReleaseState.model_validate_json(payload)
+        return self._mark_stale_if_needed(state)
+
+    def list_releases(self, project_slug: str | None = None, limit: int | None = None) -> list[ReleaseState]:
+        paths = sorted(self.releases_dir.glob("*/state.json"), reverse=True)
+        states: list[ReleaseState] = []
+        for path in paths:
+            try:
+                state = ReleaseState.model_validate_json(path.read_text(encoding="utf-8"))
+            except ValidationError:
+                continue
+            state = self._mark_stale_if_needed(state)
+            if project_slug and state.project_slug != project_slug:
+                continue
+            states.append(state)
+            if limit is not None and len(states) >= limit:
+                break
+        return states
+
+    def attach_controller_pid(self, release_id: str, pid: int) -> ReleaseState:
+        state = self.load_state(release_id)
+        state.controller_pid = pid
+        self.save_state(state)
+        self.append_log(release_id, f"Release controller pid registered: {pid}")
+        return state
+
+    def append_log(self, release_id: str, message: str) -> None:
+        with self.log_path(release_id).open("a", encoding="utf-8") as handle:
+            for raw_line in message.splitlines() or [""]:
+                cleaned = raw_line.strip()
+                if not cleaned:
+                    continue
+                handle.write(f"[{utc_now().isoformat()}] {cleaned}\n")
+
+    def read_log_tail(self, release_id: str, limit: int = 120) -> str:
+        path = self.log_path(release_id)
+        if not path.exists():
+            return ""
+        lines = path.read_text(encoding="utf-8").splitlines()
+        return "\n".join(lines[-limit:])
+
+    def mark_force_stopped(self, release_id: str, reason: str) -> ReleaseState:
+        state = self.load_state(release_id)
+        state.status = "failed"
+        state.current_status = "Release packaging force stopped by operator."
+        state.next_action = "Start a fresh release build when you are ready to package again."
+        state.summary = reason
+        self.save_state(state)
+        self.append_log(release_id, reason)
+        return state
+
+    def _mark_stale_if_needed(self, state: ReleaseState) -> ReleaseState:
+        if state.status != "running":
+            return state
+        if _pid_is_alive(state.controller_pid):
+            return state
+        if utc_now() - state.updated_at <= self.stale_after:
+            return state
+        state.status = "stale"
+        state.current_status = "Release packaging no longer has a live heartbeat."
+        state.next_action = "Start a fresh release build or inspect the existing bundle directory."
+        return state
+
+    def _next_available_id(self, stamp: str, slug: str, root: Path) -> str:
+        candidate = f"{stamp}-{slug}"
+        if not (root / candidate).exists():
+            return candidate
+        counter = 2
+        while (root / f"{candidate}-{counter:02d}").exists():
+            counter += 1
+        return f"{candidate}-{counter:02d}"

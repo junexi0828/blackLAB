@@ -8,13 +8,14 @@ import uvicorn
 
 from blacklab_factory.autopilot import AutopilotSupervisor, LoopRunRequest
 from blacklab_factory.factory import FactoryRunner
-from blacklab_factory.launcher import launch_detached_loop, launch_detached_run
+from blacklab_factory.launcher import launch_detached_loop, launch_detached_release, launch_detached_run
 from blacklab_factory.models import (
     DEFAULT_CORE_CODEX_MODEL,
     DEFAULT_REVIEW_CODEX_AUTONOMY,
     DEFAULT_REVIEW_CODEX_MODEL,
     RunSettings,
 )
+from blacklab_factory.release_ops import ReleaseManager
 from blacklab_factory.service import (
     DEFAULT_AUTOPILOT_LABEL,
     DEFAULT_DASHBOARD_LABEL,
@@ -24,8 +25,10 @@ from blacklab_factory.web import create_app
 
 app = typer.Typer(add_completion=False, help="Run and inspect the blackLAB multi-agent factory.")
 autopilot_app = typer.Typer(add_completion=False, help="Run the factory in a continuous background loop.")
+release_app = typer.Typer(add_completion=False, help="Package a project into a downloadable release bundle.")
 service_app = typer.Typer(add_completion=False, help="Install macOS launchd services for 24/7 operation.")
 app.add_typer(autopilot_app, name="autopilot")
+app.add_typer(release_app, name="release")
 app.add_typer(service_app, name="service")
 
 
@@ -274,6 +277,37 @@ def autopilot_status(
     typer.echo(json.dumps([loop.model_dump(mode="json") for loop in loops], indent=2))
 
 
+@release_app.command("build")
+def release_build(
+    project_slug: str = typer.Argument(..., help="Saved project slug to package."),
+    detach: bool = typer.Option(False, "--detach", help="Launch release packaging in the background."),
+    storage_root: Path | None = typer.Option(None, "--storage-root", hidden=True),
+    release_id_file: Path | None = typer.Option(None, "--release-id-file", hidden=True),
+) -> None:
+    base_storage = storage_root or FactoryRunner().storage.root
+    if detach:
+        launch = launch_detached_release(
+            project_slug=project_slug,
+            storage_root=base_storage,
+        )
+        typer.echo(f"release_id={launch.entity_id}")
+        typer.echo("status=detached")
+        typer.echo(f"pid={launch.pid}")
+        typer.echo(f"log={launch.log_path}")
+        typer.echo("dashboard=http://127.0.0.1:8000")
+        return
+
+    manager = ReleaseManager(storage_root=base_storage)
+    state = manager.start_build(
+        project_slug=project_slug,
+        on_release_created=_build_release_created_callback(release_id_file),
+    )
+    typer.echo(f"release_id={state.release_id}")
+    typer.echo(f"status={state.status}")
+    if state.download_path:
+        typer.echo(f"download={state.download_path}")
+
+
 @service_app.command("install-dashboard")
 def service_install_dashboard(
     host: str = typer.Option("127.0.0.1", help="Dashboard bind host."),
@@ -386,6 +420,17 @@ def _build_loop_created_callback(loop_id_file: Path | None):
     def _callback(loop_id: str) -> None:
         loop_id_file.parent.mkdir(parents=True, exist_ok=True)
         loop_id_file.write_text(loop_id, encoding="utf-8")
+
+    return _callback
+
+
+def _build_release_created_callback(release_id_file: Path | None):
+    if release_id_file is None:
+        return None
+
+    def _callback(state) -> None:
+        release_id_file.parent.mkdir(parents=True, exist_ok=True)
+        release_id_file.write_text(state.release_id, encoding="utf-8")
 
     return _callback
 

@@ -103,9 +103,21 @@ class CompanyConfig(BaseModel):
     final_review_label: str = "Board Review"
     final_review_output_title: str = "Operator Briefing"
     codex_worker_timeout_seconds: int = 420
+    codex_worker_idle_timeout_seconds: int | None = None
+    codex_worker_hard_timeout_seconds: int | None = 7200
     codex_retry_attempts: int = 1
     departments: list[DepartmentConfig]
     review_departments: list[DepartmentConfig] = Field(default_factory=list)
+
+    @property
+    def effective_codex_worker_idle_timeout_seconds(self) -> int:
+        return max(1, self.codex_worker_idle_timeout_seconds or self.codex_worker_timeout_seconds)
+
+    @property
+    def effective_codex_worker_hard_timeout_seconds(self) -> int | None:
+        if self.codex_worker_hard_timeout_seconds is None:
+            return None
+        return max(self.effective_codex_worker_idle_timeout_seconds, self.codex_worker_hard_timeout_seconds)
 
 
 class ArtifactRecord(BaseModel):

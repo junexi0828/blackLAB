@@ -2,7 +2,7 @@ from pathlib import Path
 
 from blacklab_factory import agents as agents_module
 from blacklab_factory.agents import CodexDepartmentAgent
-from blacklab_factory.models import DepartmentConfig, RunSettings
+from blacklab_factory.models import CompanyConfig, DepartmentConfig, RunSettings
 
 
 def test_codex_agent_resolves_review_profile_for_review_department() -> None:
@@ -128,3 +128,29 @@ def test_codex_agent_board_review_prompt_requests_package_handoff() -> None:
     assert "## Package Handoff" in prompt
     assert "delivery_type" in prompt
     assert "primary_path" in prompt
+
+
+def test_company_config_exposes_idle_and_hard_timeout_defaults() -> None:
+    company = CompanyConfig(
+        company_name="blackLAB",
+        mission_style="profit-first operator",
+        departments=[],
+        review_departments=[],
+    )
+
+    assert company.effective_codex_worker_idle_timeout_seconds == 420
+    assert company.effective_codex_worker_hard_timeout_seconds == 7200
+
+
+def test_codex_agent_workspace_progress_signature_changes_when_files_appear(tmp_path: Path) -> None:
+    agent = CodexDepartmentAgent()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    before = agent._workspace_progress_signature(workspace)
+    (workspace / "artifact.txt").write_text("hello", encoding="utf-8")
+    after = agent._workspace_progress_signature(workspace)
+
+    assert before == (0, 0)
+    assert after[0] == 1
+    assert after[1] > 0

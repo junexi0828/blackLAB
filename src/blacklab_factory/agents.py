@@ -401,7 +401,8 @@ class CodexDepartmentAgent(DepartmentAgent):
                     schema=schema,
                     department_label=department.label,
                     runtime_profile=runtime_profile,
-                    timeout_seconds=company.codex_worker_timeout_seconds,
+                    idle_timeout_seconds=company.effective_codex_worker_idle_timeout_seconds,
+                    hard_timeout_seconds=company.effective_codex_worker_hard_timeout_seconds,
                     hooks=hooks,
                     workspace_path=effective_workspace,
                 )
@@ -433,7 +434,8 @@ class CodexDepartmentAgent(DepartmentAgent):
         schema: dict,
         department_label: str,
         runtime_profile: CodexRuntimeProfile,
-        timeout_seconds: int,
+        idle_timeout_seconds: int,
+        hard_timeout_seconds: int | None,
         hooks: DepartmentRunHooks | None = None,
         workspace_path: Path | None = None,
     ) -> dict:
@@ -498,39 +500,17 @@ class CodexDepartmentAgent(DepartmentAgent):
                 if hooks and hooks.on_process_start:
                     hooks.on_process_start(process.pid, _preview_command(command))
 
-                start_time = time.monotonic()
-                seen_stderr_lines = 0
-                while True:
-                    return_code = process.poll()
-                    stderr_lines = stderr_path.read_text(encoding="utf-8").splitlines() if stderr_path.exists() else []
-                    if hooks and hooks.on_log and len(stderr_lines) > seen_stderr_lines:
-                        for line in stderr_lines[seen_stderr_lines:]:
-                            cleaned = line.strip()
-                            if cleaned:
-                                hooks.on_log(f"{department_label}: {cleaned}")
-                        seen_stderr_lines = len(stderr_lines)
-                    if return_code is not None:
-                        break
-                    elapsed = int(time.monotonic() - start_time)
-                    if elapsed >= timeout_seconds:
-                        process.terminate()
-                        try:
-                            process.wait(timeout=5)
-                        except subprocess.TimeoutExpired:
-                            process.kill()
-                            process.wait(timeout=5)
-                        if hooks and hooks.on_process_finish:
-                            hooks.on_process_finish(process.pid, process.returncode or -1)
-                        raise RuntimeError(
-                            f"Codex department execution timed out after {timeout_seconds}s."
-                        )
-                    if hooks and hooks.on_status:
-                        hooks.on_status(f"{department_label} worker pid {process.pid} active for {elapsed}s.")
-                    time.sleep(2)
-
-                process.wait(timeout=5)
-                if hooks and hooks.on_process_finish:
-                    hooks.on_process_finish(process.pid, process.returncode)
+                self._wait_for_codex_process(
+                    process=process,
+                    department_label=department_label,
+                    stdout_path=stdout_path,
+                    stderr_path=stderr_path,
+                    output_path=output_path,
+                    idle_timeout_seconds=idle_timeout_seconds,
+                    hard_timeout_seconds=hard_timeout_seconds,
+                    hooks=hooks,
+                    workspace_path=workspace_path,
+                )
 
             stdout_text = stdout_path.read_text(encoding="utf-8") if stdout_path.exists() else ""
             stderr_text = stderr_path.read_text(encoding="utf-8") if stderr_path.exists() else ""
@@ -541,6 +521,148 @@ class CodexDepartmentAgent(DepartmentAgent):
             if not output_path.exists():
                 raise RuntimeError("Codex department execution completed without a final output file.")
             return json.loads(output_path.read_text(encoding="utf-8"))
+
+    def _wait_for_codex_process(
+        self,
+        *,
+        process: subprocess.Popen,
+        department_label: str,
+        stdout_path: Path,
+        stderr_path: Path,
+        output_path: Path,
+        idle_timeout_seconds: int,
+        hard_timeout_seconds: int | None,
+        hooks: DepartmentRunHooks | None,
+        workspace_path: Path | None,
+    ) -> None:
+        start_time = time.monotonic()
+        last_progress_time = start_time
+        stderr_offset = 0
+        workspace_signature = self._workspace_progress_signature(workspace_path)
+        progress_signature = self._progress_signature(
+            stdout_path=stdout_path,
+            stderr_path=stderr_path,
+            output_path=output_path,
+            workspace_signature=workspace_signature,
+        )
+        last_workspace_scan = start_time
+
+        while True:
+            return_code = process.poll()
+            new_stderr_lines, stderr_offset = self._read_new_log_lines(stderr_path, stderr_offset)
+            if hooks and hooks.on_log and new_stderr_lines:
+                for line in new_stderr_lines:
+                    hooks.on_log(f"{department_label}: {line}")
+
+            now = time.monotonic()
+            if workspace_path and now - last_workspace_scan >= 10:
+                workspace_signature = self._workspace_progress_signature(workspace_path)
+                last_workspace_scan = now
+
+            current_signature = self._progress_signature(
+                stdout_path=stdout_path,
+                stderr_path=stderr_path,
+                output_path=output_path,
+                workspace_signature=workspace_signature,
+            )
+            if current_signature != progress_signature:
+                last_progress_time = now
+                progress_signature = current_signature
+
+            if return_code is not None:
+                break
+
+            elapsed = int(now - start_time)
+            idle_elapsed = int(now - last_progress_time)
+
+            if hard_timeout_seconds is not None and elapsed >= hard_timeout_seconds:
+                self._terminate_codex_process(process, hooks)
+                raise RuntimeError(
+                    f"Codex department execution reached hard timeout after {hard_timeout_seconds}s."
+                )
+
+            if idle_elapsed >= idle_timeout_seconds:
+                self._terminate_codex_process(process, hooks)
+                raise RuntimeError(
+                    f"Codex department execution timed out after {idle_timeout_seconds}s without progress."
+                )
+
+            if hooks and hooks.on_status:
+                hooks.on_status(
+                    f"{department_label} worker pid {process.pid} active for {elapsed}s; "
+                    f"last progress {idle_elapsed}s ago."
+                )
+            time.sleep(2)
+
+        process.wait(timeout=5)
+        if hooks and hooks.on_process_finish:
+            hooks.on_process_finish(process.pid, process.returncode)
+
+    def _terminate_codex_process(self, process: subprocess.Popen, hooks: DepartmentRunHooks | None) -> None:
+        process.terminate()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=5)
+        if hooks and hooks.on_process_finish:
+            hooks.on_process_finish(process.pid, process.returncode or -1)
+
+    def _progress_signature(
+        self,
+        *,
+        stdout_path: Path,
+        stderr_path: Path,
+        output_path: Path,
+        workspace_signature: tuple[int, int],
+    ) -> tuple[tuple[bool, int, int], tuple[bool, int, int], tuple[bool, int, int], tuple[int, int]]:
+        return (
+            self._file_progress_signature(stdout_path),
+            self._file_progress_signature(stderr_path),
+            self._file_progress_signature(output_path),
+            workspace_signature,
+        )
+
+    def _file_progress_signature(self, path: Path) -> tuple[bool, int, int]:
+        if not path.exists():
+            return (False, 0, 0)
+        stat = path.stat()
+        return (True, stat.st_size, stat.st_mtime_ns)
+
+    def _workspace_progress_signature(self, workspace_path: Path | None) -> tuple[int, int]:
+        if workspace_path is None or not workspace_path.exists():
+            return (0, 0)
+        file_count = 0
+        latest_mtime_ns = 0
+        stack = [workspace_path]
+        while stack:
+            current = stack.pop()
+            try:
+                with os.scandir(current) as entries:
+                    for entry in entries:
+                        if entry.is_dir(follow_symlinks=False):
+                            stack.append(Path(entry.path))
+                            continue
+                        if not entry.is_file(follow_symlinks=False):
+                            continue
+                        file_count += 1
+                        stat = entry.stat(follow_symlinks=False)
+                        latest_mtime_ns = max(latest_mtime_ns, stat.st_mtime_ns)
+            except FileNotFoundError:
+                continue
+        return (file_count, latest_mtime_ns)
+
+    def _read_new_log_lines(self, path: Path, offset: int) -> tuple[list[str], int]:
+        if not path.exists():
+            return [], offset
+        with path.open("r", encoding="utf-8", errors="replace") as handle:
+            handle.seek(offset)
+            chunk = handle.read()
+            new_offset = handle.tell()
+        if not chunk:
+            return [], new_offset
+        lines = [line.strip() for line in chunk.splitlines() if line.strip()]
+        return lines, new_offset
 
     def _build_prompt(
         self,

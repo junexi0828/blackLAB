@@ -180,6 +180,7 @@ export interface CurrentProjectData {
   slug: string
   name: string
   source: string
+  source_label: string
   entity_id: string | null
   reference_label: string
 }

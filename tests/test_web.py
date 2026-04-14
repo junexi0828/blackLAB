@@ -176,6 +176,24 @@ def test_launch_and_autopilot_allow_new_project_slugs(tmp_path: Path) -> None:
     assert "loop_id" in loop_launch_response.json()
 
 
+def test_projects_api_exposes_raw_and_display_current_project_source(tmp_path: Path) -> None:
+    runner = FactoryRunner(storage_root=tmp_path)
+    runner.start(
+        "Launch a scoped project",
+        mode="mock",
+        project_slug="rail-planner-lab",
+    )
+
+    client = TestClient(create_app(storage_root=tmp_path))
+    response = client.get("/api/projects")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["current_project"]["slug"] == "rail-planner-lab"
+    assert payload["current_project"]["source"] == "recent run"
+    assert payload["current_project"]["source_label"] == "Recent run"
+
+
 def test_loop_detail_cycles_are_paginated(tmp_path: Path) -> None:
     supervisor = AutopilotSupervisor(storage_root=tmp_path)
     loop_state = supervisor.start_loop(

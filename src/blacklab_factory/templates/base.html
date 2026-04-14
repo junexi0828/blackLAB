@@ -33,7 +33,7 @@
             <strong>{{ current_project.name }}</strong>
             <p class="project-signboard__slug">{{ current_project.slug }}</p>
             <div class="project-signboard__meta">
-              <p class="project-signboard__source">{{ current_project.source }}</p>
+              <p class="project-signboard__source">{{ current_project.source_label or current_project.source }}</p>
               <p class="project-signboard__reference">{{ current_project.reference_label }}</p>
             </div>
           </div>

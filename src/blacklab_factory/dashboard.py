@@ -970,7 +970,8 @@ def create_app(storage: RunStorage) -> FastAPI:
         return {
             "slug": slug,
             "name": name or slug,
-            "source": project_source_label(source),
+            "source": source,
+            "source_label": project_source_label(source),
             "entity_id": entity_id,
             "reference_label": reference_label or entity_id or default_project_reference_label(source),
         }

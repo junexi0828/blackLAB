@@ -478,7 +478,7 @@ export function ConsolePage() {
   const canvasSelectedBuilding =
     editMode && editTarget && editTarget !== 'monument' ? editTarget : selectedBuilding
   const runtimeSourceLabel =
-    liveLoop ? 'Loop Live' : activeRun ? 'Run Live' : currentProject?.source ?? 'Ready'
+    liveLoop ? 'Loop Live' : activeRun ? 'Run Live' : currentProject?.source_label ?? 'Ready'
   const runtimeBookmarkMeta =
     liveLoop ? 'Loop active' : activeRun ? 'Run active' : runtimeProject?.name ?? currentProject?.name ?? 'Ready'
   const releaseBookmarkMeta = activeRelease

@@ -7,6 +7,7 @@ import blacklab_factory.dashboard as dashboard_module
 from blacklab_factory.autopilot import AutopilotSupervisor, LoopRunRequest
 from blacklab_factory.factory import FactoryRunner
 from blacklab_factory.models import ArtifactRecord, LoopIterationRecord, RunSettings, StepRecord
+from blacklab_factory.storage import ProjectStorage, ReleaseStorage
 from blacklab_factory.web import create_app
 
 
@@ -192,6 +193,47 @@ def test_projects_api_exposes_raw_and_display_current_project_source(tmp_path: P
     assert payload["current_project"]["slug"] == "rail-planner-lab"
     assert payload["current_project"]["source"] == "recent run"
     assert payload["current_project"]["source_label"] == "Recent run"
+
+
+def test_projects_api_treats_stopping_run_as_active_current_project(tmp_path: Path) -> None:
+    runner = FactoryRunner(storage_root=tmp_path)
+    run_state = runner.storage.create_run(
+        mission="Stop in progress should still own current project",
+        company_name="blackLAB",
+        mode="mock",
+        steps=[],
+    )
+    run_state.status = "stopping"
+    run_state.project_slug = "stopping-run-project"
+    run_state.project_name = "Stopping Run Project"
+    runner.storage.save_state(run_state)
+
+    client = TestClient(create_app(storage_root=tmp_path))
+    response = client.get("/api/projects")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["current_project"]["slug"] == "stopping-run-project"
+    assert payload["current_project"]["source"] == "active run"
+    assert payload["current_project"]["source_label"] == "Current run"
+
+
+def test_projects_api_exposes_release_center_as_live_current_project(tmp_path: Path) -> None:
+    project_storage = ProjectStorage(tmp_path)
+    project = project_storage.create_project("release-project", name="Release Project")
+    release_storage = ReleaseStorage(tmp_path)
+    release_state = release_storage.create_release(project_slug=project.slug, project_name=project.name)
+    release_state.status = "running"
+    release_storage.save_state(release_state)
+
+    client = TestClient(create_app(storage_root=tmp_path))
+    response = client.get("/api/projects")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["current_project"]["slug"] == "release-project"
+    assert payload["current_project"]["source"] == "release center"
+    assert payload["current_project"]["source_label"] == "Release Center"
 
 
 def test_loop_detail_cycles_are_paginated(tmp_path: Path) -> None:

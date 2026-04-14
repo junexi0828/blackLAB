@@ -307,7 +307,11 @@ export function ConsolePage() {
     () => projectLibrary.find((project) => project.slug === selectedProjectSlug) ?? null,
     [projectLibrary, selectedProjectSlug],
   )
-  const currentProjectIsLive = currentProject?.source === 'active run' || currentProject?.source === 'active loop' || currentProject?.source === 'current loop'
+  const currentProjectIsLive =
+    currentProject?.source === 'active run' ||
+    currentProject?.source === 'active loop' ||
+    currentProject?.source === 'current loop' ||
+    currentProject?.source === 'release center'
   const runtimeProjectSlug = currentProjectIsLive
     ? currentProject?.slug ?? selectedProject?.slug ?? null
     : selectedProject?.slug ?? currentProject?.slug ?? null

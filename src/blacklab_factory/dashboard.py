@@ -1007,7 +1007,7 @@ def create_app(storage: RunStorage) -> FastAPI:
         loops = loops or []
 
         for run in runs:
-            if run.status == "running" and project_is_operational(run.project_slug):
+            if run.status in {"running", "stopping"} and project_is_operational(run.project_slug):
                 return current_project_payload(
                     slug=run.project_slug,
                     name=run.project_name,
@@ -1044,7 +1044,7 @@ def create_app(storage: RunStorage) -> FastAPI:
 
     def build_current_project(runs, loops, releases, operator_profile) -> dict | None:
         for run in runs:
-            if run.status == "running" and project_is_operational(run.project_slug):
+            if run.status in {"running", "stopping"} and project_is_operational(run.project_slug):
                 return current_project_payload(
                     slug=run.project_slug,
                     name=run.project_name,

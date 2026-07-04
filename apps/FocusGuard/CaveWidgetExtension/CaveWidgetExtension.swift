@@ -511,12 +511,21 @@ struct CaveLiveActivityLockScreenView: View {
                 
                 // 극대화 타이머
                 VStack(alignment: .trailing, spacing: 1) {
-                    Text(timerInterval: context.state.sessionStartedAt...Date.distantFuture, countsDown: false)
-                        .font(.system(size: 34, weight: .black, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(.white)
-                        .shadow(color: CaveTheme.gold.opacity(0.55), radius: 8)
-                        .lineLimit(1)
+                    if context.state.isRunning {
+                        Text(timerInterval: context.state.sessionStartedAt...Date.distantFuture, countsDown: false)
+                            .font(.system(size: 34, weight: .black, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(.white)
+                            .shadow(color: CaveTheme.gold.opacity(0.55), radius: 8)
+                            .lineLimit(1)
+                    } else {
+                        Text(CaveTimeFormatter.format(seconds: context.state.currentSessionSeconds))
+                            .font(.system(size: 34, weight: .black, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(.white)
+                            .shadow(color: CaveTheme.gold.opacity(0.55), radius: 8)
+                            .lineLimit(1)
+                    }
                     Text("수련 시간")
                         .font(.system(size: 9, weight: .bold, design: .serif))
                         .foregroundStyle(CaveTheme.gold.opacity(0.8))

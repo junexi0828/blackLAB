@@ -218,7 +218,7 @@ struct CaveHomeView: View {
 
     private var giantTimerView: some View {
         VStack(spacing: 4) {
-            if store.isRunning {
+            if store.isRunning || store.isPaused {
                 Text(store.currentSessionText)
                     .font(.system(size: 56, weight: .black, design: .rounded))
                     .monospacedDigit()
@@ -232,7 +232,7 @@ struct CaveHomeView: View {
                     .foregroundStyle(.white.opacity(0.3))
             }
         }
-        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: store.isRunning)
+        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: store.isRunning || store.isPaused)
     }
 
     private var descriptionCard: some View {

@@ -130,7 +130,7 @@ final class CaveSoundManager {
                 player.scheduleBuffer(rainBuffer, at: nil, options: .loops, completionHandler: nil)
             }
             
-            dripTimer = Timer.scheduledTimer(withTimeInterval: 22.0, repeats: true) { [weak self] _ in
+            dripTimer = Timer.scheduledTimer(withTimeInterval: 12.0, repeats: true) { [weak self] _ in
                 Task { @MainActor in
                     self?.playThunderStrike()
                 }
@@ -307,19 +307,20 @@ final class CaveSoundManager {
         for i in 0..<Int(frameCount) {
             let t = Float(i) / sampleRate
             
-            // 호랑이 가릉거리는 목청 LFO (4.5Hz 진폭 변조)
-            let lfo = 0.5 + 0.5 * sin(2.0 * Float.pi * 4.5 * t)
+            // 호랑이 맹수 목청 떨림 LFO (더 빠른 7.5Hz 진폭 변조로 고동감 부여)
+            let lfo = 0.55 + 0.45 * sin(2.0 * Float.pi * 7.5 * t)
             
-            // 들숨날숨 주기 (6초 대형 호흡 루프)
-            let breathCycle = 0.4 + 0.6 * sin(2.0 * Float.pi * (1.0 / 6.0) * t)
+            // 웅장한 가릉거림 호흡 주기 (6초 대형 호흡 루프)
+            let breathCycle = 0.35 + 0.65 * sin(2.0 * Float.pi * (1.0 / 6.0) * t)
             
-            // 웅장한 가릉거림 노이즈 합성
-            let noise = Float.random(in: -0.06...0.06)
+            // 용맹한 가릉거림 노이즈 합성
+            let noise = Float.random(in: -0.18...0.18)
             
-            // LPF (Low Pass Filter) 느낌의 가공: 높은 주파수를 깎아 부드러운 그르렁거림 표현
-            let lowFrequencyComponent = sin(2.0 * Float.pi * 75.0 * t) * 0.4
+            // 주파수 상승: 모바일 스피커 대응을 위해 75Hz에서 165Hz 대역으로 부스팅하여 선명하게 출력
+            let lowFrequencyComponent = sin(2.0 * Float.pi * 165.0 * t) * 0.5
             
-            let sample = (noise * 0.18 * lfo + lowFrequencyComponent * 0.8) * breathCycle * 0.12
+            // 볼륨을 0.12에서 0.65로 대폭 강화
+            let sample = (noise * 0.35 * lfo + lowFrequencyComponent * 0.65) * breathCycle * 0.65
             channelData[i] = sample
         }
         return buffer
@@ -343,9 +344,9 @@ final class CaveSoundManager {
         var filterState: Float = 0.0
         for i in 0..<Int(frameCount) {
             let noise = Float.random(in: -0.05...0.05)
-            // 심플한 로우패스/하이패스 필터링 흉내로 자연스러운 빗소리 생성
+            // 소나기가 메인 번개를 가리지 않도록 빗소리 볼륨 계수를 0.35에서 0.12로 경감하여 조화롭게 백그라운드화
             filterState = filterState * 0.85 + noise * 0.15
-            channelData[i] = filterState * 0.35
+            channelData[i] = filterState * 0.12
         }
         return buffer
     }
@@ -370,17 +371,17 @@ final class CaveSoundManager {
         for i in 0..<Int(frameCount) {
             let t = Float(i) / sampleRate
             
-            // 천둥의 지글거리는 타격 노이즈
-            let noise = Float.random(in: -0.1...0.1)
+            // 천둥의 번개 꽝 치는 지글거리는 노이즈 (비율 4배 증폭)
+            let noise = Float.random(in: -0.22...0.22)
             
-            // 로우패스 효과: 천둥은 멀리서 저음(30Hz~60Hz)으로 묵직하게 번져옴
-            let rumble = sin(2.0 * Float.pi * 45.0 * t) * 0.6 + sin(2.0 * Float.pi * 70.0 * t) * 0.3
+            // 모바일 스피커 대응을 위해 rumble 주파수를 45Hz/70Hz에서 120Hz/180Hz로 상향 튜닝
+            let rumble = sin(2.0 * Float.pi * 120.0 * t) * 0.6 + sin(2.0 * Float.pi * 180.0 * t) * 0.4
             
-            // 지수 감쇄 및 굴림 효과
-            let strikeDecay = exp(-t * 1.4)
-            let rumbleDecay = exp(-t * 0.65)
+            let strikeDecay = exp(-t * 1.5)
+            let rumbleDecay = exp(-t * 0.7)
             
-            let sample = (noise * strikeDecay * 0.15 + rumble * rumbleDecay * 0.85) * 0.15
+            // 쿵쾅 거리는 천둥소리 볼륨을 0.15에서 0.85로 대폭 강화
+            let sample = (noise * strikeDecay * 0.68 + rumble * rumbleDecay * 0.32) * 0.85
             channelData[i] = sample
         }
         

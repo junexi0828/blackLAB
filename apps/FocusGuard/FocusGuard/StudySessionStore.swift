@@ -86,6 +86,16 @@ final class StudySessionStore: ObservableObject {
         }
     }
 
+    @Published var isBreakthroughFeedbackEnabled: Bool {
+        didSet {
+            userDefaults?.set(isBreakthroughFeedbackEnabled, forKey: "settings.isBreakthroughFeedbackEnabled")
+            // 켬(On) 상태로 변경되었을 때, 사용자가 햅틱과 맑은 종소리를 즉시 체감할 수 있도록 1회 모의 기동!
+            if isBreakthroughFeedbackEnabled {
+                CaveSoundManager.shared.playTempleBell()
+            }
+        }
+    }
+    
     private var ticker: Timer?
     private var lastWidgetReloadSecond: Int = -1
     @available(iOS 16.1, *)
@@ -134,6 +144,7 @@ final class StudySessionStore: ObservableObject {
         
         self.selectedSoundscape = defaults?.string(forKey: "settings.selectedSoundscape") ?? "없음"
         self.progressCycleType = defaults?.string(forKey: "settings.progressCycleType") ?? "1각 (15분)"
+        self.isBreakthroughFeedbackEnabled = defaults?.object(forKey: "settings.isBreakthroughFeedbackEnabled") as? Bool ?? true
 
         // Resume ticker if session is active
         if isRunning {
@@ -311,6 +322,7 @@ final class StudySessionStore: ObservableObject {
         userDefaults?.set(true, forKey: "settings.isSpeechEnabled")
         userDefaults?.set("없음", forKey: "settings.selectedSoundscape")
         userDefaults?.set("1각 (15분)", forKey: "settings.progressCycleType")
+        userDefaults?.set(true, forKey: "settings.isBreakthroughFeedbackEnabled")
         
         isFocusGuardActive = true
         isMockCameraEnabledSetting = false
@@ -320,6 +332,7 @@ final class StudySessionStore: ObservableObject {
         failThresholdSetting = 8.0
         selectedSoundscape = "없음"
         progressCycleType = "1각 (15분)"
+        isBreakthroughFeedbackEnabled = true
         
         persist()
     }
@@ -477,8 +490,10 @@ final class StudySessionStore: ObservableObject {
         if currentSecondInt > 0 && currentSecondInt != previousSecondInt {
             let cycleSecs: Int = progressCycleType == "1식경 (30분)" ? 1800 : 900
             if currentSecondInt % cycleSecs == 0 {
-                // 내공 돌파! 경쇠 종소리 연주 및 햅틱
-                CaveSoundManager.shared.playTempleBell()
+                // 내공 돌파! 경쇠 종소리 연주 및 햅틱 (설정 켜졌을 때만 소리와 진동 출력)
+                if isBreakthroughFeedbackEnabled {
+                    CaveSoundManager.shared.playTempleBell()
+                }
                 justAchievedCycle = true
                 
                 // 0.8초 후 시각 효과 펄스 리셋

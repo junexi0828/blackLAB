@@ -217,6 +217,20 @@ struct CaveSettingsView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(.white.opacity(0.45))
                     .frame(maxWidth: .infinity, alignment: .leading)
+                
+                Divider().background(Color.white.opacity(0.08))
+
+                Toggle(isOn: $store.isBreakthroughFeedbackEnabled) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("내공 돌파 알림 (內功突破)")
+                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .foregroundStyle(.white)
+                        Text("각 또는 식경 돌파 시 맑은 경쇠 종소리와 햅틱 진동을 울립니다.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.45))
+                    }
+                }
+                .tint(CaveTheme.gold)
             }
             .padding(20)
             .background(stonePanel)

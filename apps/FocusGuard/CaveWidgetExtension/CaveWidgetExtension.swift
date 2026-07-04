@@ -60,12 +60,14 @@ struct CaveWidgetView: View {
             endPoint: .bottomTrailing
         )
         .overlay {
-            // Eastern mythological ink painting background overlay
-            Image(entry.snapshot.isRunning ? "DragonFocus" : "TigerSpirit")
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .opacity(0.15)
-                .blendMode(.luminosity)
+            // 정숙하고 깊이감 있는 수묵 농담 효과로 격조 높은 배경 대체
+            RadialGradient(
+                colors: [Color.black.opacity(0.3), .clear],
+                center: .center,
+                startRadius: 10,
+                endRadius: max(size.width, size.height) * 0.5
+            )
+            .blendMode(.multiply)
         }
         .overlay {
             RadialGradient(
@@ -453,9 +455,9 @@ struct CaveLiveActivityLockScreenView: View {
                         .fill(context.state.isRunning ? CaveTheme.ember : CaveTheme.stone)
                         .frame(width: 6, height: 6)
                     
-                    Text(context.state.isRunning ? "精進" : "靜止")
+                    Text(context.state.isRunning ? "精進" : (context.state.isPaused ? "靜止" : "閉關"))
                         .font(.system(size: 14, weight: .black, design: .serif))
-                        .foregroundStyle(context.state.isRunning ? CaveTheme.gold : .white.opacity(0.35))
+                        .foregroundStyle(context.state.isRunning ? CaveTheme.gold : (context.state.isPaused ? CaveTheme.ember.opacity(0.8) : .white.opacity(0.35)))
                         .tracking(1)
                 }
             }
@@ -496,9 +498,13 @@ struct CaveLiveActivityLockScreenView: View {
                         .foregroundStyle(.white.opacity(0.95))
                     
                     // 공부 몰입을 돕는 정숙한 사자성어 훈계 노출 (15초 단위 전환)
+                    // 줄 넘김(2줄) 및 자동 글자 크기 축소 패치를 엮어 말줄임(...) 잘림 원천 해결
                     Text(makeTraditionalMantra(seconds: context.state.currentSessionSeconds))
-                        .font(.system(size: 10, weight: .medium, design: .serif))
+                        .font(.system(size: 9.5, weight: .semibold, design: .serif))
                         .foregroundStyle(CaveTheme.gold.opacity(0.85))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.75)
+                        .multilineTextAlignment(.leading)
                 }
                 
                 Spacer()
@@ -576,12 +582,12 @@ struct CaveLiveActivityLockScreenView: View {
     
     private func makeTraditionalMantra(seconds: Double) -> String {
         let mantras = [
-            "有志竟成 (유지경성) - 뜻이 있으면 마침내 이룬다",
-            "磨斧作針 (마부작침) - 도끼를 갈아 바늘을 만든다",
-            "水滴穿石 (수적천석) - 물방울이 바위를 뚫는다",
-            "愚公移山 (우공이산) - 끊임없이 노력하면 산을 옮긴다",
-            "一念通天 (일념통천) - 마음을 모으면 하늘도 감동한다",
-            "日新又日新 (일신우일신) - 날마다 새롭게 나아가라"
+            "有志竟成 (유지경성)\n뜻이 있으면 마침내 이룬다",
+            "磨斧作針 (마부작침)\n도끼를 갈아서 바늘을 만든다",
+            "水滴穿石 (수적천석)\n끊임없는 물방울이 돌을 뚫는다",
+            "愚公移山 (우공이산)\n우공이 산을 옮기듯 정진하라",
+            "一念通天 (일념통천)\n마음을 모으면 하늘도 통한다",
+            "日新又日新 (일신우일신)\n매일매일 새롭게 정진하라"
         ]
         let idx = (Int(seconds) / 15) % mantras.count
         return mantras[idx]

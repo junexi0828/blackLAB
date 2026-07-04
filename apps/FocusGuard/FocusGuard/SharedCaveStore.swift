@@ -5,6 +5,8 @@ struct SharedCaveSnapshot: Codable, Hashable {
     var todayStudySeconds: TimeInterval
     var currentSessionSeconds: TimeInterval
     var isRunning: Bool
+    var isPaused: Bool
+    var accumulatedTime: TimeInterval
     var lastUpdatedAt: Date
     var sessionStartedAt: Date?
     var sessionLog: [SessionLogEntry]
@@ -14,6 +16,8 @@ struct SharedCaveSnapshot: Codable, Hashable {
         todayStudySeconds: 0,
         currentSessionSeconds: 0,
         isRunning: false,
+        isPaused: false,
+        accumulatedTime: 0,
         lastUpdatedAt: Date(),
         sessionStartedAt: nil,
         sessionLog: []

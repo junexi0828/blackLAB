@@ -8,6 +8,7 @@ struct FocusStudyAttributes: ActivityAttributes {
         var todayStudySeconds: TimeInterval
         var currentSessionSeconds: TimeInterval
         var isRunning: Bool
+        var isPaused: Bool
         var updatedAt: Date
         var currentBeastImageName: String
     }

@@ -11,6 +11,7 @@ struct CaveHistoryView: View {
                 VStack(spacing: 20) {
                     headerBlock
                     statsGrid
+                    zenCalendarBlock
                     ledgerBlock
                 }
                 .padding(20)
@@ -198,4 +199,135 @@ struct CaveHistoryView: View {
         formatter.dateFormat = "HH:mm:ss에 기록됨"
         return formatter
     }()
+    
+    // MARK: - Zen Calligraphy Calendar Helpers
+    
+    private var currentMonthYearText: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy년 M월 정진표"
+        return formatter.string(from: Date())
+    }
+    
+    private var daysInCurrentMonth: [Date?] {
+        let calendar = Calendar.current
+        let now = Date()
+        guard let monthRange = calendar.range(of: .day, in: .month, for: now) else { return [] }
+        
+        let components = calendar.dateComponents([.year, .month], from: now)
+        guard let firstOfMonth = calendar.date(from: components) else { return [] }
+        
+        let weekday = calendar.component(.weekday, from: firstOfMonth) // 1=일요일, ..., 7=토요일
+        
+        var days: [Date?] = Array(repeating: nil, count: weekday - 1)
+        
+        for day in 1...monthRange.count {
+            if let date = calendar.date(byAdding: .day, value: day - 1, to: firstOfMonth) {
+                days.append(date)
+            }
+        }
+        
+        return days
+    }
+    
+    private func totalDurationForDate(_ date: Date) -> TimeInterval {
+        let calendar = Calendar.current
+        let entries = store.sessionLog.filter {
+            calendar.isDate($0.date, inSameDayAs: date)
+        }
+        return entries.reduce(0.0) { $0 + $1.duration }
+    }
+    
+    private func calendarCellColor(duration: TimeInterval, isToday: Bool) -> Color {
+        guard duration > 0 else {
+            return isToday ? Color.white.opacity(0.12) : Color.white.opacity(0.04)
+        }
+        
+        // 공부 시간량에 따라 황금빛(Gold) 농도 진화형으로 표현
+        if duration < 300 { // 5분 미만 (짧은 정진)
+            return CaveTheme.gold.opacity(0.25)
+        } else if duration < 1800 { // 30분 미만
+            return CaveTheme.gold.opacity(0.55)
+        } else if duration < 3600 { // 1시간 미만
+            return CaveTheme.gold.opacity(0.85)
+        } else { // 1시간 이상 (깊은 입관수련 도달)
+            return CaveTheme.ember.opacity(0.9)
+        }
+    }
+    
+    private func formatCompactDuration(_ seconds: TimeInterval) -> String {
+        let mins = Int(seconds) / 60
+        if mins >= 60 {
+            let hrs = mins / 60
+            let remMins = mins % 60
+            if remMins > 0 {
+                return "\(hrs)h\(remMins)m"
+            }
+            return "\(hrs)h"
+        }
+        return "\(mins)m"
+    }
+    
+    private var zenCalendarBlock: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("정진 일력 (精進日曆)")
+                    .font(.system(size: 18, weight: .bold, design: .serif))
+                    .foregroundStyle(CaveTheme.gold)
+                Spacer()
+                Text(currentMonthYearText)
+                    .font(.system(size: 13, weight: .semibold, design: .serif))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+            
+            // 요일 표시선
+            let weekdays = ["일", "월", "화", "수", "목", "금", "토"]
+            HStack(spacing: 0) {
+                ForEach(weekdays, id: \.self) { day in
+                    Text(day)
+                        .font(.system(size: 11, weight: .bold, design: .serif))
+                        .foregroundStyle(.white.opacity(0.3))
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(.bottom, 4)
+            
+            // 날짜 그리드
+            let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
+            LazyVGrid(columns: columns, spacing: 6) {
+                ForEach(0..<daysInCurrentMonth.count, id: \.self) { index in
+                    if let date = daysInCurrentMonth[index] {
+                        let duration = totalDurationForDate(date)
+                        let isToday = Calendar.current.isDateInToday(date)
+                        
+                        VStack(spacing: 2) {
+                            Text("\(Calendar.current.component(.day, from: date))")
+                                .font(.system(size: 11, weight: .black, design: .serif))
+                                .foregroundStyle(duration > 0 ? Color.black : (isToday ? CaveTheme.gold : .white.opacity(0.6)))
+                            
+                            if duration > 0 {
+                                Text(formatCompactDuration(duration))
+                                    .font(.system(size: 7, weight: .black, design: .rounded))
+                                    .foregroundStyle(Color.black.opacity(0.8))
+                            }
+                        }
+                        .frame(height: 38)
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(calendarCellColor(duration: duration, isToday: isToday))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .strokeBorder(isToday ? CaveTheme.gold.opacity(0.6) : Color.clear, lineWidth: 1.5)
+                        )
+                    } else {
+                        Color.clear
+                            .frame(height: 38)
+                    }
+                }
+            }
+        }
+        .padding(20)
+        .background(stonePanel)
+    }
 }

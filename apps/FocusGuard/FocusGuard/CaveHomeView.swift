@@ -292,27 +292,85 @@ struct CaveHomeView: View {
     }
 
     private var controlBlock: some View {
-        VStack(spacing: 12) {
-            Button {
-                if store.isRunning {
-                    store.stopSession()
-                } else {
-                    store.startSession()
+        VStack(spacing: 14) {
+            if store.isRunning {
+                // 수련 중 상태: 일시 중지 + 수련 완료 (하산)
+                HStack(spacing: 12) {
+                    Button {
+                        store.pauseSession()
+                    } label: {
+                        Text("수련 대기 (Pause)")
+                            .font(.system(size: 16, weight: .bold, design: .serif))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .foregroundStyle(.white)
+                            .background(Color.white.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .strokeBorder(CaveTheme.gold.opacity(0.35), lineWidth: 1)
+                            )
+                    }
+                    
+                    Button {
+                        store.stopSession()
+                    } label: {
+                        Text("수련 완료 (하산)")
+                            .font(.system(size: 16, weight: .bold, design: .serif))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .foregroundStyle(.white)
+                            .background(CaveTheme.ember)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
                 }
-            } label: {
-                Text(store.isRunning ? "수련 종료" : "입관 시작")
-                    .font(.system(size: 22, weight: .bold, design: .serif))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
-                    .foregroundStyle(.black)
-                    .background(CaveTheme.gold)
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            } else if store.isPaused {
+                // 일시 중지 상태: 수련 재개 + 수련 완료 (하산)
+                HStack(spacing: 12) {
+                    Button {
+                        store.resumeSession()
+                    } label: {
+                        Text("수련 재개 (Resume)")
+                            .font(.system(size: 16, weight: .bold, design: .serif))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .foregroundStyle(.black)
+                            .background(CaveTheme.gold)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                    
+                    Button {
+                        store.stopSession()
+                    } label: {
+                        Text("수련 완료 (하산)")
+                            .font(.system(size: 16, weight: .bold, design: .serif))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .foregroundStyle(.white)
+                            .background(CaveTheme.ember)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                }
+            } else {
+                // 대기 중: 입관 시작 단독
+                Button {
+                    store.startSession()
+                } label: {
+                    Text("입관 시작 (入關)")
+                        .font(.system(size: 20, weight: .bold, design: .serif))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                        .foregroundStyle(.black)
+                        .background(CaveTheme.gold)
+                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                }
+                .accessibilityIdentifier("startSessionButton")
             }
-            .accessibilityIdentifier("startSessionButton")
 
-            Text(store.isRunning ? "수련 중" : "대기 중")
-                .font(.system(size: 15, weight: .medium, design: .serif))
-                .foregroundStyle(.white.opacity(0.68))
+            // 하단 상태 표시줄
+            Text(store.isRunning ? "정진 중 (精進)" : (store.isPaused ? "수련 대기 (靜止)" : "입관 대기 (閉關)"))
+                .font(.system(size: 14, weight: .semibold, design: .serif))
+                .foregroundStyle(store.isRunning ? CaveTheme.gold : (store.isPaused ? CaveTheme.ember : .white.opacity(0.5)))
         }
         .padding(20)
         .background(stonePanel)

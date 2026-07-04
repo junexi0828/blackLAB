@@ -18,6 +18,8 @@ final class StudySessionStore: ObservableObject {
     }
 
     @Published var isRunning = false
+    @Published var isPaused = false
+    @Published var accumulatedTime: TimeInterval = 0
     @Published var sessionStartedAt: Date?
     @Published var totalStudySeconds: TimeInterval
     @Published var todayStudySeconds: TimeInterval
@@ -86,6 +88,8 @@ final class StudySessionStore: ObservableObject {
         if isMock {
             // Clean start for test environments
             snapshot.isRunning = false
+            snapshot.isPaused = false
+            snapshot.accumulatedTime = 0
             snapshot.sessionStartedAt = nil
             snapshot.currentSessionSeconds = 0
             SharedCaveStore.save(snapshot)
@@ -98,6 +102,8 @@ final class StudySessionStore: ObservableObject {
         
         // Restore active session state for single source of truth and crash resilience
         isRunning = snapshot.isRunning
+        isPaused = snapshot.isPaused
+        accumulatedTime = snapshot.accumulatedTime
         sessionStartedAt = snapshot.sessionStartedAt
 
         // Initialize settings
@@ -141,7 +147,7 @@ final class StudySessionStore: ObservableObject {
                 guard let self = self else { return }
                 if self.isRunning {
                     if let startedAt = self.sessionStartedAt {
-                        self.currentSessionSeconds = Date().timeIntervalSince(startedAt)
+                        self.currentSessionSeconds = self.accumulatedTime + Date().timeIntervalSince(startedAt)
                     }
                     self.scheduleTicker()
                 }
@@ -151,17 +157,13 @@ final class StudySessionStore: ObservableObject {
 
     // Dynamic ticking totals to maintain absolute data integrity
     var tickingTotalSeconds: TimeInterval {
-        if isRunning, let startedAt = sessionStartedAt {
-            return totalStudySeconds + Date().timeIntervalSince(startedAt)
-        }
-        return totalStudySeconds
+        let currentSecs = isRunning && sessionStartedAt != nil ? accumulatedTime + Date().timeIntervalSince(sessionStartedAt!) : accumulatedTime
+        return totalStudySeconds + currentSecs
     }
 
     var tickingTodaySeconds: TimeInterval {
-        if isRunning, let startedAt = sessionStartedAt {
-            return todayStudySeconds + Date().timeIntervalSince(startedAt)
-        }
-        return todayStudySeconds
+        let currentSecs = isRunning && sessionStartedAt != nil ? accumulatedTime + Date().timeIntervalSince(sessionStartedAt!) : accumulatedTime
+        return todayStudySeconds + currentSecs
     }
 
     var totalStudyText: String {
@@ -173,10 +175,8 @@ final class StudySessionStore: ObservableObject {
     }
 
     var currentSessionText: String {
-        if isRunning, let startedAt = sessionStartedAt {
-            return CaveTimeFormatter.format(seconds: Date().timeIntervalSince(startedAt))
-        }
-        return CaveTimeFormatter.format(seconds: currentSessionSeconds)
+        let currentSecs = isRunning && sessionStartedAt != nil ? accumulatedTime + Date().timeIntervalSince(sessionStartedAt!) : accumulatedTime
+        return CaveTimeFormatter.format(seconds: currentSecs)
     }
 
     var recentEntries: [SessionEntry] {
@@ -311,6 +311,8 @@ final class StudySessionStore: ObservableObject {
     func startSession() {
         guard !isRunning else { return }
         isRunning = true
+        isPaused = false
+        accumulatedTime = 0
         sessionStartedAt = Date()
         currentSessionSeconds = 0
         if #available(iOS 16.1, *) {
@@ -329,31 +331,78 @@ final class StudySessionStore: ObservableObject {
         CaveSoundManager.shared.start(soundscape: selectedSoundscape)
     }
 
-    func stopSession() {
+    func pauseSession() {
         guard isRunning else { return }
-        guard let startedAt = sessionStartedAt else {
-            isRunning = false
-            stopTicker()
-            return
+        if let startedAt = sessionStartedAt {
+            accumulatedTime += Date().timeIntervalSince(startedAt)
         }
+        isRunning = false
+        isPaused = true
+        sessionStartedAt = nil
+        stopTicker()
+        
+        // 가벼운 환경음 재생 중지
+        CaveSoundManager.shared.stop()
+        
+        if FocusGuardManager.shared.isMockCameraEnabled {
+            FocusGuardManager.shared.stopTracking()
+        }
+        
+        currentSessionSeconds = accumulatedTime
+        persist(reloadWidget: true)
+        
+        if #available(iOS 16.1, *) {
+            Task { @MainActor in
+                await self.updateLiveActivity()
+            }
+        }
+    }
 
+    func resumeSession() {
+        guard isPaused else { return }
+        isRunning = true
+        isPaused = false
+        sessionStartedAt = Date()
+        
+        if FocusGuardManager.shared.isMockCameraEnabled {
+            FocusGuardManager.shared.startTracking()
+        }
+        
+        persist(reloadWidget: true)
+        scheduleTicker()
+        
+        // 가벼운 환경음 재생 재개
+        CaveSoundManager.shared.start(soundscape: selectedSoundscape)
+    }
+
+    func stopSession() {
+        guard isRunning || isPaused else { return }
+        
+        let finalSessionSeconds: TimeInterval
+        if isRunning, let startedAt = sessionStartedAt {
+            finalSessionSeconds = accumulatedTime + Date().timeIntervalSince(startedAt)
+        } else {
+            finalSessionSeconds = accumulatedTime
+        }
+        
         // Stop FocusGuard tracking if enabled
         if FocusGuardManager.shared.isMockCameraEnabled {
             FocusGuardManager.shared.stopTracking()
         }
         
-        let duration = max(Date().timeIntervalSince(startedAt), 0)
-        let finalSessionSeconds = currentSessionSeconds
         isRunning = false
+        isPaused = false
         sessionStartedAt = nil
+        accumulatedTime = 0
         stopTicker()
 
         // 가벼운 환경음 재생 중지
         CaveSoundManager.shared.stop()
         
-        totalStudySeconds += duration
-        todayStudySeconds += duration
-        sessionLog.insert(SessionEntry(date: Date(), duration: duration), at: 0)
+        totalStudySeconds += finalSessionSeconds
+        todayStudySeconds += finalSessionSeconds
+        sessionLog.insert(SessionEntry(date: Date(), duration: finalSessionSeconds), at: 0)
+        
         if #available(iOS 16.1, *) {
             Task { @MainActor in
                 await self.endLiveActivity(finalSessionSeconds: finalSessionSeconds)
@@ -378,6 +427,7 @@ final class StudySessionStore: ObservableObject {
     }
 
     private func tick() {
+        // If paused, ticker shouldn't be running, but guard isRunning
         guard isRunning, let startedAt = sessionStartedAt else { return }
         
         // If FocusGuard has failed, freeze the time update.
@@ -386,7 +436,7 @@ final class StudySessionStore: ObservableObject {
             return
         }
         
-        currentSessionSeconds = Date().timeIntervalSince(startedAt)
+        currentSessionSeconds = accumulatedTime + Date().timeIntervalSince(startedAt)
         
         // Request view updates
         objectWillChange.send()
@@ -409,7 +459,7 @@ final class StudySessionStore: ObservableObject {
     private func persist(reloadWidget: Bool = false) {
         let effectiveCurrentSeconds: TimeInterval
         if isRunning, let startedAt = sessionStartedAt {
-            effectiveCurrentSeconds = Date().timeIntervalSince(startedAt)
+            effectiveCurrentSeconds = accumulatedTime + Date().timeIntervalSince(startedAt)
         } else {
             effectiveCurrentSeconds = currentSessionSeconds
         }
@@ -419,6 +469,8 @@ final class StudySessionStore: ObservableObject {
                 todayStudySeconds: todayStudySeconds,
                 currentSessionSeconds: effectiveCurrentSeconds,
                 isRunning: isRunning,
+                isPaused: isPaused,
+                accumulatedTime: accumulatedTime,
                 lastUpdatedAt: Date(),
                 sessionStartedAt: sessionStartedAt,
                 sessionLog: sessionLog.map { SessionLogEntry(id: $0.id, date: $0.date, duration: $0.duration) }
@@ -447,6 +499,7 @@ final class StudySessionStore: ObservableObject {
             todayStudySeconds: tickingTodaySeconds,
             currentSessionSeconds: currentSessionTextSeconds,
             isRunning: isRunning,
+            isPaused: isPaused,
             updatedAt: Date(),
             currentBeastImageName: "TigerSpirit"
         )
@@ -476,6 +529,7 @@ final class StudySessionStore: ObservableObject {
             todayStudySeconds: tickingTodaySeconds,
             currentSessionSeconds: currentSessionSeconds,
             isRunning: isRunning,
+            isPaused: isPaused,
             updatedAt: Date(),
             currentBeastImageName: beastName
         )
@@ -491,6 +545,7 @@ final class StudySessionStore: ObservableObject {
             todayStudySeconds: todayStudySeconds,
             currentSessionSeconds: finalSessionSeconds,
             isRunning: false,
+            isPaused: false,
             updatedAt: Date(),
             currentBeastImageName: "TigerSpirit"
         )
@@ -498,9 +553,9 @@ final class StudySessionStore: ObservableObject {
         self.liveActivity = nil
     }
 
-    private var currentSessionTextSeconds: TimeInterval {
+    var currentSessionTextSeconds: TimeInterval {
         if isRunning, let startedAt = sessionStartedAt {
-            return Date().timeIntervalSince(startedAt)
+            return accumulatedTime + Date().timeIntervalSince(startedAt)
         }
         return currentSessionSeconds
     }

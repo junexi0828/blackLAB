@@ -25,8 +25,6 @@ struct CaveHomeView: View {
                     
                     giantBeastCanvas
                     giantTimerView
-                    orientalTickingSubtitle
-                    shijinNarrativeBlock
                     descriptionCard
                     controlBlock
                     statsRowBlock
@@ -64,13 +62,25 @@ struct CaveHomeView: View {
 
     private var titleBlock: some View {
         HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("폐관수련")
-                    .font(.system(size: 34, weight: .black, design: .serif))
+            VStack(alignment: .leading, spacing: 6) {
+                Text("폐관수련 (閉關修練)")
+                    .font(.system(size: 26, weight: .black, design: .serif))
                     .foregroundStyle(.white)
-                Text("시간은 사라지지 않고 동굴 안에 쌓인다")
-                    .font(.system(size: 14, weight: .medium, design: .serif))
-                    .foregroundStyle(.white.opacity(0.72))
+                
+                // 실시간 기류 흐름 나레이션
+                Text(OrientalTimeFormatter.getOrientalTimeNarrative())
+                    .font(.system(size: 11, weight: .bold, design: .serif))
+                    .foregroundStyle(CaveTheme.gold.opacity(0.85))
+                    .lineLimit(2)
+                
+                // 실시간 수련 공력 (세션 가동 시에만 고풍스럽게 노출)
+                if store.isRunning || store.isPaused {
+                    Text("수련 공력 : \(store.currentSessionOrientalText)")
+                        .font(.system(size: 13, weight: .black, design: .serif))
+                        .foregroundStyle(CaveTheme.ember)
+                        .padding(.top, 2)
+                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                }
             }
             Spacer()
             
@@ -99,13 +109,13 @@ struct CaveHomeView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(22)
+        .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(CaveTheme.panel.opacity(0.88))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .strokeBorder(CaveTheme.gold.opacity(0.24), lineWidth: 1)
         )
     }
@@ -514,54 +524,6 @@ struct CaveHomeView: View {
         case "LotusZen": return "연화 평정 (蓮花)"
         default: return "수호 야수"
         }
-    }
-
-    // MARK: - 무협 전통 기류 서브 뷰
-    private var orientalTickingSubtitle: some View {
-        Group {
-            if store.isRunning || store.isPaused {
-                Text("현재 템포: \(store.currentSessionOrientalText)")
-                    .font(.system(size: 13, weight: .bold, design: .serif))
-                    .foregroundStyle(CaveTheme.gold)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 5)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(CaveTheme.gold.opacity(0.12))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .strokeBorder(CaveTheme.gold.opacity(0.25), lineWidth: 1)
-                            )
-                    )
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
-            }
-        }
-    }
-
-    private var shijinNarrativeBlock: some View {
-        VStack(spacing: 6) {
-            Text("기류의 흐름")
-                .font(.system(size: 10, weight: .black, design: .serif))
-                .foregroundStyle(CaveTheme.gold.opacity(0.6))
-                .tracking(1)
-            
-            Text(OrientalTimeFormatter.getOrientalTimeNarrative())
-                .font(.system(size: 12, weight: .semibold, design: .serif))
-                .foregroundStyle(.white.opacity(0.7))
-                .multilineTextAlignment(.center)
-                .lineSpacing(4)
-                .padding(.horizontal, 16)
-        }
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.black.opacity(0.24))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.04), lineWidth: 1)
-                )
-        )
     }
 }
 

@@ -13,6 +13,7 @@ final class CaveSoundManager {
     // 오디오 합성용 레거시 노드 (폴백용)
     private var audioEngine: AVAudioEngine?
     private var playerNode: AVAudioPlayerNode?
+    private var effectPlayerNode: AVAudioPlayerNode? // 신설: 병렬 효과음 전용 노드
     private var reverbNode: AVAudioUnitReverb?
     private var eqNode: AVAudioUnitEQ?
     
@@ -45,10 +46,12 @@ final class CaveSoundManager {
     private func setupAudioEngine() {
         let engine = AVAudioEngine()
         let player = AVAudioPlayerNode()
+        let effectPlayer = AVAudioPlayerNode()
         let reverb = AVAudioUnitReverb()
         let eq = AVAudioUnitEQ(numberOfBands: 1)
         
         engine.attach(player)
+        engine.attach(effectPlayer)
         engine.attach(reverb)
         engine.attach(eq)
         
@@ -62,12 +65,18 @@ final class CaveSoundManager {
         band.bypass = false
         
         let monoFormat = AVAudioFormat(standardFormatWithSampleRate: 44100.0, channels: 1)
+        
+        // 배경음 노드는 EQ와 리버브를 순차 통과
         engine.connect(player, to: eq, format: monoFormat)
         engine.connect(eq, to: reverb, format: monoFormat)
         engine.connect(reverb, to: engine.mainMixerNode, format: nil)
         
+        // 효과음 노드는 리버브(동굴 공간감)만 연계하여 병렬 믹싱
+        engine.connect(effectPlayer, to: reverb, format: monoFormat)
+        
         self.audioEngine = engine
         self.playerNode = player
+        self.effectPlayerNode = effectPlayer
         self.reverbNode = reverb
         self.eqNode = eq
     }
@@ -247,6 +256,10 @@ final class CaveSoundManager {
         
         playerNode?.stop()
         playerNode?.reset()
+        
+        effectPlayerNode?.stop()
+        effectPlayerNode?.reset() // 효과음 노드 병렬 리셋 추가
+        
         audioEngine?.stop()
         
         currentSoundscape = "없음"
@@ -458,7 +471,7 @@ final class CaveSoundManager {
     
     // MARK: - 웅장한 백호의 포효(어흥) 소리 합성 재생
     private func playTigerRoar() {
-        guard let engine = audioEngine, engine.isRunning, let player = playerNode else { return }
+        guard let engine = audioEngine, engine.isRunning, let player = effectPlayerNode else { return }
         
         let sampleRate: Float = 44100.0
         let duration: Float = 2.4 // 2.4초 거친 포효
@@ -536,7 +549,7 @@ final class CaveSoundManager {
     
     // MARK: - 저멀리 치는 나지막한 천둥소리 합성 재생
     private func playThunderStrike() {
-        guard let engine = audioEngine, engine.isRunning, let player = playerNode else { return }
+        guard let engine = audioEngine, engine.isRunning, let player = effectPlayerNode else { return }
         
         let sampleRate: Float = 44100.0
         let duration: Float = 4.0 // 4초 천둥 여운
@@ -578,7 +591,7 @@ final class CaveSoundManager {
     
     // MARK: - 목탁 소리 타격음 합성 재생
     private func playWoodBlockStrike() {
-        guard let engine = audioEngine, engine.isRunning, let player = playerNode else { return }
+        guard let engine = audioEngine, engine.isRunning, let player = effectPlayerNode else { return }
         
         let sampleRate: Float = 44100.0
         let duration: Float = 0.25 // 목탁은 짧고 통통 튐
@@ -621,7 +634,7 @@ final class CaveSoundManager {
     
     // MARK: - 배경용 나지막한 종소리 재생
     private func playSubtleTempleBell() {
-        guard let engine = audioEngine, engine.isRunning, let player = playerNode else { return }
+        guard let engine = audioEngine, engine.isRunning, let player = effectPlayerNode else { return }
         if let bellBuffer = generateTempleBellBuffer() {
             // 배경 범종 소리는 메인 알림보다 은은하게 믹스 (볼륨을 0.35에서 0.80으로 상향 조정)
             let frameCount = bellBuffer.frameLength

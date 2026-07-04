@@ -89,9 +89,9 @@ struct CaveHomeView: View {
                 isShowingTierGuide = true
             } label: {
                 VStack(spacing: 4) {
-                    Image(systemName: "crown.fill")
+                    Image(systemName: "flame.fill")
                         .font(.system(size: 16))
-                        .foregroundStyle(CaveTheme.gold)
+                        .foregroundStyle(CaveTheme.ember)
                     Text(store.userTierKoreanOnly)
                         .font(.system(size: 11, weight: .bold, design: .serif))
                         .foregroundStyle(.white)

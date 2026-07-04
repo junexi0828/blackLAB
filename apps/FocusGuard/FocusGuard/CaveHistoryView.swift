@@ -63,7 +63,7 @@ struct CaveHistoryView: View {
             
             HStack(spacing: 12) {
                 statCard(title: "평균 수련 시간", value: store.averageSessionDurationText, icon: "hourglass", accent: CaveTheme.jade)
-                statCard(title: "수련 등급", value: store.userTierKoreanOnly, icon: "crown.fill", accent: CaveTheme.gold)
+                statCard(title: "수련 등급", value: store.userTierKoreanOnly, icon: "laurel.leading", accent: CaveTheme.gold)
             }
         }
     }

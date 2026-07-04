@@ -176,12 +176,18 @@ struct CaveSettingsView: View {
             VStack(spacing: 16) {
                 Picker("배경음", selection: $store.selectedSoundscape) {
                     Text("없음").tag("없음")
-                    Text("동굴 낙수 소리").tag("동굴 낙수 소리")
-                    Text("차분한 대나무 바람").tag("차분한 대나무 바람")
+                    Text("동굴 낙수 소리 (洞穴落水)").tag("동굴 낙수 소리")
+                    Text("차분한 대나무 바람 (竹林淸風)").tag("차분한 대나무 바람")
+                    Text("호랑이 기운 소리 (白虎息)").tag("호랑이 기운 소리")
+                    Text("청룡 뇌우 소리 (靑龍雷雨)").tag("청룡 뇌우 소리")
+                    Text("산사 목탁과 종소리 (山寺木鐸)").tag("산사 목탁과 종소리")
                 }
-                .pickerStyle(.segmented)
-                .background(Color.white.opacity(0.05))
-                .cornerRadius(8)
+                .pickerStyle(.menu)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.white.opacity(0.06))
+                .cornerRadius(12)
+                .accentColor(CaveTheme.gold)
                 
                 Text("집중력 증진을 위한 명상 및 뇌파 동조용 배경 소리입니다.")
                     .font(.system(size: 12))

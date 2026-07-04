@@ -112,6 +112,48 @@ final class CaveSoundManager {
                     self.eqNode?.bands[0].frequency = Float(frequency)
                 }
             }
+        } else if soundscape == "호랑이 기운 소리" {
+            reverbNode?.wetDryMix = 50
+            eqNode?.bands[0].bypass = true
+            
+            if let tigerBuffer = generateTigerBreathBuffer() {
+                player.play()
+                player.scheduleBuffer(tigerBuffer, at: nil, options: .loops, completionHandler: nil)
+            }
+            
+        } else if soundscape == "청룡 뇌우 소리" {
+            reverbNode?.wetDryMix = 70
+            eqNode?.bands[0].bypass = true
+            
+            if let rainBuffer = generateRainBuffer() {
+                player.play()
+                player.scheduleBuffer(rainBuffer, at: nil, options: .loops, completionHandler: nil)
+            }
+            
+            dripTimer = Timer.scheduledTimer(withTimeInterval: 22.0, repeats: true) { [weak self] _ in
+                Task { @MainActor in
+                    self?.playThunderStrike()
+                }
+            }
+            playThunderStrike()
+            
+        } else if soundscape == "산사 목탁과 종소리" {
+            reverbNode?.wetDryMix = 80
+            eqNode?.bands[0].bypass = true
+            
+            dripTimer = Timer.scheduledTimer(withTimeInterval: 3.6, repeats: true) { [weak self] _ in
+                Task { @MainActor in
+                    self?.playWoodBlockStrike()
+                }
+            }
+            playWoodBlockStrike()
+            
+            windTimer = Timer.scheduledTimer(withTimeInterval: 24.0, repeats: true) { [weak self] _ in
+                Task { @MainActor in
+                    self?.playSubtleTempleBell()
+                }
+            }
+            playSubtleTempleBell()
         }
     }
     
@@ -246,6 +288,158 @@ final class CaveSoundManager {
         return buffer
     }
     
+    
+    // MARK: - 호랑이 기운 숨결음 합성 (저주파 진동 + LFO)
+    private func generateTigerBreathBuffer() -> AVAudioPCMBuffer? {
+        let sampleRate: Float = 44100.0
+        let duration: Float = 10.0 // 10초 무한 루프용 대형 버퍼
+        let frameCount = AVAudioFrameCount(sampleRate * duration)
+        
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: Double(sampleRate), channels: 1),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
+            return nil
+        }
+        
+        buffer.frameLength = frameCount
+        let channels = buffer.floatChannelData
+        guard let channelData = channels?[0] else { return nil }
+        
+        for i in 0..<Int(frameCount) {
+            let t = Float(i) / sampleRate
+            
+            // 호랑이 가릉거리는 목청 LFO (4.5Hz 진폭 변조)
+            let lfo = 0.5 + 0.5 * sin(2.0 * Float.pi * 4.5 * t)
+            
+            // 들숨날숨 주기 (6초 대형 호흡 루프)
+            let breathCycle = 0.4 + 0.6 * sin(2.0 * Float.pi * (1.0 / 6.0) * t)
+            
+            // 웅장한 가릉거림 노이즈 합성
+            let noise = Float.random(in: -0.06...0.06)
+            
+            // LPF (Low Pass Filter) 느낌의 가공: 높은 주파수를 깎아 부드러운 그르렁거림 표현
+            let lowFrequencyComponent = sin(2.0 * Float.pi * 75.0 * t) * 0.4
+            
+            let sample = (noise * 0.18 * lfo + lowFrequencyComponent * 0.8) * breathCycle * 0.12
+            channelData[i] = sample
+        }
+        return buffer
+    }
+    
+    // MARK: - 청룡 뇌우 빗소리 합성 (화이트 노이즈 밴드패스 효과)
+    private func generateRainBuffer() -> AVAudioPCMBuffer? {
+        let sampleRate: Float = 44100.0
+        let duration: Float = 5.0
+        let frameCount = AVAudioFrameCount(sampleRate * duration)
+        
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: Double(sampleRate), channels: 1),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
+            return nil
+        }
+        
+        buffer.frameLength = frameCount
+        let channels = buffer.floatChannelData
+        guard let channelData = channels?[0] else { return nil }
+        
+        var filterState: Float = 0.0
+        for i in 0..<Int(frameCount) {
+            let noise = Float.random(in: -0.05...0.05)
+            // 심플한 로우패스/하이패스 필터링 흉내로 자연스러운 빗소리 생성
+            filterState = filterState * 0.85 + noise * 0.15
+            channelData[i] = filterState * 0.35
+        }
+        return buffer
+    }
+    
+    // MARK: - 저멀리 치는 나지막한 천둥소리 합성 재생
+    private func playThunderStrike() {
+        guard let engine = audioEngine, engine.isRunning, let player = playerNode else { return }
+        
+        let sampleRate: Float = 44100.0
+        let duration: Float = 4.0 // 4초 천둥 여운
+        let frameCount = AVAudioFrameCount(sampleRate * duration)
+        
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: Double(sampleRate), channels: 1),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
+            return
+        }
+        
+        buffer.frameLength = frameCount
+        let channels = buffer.floatChannelData
+        guard let channelData = channels?[0] else { return }
+        
+        for i in 0..<Int(frameCount) {
+            let t = Float(i) / sampleRate
+            
+            // 천둥의 지글거리는 타격 노이즈
+            let noise = Float.random(in: -0.1...0.1)
+            
+            // 로우패스 효과: 천둥은 멀리서 저음(30Hz~60Hz)으로 묵직하게 번져옴
+            let rumble = sin(2.0 * Float.pi * 45.0 * t) * 0.6 + sin(2.0 * Float.pi * 70.0 * t) * 0.3
+            
+            // 지수 감쇄 및 굴림 효과
+            let strikeDecay = exp(-t * 1.4)
+            let rumbleDecay = exp(-t * 0.65)
+            
+            let sample = (noise * strikeDecay * 0.15 + rumble * rumbleDecay * 0.85) * 0.15
+            channelData[i] = sample
+        }
+        
+        player.scheduleBuffer(buffer, at: nil, options: [], completionHandler: nil)
+    }
+    
+    // MARK: - 목탁 소리 타격음 합성 재생
+    private func playWoodBlockStrike() {
+        guard let engine = audioEngine, engine.isRunning, let player = playerNode else { return }
+        
+        let sampleRate: Float = 44100.0
+        let duration: Float = 0.25 // 목탁은 짧고 통통 튐
+        let frameCount = AVAudioFrameCount(sampleRate * duration)
+        
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: Double(sampleRate), channels: 1),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
+            return
+        }
+        
+        buffer.frameLength = frameCount
+        let channels = buffer.floatChannelData
+        guard let channelData = channels?[0] else { return }
+        
+        for i in 0..<Int(frameCount) {
+            let t = Float(i) / sampleRate
+            
+            // 목탁 고유 주파수 (나무의 공명 680Hz 및 1360Hz 배음)
+            let freq1: Float = 680.0
+            let freq2: Float = 1360.0
+            
+            let fundamental = sin(2.0 * Float.pi * freq1 * t)
+            let overtone = 0.35 * sin(2.0 * Float.pi * freq2 * t) * exp(-t * 70.0)
+            
+            // 매우 가파른 지수 감쇄 (똑똑 굴리는 목탁 껍질 소리)
+            let decay = exp(-t * 24.0)
+            
+            let sample = (fundamental + overtone) * decay * 0.32
+            channelData[i] = sample
+        }
+        
+        player.scheduleBuffer(buffer, at: nil, options: [], completionHandler: nil)
+    }
+    
+    // MARK: - 배경용 나지막한 종소리 재생
+    private func playSubtleTempleBell() {
+        guard let engine = audioEngine, engine.isRunning, let player = playerNode else { return }
+        if let bellBuffer = generateTempleBellBuffer() {
+            // 배경 범종 소리는 메인 알림보다 1/3 수준으로 은은하게 믹스
+            let frameCount = bellBuffer.frameLength
+            let channels = bellBuffer.floatChannelData
+            if let channelData = channels?[0] {
+                for i in 0..<Int(frameCount) {
+                    channelData[i] = channelData[i] * 0.35
+                }
+            }
+            player.scheduleBuffer(bellBuffer, at: nil, options: [], completionHandler: nil)
+        }
+    }
+
     private func setupRemoteCommandCenter() {
         let cc = MPRemoteCommandCenter.shared()
         cc.playCommand.isEnabled = true

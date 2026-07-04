@@ -7,6 +7,7 @@ struct SharedCaveSnapshot: Codable, Hashable {
     var isRunning: Bool
     var isPaused: Bool
     var accumulatedTime: TimeInterval
+    var progressCycleType: String
     var lastUpdatedAt: Date
     var sessionStartedAt: Date?
     var sessionLog: [SessionLogEntry]
@@ -18,6 +19,7 @@ struct SharedCaveSnapshot: Codable, Hashable {
         isRunning: false,
         isPaused: false,
         accumulatedTime: 0,
+        progressCycleType: "1각 (15분)",
         lastUpdatedAt: Date(),
         sessionStartedAt: nil,
         sessionLog: []

@@ -539,7 +539,8 @@ struct CaveLiveActivityLockScreenView: View {
                         .fill(Color.white.opacity(0.06))
                         .frame(height: 3)
                     
-                    let progress = min(max(context.state.currentSessionSeconds.truncatingRemainder(dividingBy: 60.0) / 60.0, 0.0), 1.0)
+                    let cycleSeconds: Double = context.state.progressCycleType == "1식경 (30분)" ? 1800.0 : 900.0
+                    let progress = min(max(context.state.currentSessionSeconds.truncatingRemainder(dividingBy: cycleSeconds) / cycleSeconds, 0.0), 1.0)
                     
                     Capsule()
                         .fill(

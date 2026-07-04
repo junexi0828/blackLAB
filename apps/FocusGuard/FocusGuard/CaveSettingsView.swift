@@ -13,6 +13,7 @@ struct CaveSettingsView: View {
                     headerBlock
                     focusGuardSettingsSection
                     soundscapeSettingsSection
+                    progressCycleSettingsSection
                     resetSection
                     appInfoBlock
                 }
@@ -183,6 +184,36 @@ struct CaveSettingsView: View {
                 .cornerRadius(8)
                 
                 Text("집중력 증진을 위한 명상 및 뇌파 동조용 배경 소리입니다.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.45))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(20)
+            .background(stonePanel)
+        }
+    }
+
+    private var progressCycleSettingsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Image(systemName: "gauge.with.needle.fill")
+                    .foregroundStyle(CaveTheme.gold)
+                Text("수련 내공 주기 (修練內功週期)")
+                    .font(.system(size: 17, weight: .bold, design: .serif))
+                    .foregroundStyle(.white)
+            }
+            .padding(.horizontal, 4)
+
+            VStack(spacing: 16) {
+                Picker("내공 주기", selection: $store.progressCycleType) {
+                    Text("1각 (15분)").tag("1각 (15분)")
+                    Text("1식경 (30분)").tag("1식경 (30분)")
+                }
+                .pickerStyle(.segmented)
+                .background(Color.white.opacity(0.05))
+                .cornerRadius(8)
+                
+                Text("잠금화면 황금색 실선 바가 가득 차오르는 주기입니다. 선택한 시간 단위(각 혹은 식경)를 돌파할 때마다 황금 내공 바가 꽉 차오르며 순환합니다.")
                     .font(.system(size: 12))
                     .foregroundStyle(.white.opacity(0.45))
                     .frame(maxWidth: .infinity, alignment: .leading)

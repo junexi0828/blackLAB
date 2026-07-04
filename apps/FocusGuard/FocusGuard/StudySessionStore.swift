@@ -73,6 +73,17 @@ final class StudySessionStore: ObservableObject {
             }
         }
     }
+    @Published var progressCycleType: String {
+        didSet {
+            userDefaults?.set(progressCycleType, forKey: "settings.progressCycleType")
+            persist(reloadWidget: true)
+            if #available(iOS 16.1, *) {
+                Task { @MainActor in
+                    await self.updateLiveActivity()
+                }
+            }
+        }
+    }
 
     private var ticker: Timer?
     private var lastWidgetReloadSecond: Int = -1
@@ -121,6 +132,7 @@ final class StudySessionStore: ObservableObject {
         self.failThresholdSetting = savedFail > 0 ? savedFail : 8.0
         
         self.selectedSoundscape = defaults?.string(forKey: "settings.selectedSoundscape") ?? "없음"
+        self.progressCycleType = defaults?.string(forKey: "settings.progressCycleType") ?? "1각 (15분)"
 
         // Resume ticker if session is active
         if isRunning {
@@ -297,6 +309,7 @@ final class StudySessionStore: ObservableObject {
         userDefaults?.set(false, forKey: "settings.isMockCameraEnabled")
         userDefaults?.set(true, forKey: "settings.isSpeechEnabled")
         userDefaults?.set("없음", forKey: "settings.selectedSoundscape")
+        userDefaults?.set("1각 (15분)", forKey: "settings.progressCycleType")
         
         isFocusGuardActive = true
         isMockCameraEnabledSetting = false
@@ -305,6 +318,7 @@ final class StudySessionStore: ObservableObject {
         warningThresholdSetting = 3.0
         failThresholdSetting = 8.0
         selectedSoundscape = "없음"
+        progressCycleType = "1각 (15분)"
         
         persist()
     }
@@ -488,6 +502,7 @@ final class StudySessionStore: ObservableObject {
                 isRunning: isRunning,
                 isPaused: isPaused,
                 accumulatedTime: accumulatedTime,
+                progressCycleType: progressCycleType,
                 lastUpdatedAt: Date(),
                 sessionStartedAt: sessionStartedAt,
                 sessionLog: sessionLog.map { SessionLogEntry(id: $0.id, date: $0.date, duration: $0.duration) }
@@ -517,6 +532,7 @@ final class StudySessionStore: ObservableObject {
             currentSessionSeconds: currentSessionTextSeconds,
             isRunning: isRunning,
             isPaused: isPaused,
+            progressCycleType: progressCycleType,
             updatedAt: Date(),
             currentBeastImageName: "TigerSpirit"
         )
@@ -547,6 +563,7 @@ final class StudySessionStore: ObservableObject {
             currentSessionSeconds: currentSessionSeconds,
             isRunning: isRunning,
             isPaused: isPaused,
+            progressCycleType: progressCycleType,
             updatedAt: Date(),
             currentBeastImageName: beastName
         )
@@ -563,6 +580,7 @@ final class StudySessionStore: ObservableObject {
             currentSessionSeconds: finalSessionSeconds,
             isRunning: false,
             isPaused: false,
+            progressCycleType: progressCycleType,
             updatedAt: Date(),
             currentBeastImageName: "TigerSpirit"
         )

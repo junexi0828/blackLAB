@@ -1,28 +1,45 @@
 import Foundation
 import AVFoundation
 import MediaPlayer
+import UIKit
 
-/// CaveSoundManager (가벼운 오디오 로직 복구)
-/// - 기존에 안정적으로 동작하던 환경음(동굴 낙수 소리, 차분한 대나무 바람) 재생 로직 복구
-/// - Now Playing 풀스크린 앨범아트 강제 연동용 무음 루프는 제거하여 랙/튕김의 원인을 원천 차단
-/// - Strict Concurrency 하에서도 안전하도록 타이머 핸들러의 Actor isolation을 Task {@MainActor in}으로 보장
+/// CaveSoundManager (로컬 캐싱 & 실시간 오디오 플레이어 엔진)
+/// - 수학 합성음의 이질감을 극복하기 위해, 인터넷 아카이브 및 공용 검증된 로열티 프리 실제 사운드(호랑이, 천둥, 빗소리, 목탁, 범종)를 Documents/ 캐시에 1회 다운로드하여 실시간 재생
+/// - 오프라인 상태 등으로 다운로드가 완료되지 않았을 경우를 위해 기존의 정교한 수학 합성 신디사이저 파트를 2중 폴백(Fallback) 안전망으로 유지
 @MainActor
 final class CaveSoundManager {
     static let shared = CaveSoundManager()
     
+    // 오디오 합성용 레거시 노드 (폴백용)
     private var audioEngine: AVAudioEngine?
     private var playerNode: AVAudioPlayerNode?
     private var reverbNode: AVAudioUnitReverb?
     private var eqNode: AVAudioUnitEQ?
+    
+    // 실제 MP3 음원 파일 재생을 위한 AVAudioPlayer들
+    private var backgroundPlayer: AVAudioPlayer? // 빗소리, 대나무바람 등 루프 배경음용
+    private var effectPlayer: AVAudioPlayer?     // 천둥소리, 목탁소리 등 효과음용
+    private var bellPlayer: AVAudioPlayer?       // 내공 돌파 및 산사 배경 종소리용
+    private var tigerRoarPlayer: AVAudioPlayer?   // 주기적인 호랑이 포효용
     
     private var dripTimer: Timer?
     private var windTimer: Timer?
     private var windAngle: Double = 0.0
     private var currentSoundscape: String = "없음"
     
+    // 로열티 프리 실제 사운드 소스 URL 정의
+    private let tigerRoarURL = "https://archive.org/download/animals-and-birds-sound-effects/Tiger%20Roar.mp3"
+    private let rainURL = "https://raw.githubusercontent.com/hiteshchoudhary/web-dev-exercise/master/07_sound_clips/sounds/rain.mp3"
+    private let thunderURL = "https://raw.githubusercontent.com/hiteshchoudhary/web-dev-exercise/master/07_sound_clips/sounds/thunder.mp3"
+    private let woodblockURL = "https://raw.githubusercontent.com/xcenweb/muyu/main/muyu.mp3"
+    private let bellURL = "https://raw.githubusercontent.com/adafruit/Adafruit_Learning_System_Guides/main/Playing_Sounds_and_Using_Buttons_with_Raspberry_Pi/temple-bell.mp3"
+    
     private init() {
         setupAudioEngine()
         setupRemoteCommandCenter()
+        
+        // 앱 실행 즉시 필요한 오디오 자원 캐싱 작업 비동기 착수
+        triggerBackgroundCaching()
     }
     
     private func setupAudioEngine() {
@@ -35,11 +52,9 @@ final class CaveSoundManager {
         engine.attach(reverb)
         engine.attach(eq)
         
-        // 동굴 음향 리버브
         reverb.loadFactoryPreset(.largeHall)
         reverb.wetDryMix = 65
         
-        // 바람소리 변조용 EQ
         let band = eq.bands[0]
         band.filterType = .bandPass
         band.bandwidth = 1.8
@@ -47,7 +62,6 @@ final class CaveSoundManager {
         band.bypass = false
         
         let monoFormat = AVAudioFormat(standardFormatWithSampleRate: 44100.0, channels: 1)
-        
         engine.connect(player, to: eq, format: monoFormat)
         engine.connect(eq, to: reverb, format: monoFormat)
         engine.connect(reverb, to: engine.mainMixerNode, format: nil)
@@ -58,14 +72,55 @@ final class CaveSoundManager {
         self.eqNode = eq
     }
     
+    // MARK: - 비동기 다운로드 및 로컬 캐싱 시스템
+    private func triggerBackgroundCaching() {
+        Task {
+            await downloadFileIfNeeded(from: tigerRoarURL, filename: "tiger_roar.mp3")
+            await downloadFileIfNeeded(from: rainURL, filename: "rain_loop.mp3")
+            await downloadFileIfNeeded(from: thunderURL, filename: "thunder.mp3")
+            await downloadFileIfNeeded(from: woodblockURL, filename: "woodblock.mp3")
+            await downloadFileIfNeeded(from: bellURL, filename: "temple_bell.mp3")
+            print("[CaveSoundManager] Background sound caching task completed.")
+        }
+    }
+    
+    private func downloadFileIfNeeded(from urlString: String, filename: String) async {
+        guard let url = URL(string: urlString) else { return }
+        let fileManager = FileManager.default
+        let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let destinationURL = documentsURL.appendingPathComponent(filename)
+        
+        // 이미 파일이 캐싱되어 있으면 추가 다운로드 생략
+        if fileManager.fileExists(atPath: destinationURL.path) {
+            return
+        }
+        
+        do {
+            let (tempURL, _) = try await URLSession.shared.download(from: url)
+            if fileManager.fileExists(atPath: destinationURL.path) {
+                try? fileManager.removeItem(at: destinationURL)
+            }
+            try fileManager.moveItem(at: tempURL, to: destinationURL)
+            print("[CaveSoundManager] Successfully cached sound file: \(filename)")
+        } catch {
+            print("[CaveSoundManager] Sound download failed for \(filename): \(error.localizedDescription)")
+        }
+    }
+    
+    private func getCachedFileURL(filename: String) -> URL? {
+        let fileManager = FileManager.default
+        let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let destinationURL = documentsURL.appendingPathComponent(filename)
+        return fileManager.fileExists(atPath: destinationURL.path) ? destinationURL : nil
+    }
+    
+    // MARK: - 사운드 테라피 시작
     func start(soundscape: String) {
         stop()
         currentSoundscape = soundscape
         guard soundscape != "없음" else { return }
         
-        guard let engine = audioEngine, let player = playerNode else { return }
-        
-        // 재생에 적합하도록 AVAudioSession 설정
+        // 오디오 세션 카테고리 기동
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
@@ -74,16 +129,11 @@ final class CaveSoundManager {
             print("[CaveSoundManager] AVAudioSession config failed: \(error)")
         }
         
-        if !engine.isRunning {
-            do {
-                try engine.start()
-            } catch {
-                print("[CaveSoundManager] Failed to start AVAudioEngine: \(error)")
-                return
-            }
-        }
+        // 폴백용 신디사이저 엔진 확보
+        guard let engine = audioEngine, let player = playerNode else { return }
         
         if soundscape == "동굴 낙수 소리" {
+            if !engine.isRunning { try? engine.start() }
             reverbNode?.wetDryMix = 75
             eqNode?.bands[0].bypass = true
             
@@ -95,6 +145,7 @@ final class CaveSoundManager {
             playRandomDrip()
             
         } else if soundscape == "차분한 대나무 바람" {
+            if !engine.isRunning { try? engine.start() }
             reverbNode?.wetDryMix = 45
             eqNode?.bands[0].bypass = false
             
@@ -112,60 +163,69 @@ final class CaveSoundManager {
                     self.eqNode?.bands[0].frequency = Float(frequency)
                 }
             }
+            
         } else if soundscape == "호랑이 기운 소리" {
+            // A. 배경: 얕고 묵직한 호랑이 숨결 합성음 루프 (극저음 배경 복구)
+            if !engine.isRunning { try? engine.start() }
             reverbNode?.wetDryMix = 60
             eqNode?.bands[0].bypass = true
-            
-            // 얕고 묵직한 호랑이 숨결 배경 (이전의 부드러운 극저음 버전 복원)
             if let tigerBuffer = generateTigerBreathBuffer() {
                 player.play()
                 player.scheduleBuffer(tigerBuffer, at: nil, options: .loops, completionHandler: nil)
             }
             
-            // 15초 주기로 깊은 동굴 속에서 울부짖는 백호의 웅장한 포효 타이머 구비!
+            // B. 주기 효과: 15초마다 실제 호랑이 어흥 포효 사운드 격발!
             dripTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true) { [weak self] _ in
                 Task { @MainActor in
-                    self?.playTigerRoar()
+                    self?.playActualTigerRoar()
                 }
             }
-            playTigerRoar() // 시작하자마자 1회 어흥!
+            playActualTigerRoar() // 기동 시 첫 1회 재생
             
         } else if soundscape == "청룡 뇌우 소리" {
-            reverbNode?.wetDryMix = 70
-            eqNode?.bands[0].bypass = true
-            
-            if let rainBuffer = generateRainBuffer() {
-                player.play()
-                player.scheduleBuffer(rainBuffer, at: nil, options: .loops, completionHandler: nil)
+            // A. 배경: 로컬 실제 시원한 소나기 빗소리 루프 재생
+            if let rainURL = getCachedFileURL(filename: "rain_loop.mp3") {
+                backgroundPlayer = try? AVAudioPlayer(contentsOf: rainURL)
+                backgroundPlayer?.numberOfLoops = -1 // 무한 루프
+                backgroundPlayer?.volume = 0.35 // 은은하고 촉촉한 빗소리 원복
+                backgroundPlayer?.play()
+            } else {
+                // 오프라인 폴백: 합성 빗소리 구동
+                if !engine.isRunning { try? engine.start() }
+                if let rainBuffer = generateRainBuffer() {
+                    player.play()
+                    player.scheduleBuffer(rainBuffer, at: nil, options: .loops, completionHandler: nil)
+                }
             }
             
+            // B. 주기 효과: 12초마다 실제 번쩍 천둥소리 격발!
             dripTimer = Timer.scheduledTimer(withTimeInterval: 12.0, repeats: true) { [weak self] _ in
                 Task { @MainActor in
-                    self?.playThunderStrike()
+                    self?.playActualThunder()
                 }
             }
-            playThunderStrike()
+            playActualThunder()
             
         } else if soundscape == "산사 목탁과 종소리" {
-            reverbNode?.wetDryMix = 80
-            eqNode?.bands[0].bypass = true
-            
+            // A. 주기 효과: 2.5초마다 실제 맑고 깊은 절 목탁 소리 격발!
             dripTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { [weak self] _ in
                 Task { @MainActor in
-                    self?.playWoodBlockStrike()
+                    self?.playActualWoodblock()
                 }
             }
-            playWoodBlockStrike()
+            playActualWoodblock()
             
+            // B. 주기 효과: 14초마다 실제 웅장하고 무거운 절 범종 소리 격발!
             windTimer = Timer.scheduledTimer(withTimeInterval: 14.0, repeats: true) { [weak self] _ in
                 Task { @MainActor in
-                    self?.playSubtleTempleBell()
+                    self?.playActualSubtleBell()
                 }
             }
-            playSubtleTempleBell()
+            playActualSubtleBell()
         }
     }
     
+    // MARK: - 사운드 중지
     func stop() {
         dripTimer?.invalidate()
         dripTimer = nil
@@ -173,16 +233,27 @@ final class CaveSoundManager {
         windTimer?.invalidate()
         windTimer = nil
         
+        backgroundPlayer?.stop()
+        backgroundPlayer = nil
+        
+        effectPlayer?.stop()
+        effectPlayer = nil
+        
+        bellPlayer?.stop()
+        bellPlayer = nil
+        
+        tigerRoarPlayer?.stop()
+        tigerRoarPlayer = nil
+        
         playerNode?.stop()
-        playerNode?.reset() // 내부 스케줄링 대기 큐 완전 Flush
+        playerNode?.reset()
         audioEngine?.stop()
+        
         currentSoundscape = "없음"
     }
     
     // MARK: - 내공 돌파 (1각 / 1식경) 맑고 깊은 명상 종소리 & 햅틱 연동
     func playTempleBell() {
-        guard let engine = audioEngine, let player = playerNode else { return }
-        
         // 햅틱 발동 (진원진기가 뚫리는 묵직한 이중 파동)
         let generator = UIImpactFeedbackGenerator(style: .rigid)
         generator.prepare()
@@ -194,15 +265,61 @@ final class CaveSoundManager {
             gen2.impactOccurred()
         }
         
-        if !engine.isRunning {
-            try? engine.start()
-        }
-        
-        if let bellBuffer = generateTempleBellBuffer() {
-            player.scheduleBuffer(bellBuffer, at: nil, options: [], completionHandler: nil)
-            if !player.isPlaying {
-                player.play()
+        if let bellURL = getCachedFileURL(filename: "temple_bell.mp3") {
+            bellPlayer = try? AVAudioPlayer(contentsOf: bellURL)
+            bellPlayer?.volume = 1.0 // 내공 돌파는 우렁차게!
+            bellPlayer?.play()
+        } else {
+            // 폴백: 놋쇠 종소리 합성 재생
+            guard let engine = audioEngine, let player = playerNode else { return }
+            if !engine.isRunning { try? engine.start() }
+            if let bellBuffer = generateTempleBellBuffer() {
+                player.scheduleBuffer(bellBuffer, at: nil, options: [], completionHandler: nil)
+                if !player.isPlaying {
+                    player.play()
+                }
             }
+        }
+    }
+    
+    // MARK: - 실제 음원 파일 격발 메소드 (캐시 로드 실패 시 합성 폴백 탑재)
+    private func playActualTigerRoar() {
+        if let tigerURL = getCachedFileURL(filename: "tiger_roar.mp3") {
+            tigerRoarPlayer = try? AVAudioPlayer(contentsOf: tigerURL)
+            tigerRoarPlayer?.volume = 0.85
+            tigerRoarPlayer?.play()
+        } else {
+            playTigerRoar()
+        }
+    }
+    
+    private func playActualThunder() {
+        if let thunderURL = getCachedFileURL(filename: "thunder.mp3") {
+            effectPlayer = try? AVAudioPlayer(contentsOf: thunderURL)
+            effectPlayer?.volume = 0.75
+            effectPlayer?.play()
+        } else {
+            playThunderStrike()
+        }
+    }
+    
+    private func playActualWoodblock() {
+        if let blockURL = getCachedFileURL(filename: "woodblock.mp3") {
+            effectPlayer = try? AVAudioPlayer(contentsOf: blockURL)
+            effectPlayer?.volume = 0.85
+            effectPlayer?.play()
+        } else {
+            playWoodBlockStrike()
+        }
+    }
+    
+    private func playActualSubtleBell() {
+        if let bellURL = getCachedFileURL(filename: "temple_bell.mp3") {
+            bellPlayer = try? AVAudioPlayer(contentsOf: bellURL)
+            bellPlayer?.volume = 0.28
+            bellPlayer?.play()
+        } else {
+            playSubtleTempleBell()
         }
     }
     

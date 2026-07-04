@@ -24,6 +24,7 @@ final class StudySessionStore: ObservableObject {
     @Published var totalStudySeconds: TimeInterval
     @Published var todayStudySeconds: TimeInterval
     @Published var currentSessionSeconds: TimeInterval = 0
+    @Published var justAchievedCycle = false
     @Published var sessionLog: [SessionEntry]
 
     // User Settings persisted in UserDefaults
@@ -467,13 +468,30 @@ final class StudySessionStore: ObservableObject {
             return
         }
         
+        let previousSeconds = currentSessionSeconds
         currentSessionSeconds = accumulatedTime + Date().timeIntervalSince(startedAt)
+        
+        // 내공 돌파 (1각/1식경) 정수 초 도달 순간 감지
+        let currentSecondInt = Int(currentSessionSeconds)
+        let previousSecondInt = Int(previousSeconds)
+        if currentSecondInt > 0 && currentSecondInt != previousSecondInt {
+            let cycleSecs: Int = progressCycleType == "1식경 (30분)" ? 1800 : 900
+            if currentSecondInt % cycleSecs == 0 {
+                // 내공 돌파! 경쇠 종소리 연주 및 햅틱
+                CaveSoundManager.shared.playTempleBell()
+                justAchievedCycle = true
+                
+                // 0.8초 후 시각 효과 펄스 리셋
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    self.justAchievedCycle = false
+                }
+            }
+        }
         
         // Request view updates
         objectWillChange.send()
         
         // 15초 주기로 홈화면 위젯 리로드 및 물리 디스크 저장 (과도한 파일 I/O 방지)
-        let currentSecondInt = Int(currentSessionSeconds)
         let shouldReload = (currentSecondInt % 15 == 0) && (currentSecondInt != lastWidgetReloadSecond)
         if shouldReload {
             lastWidgetReloadSecond = currentSecondInt

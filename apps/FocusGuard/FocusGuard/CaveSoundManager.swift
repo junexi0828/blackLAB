@@ -128,6 +128,68 @@ final class CaveSoundManager {
         currentSoundscape = "없음"
     }
     
+    // MARK: - 내공 돌파 (1각 / 1식경) 맑고 깊은 명상 종소리 & 햅틱 연동
+    func playTempleBell() {
+        guard let engine = audioEngine, let player = playerNode else { return }
+        
+        // 햅틱 발동 (진원진기가 뚫리는 묵직한 이중 파동)
+        let generator = UIImpactFeedbackGenerator(style: .rigid)
+        generator.prepare()
+        generator.impactOccurred()
+        
+        // 0.15초 뒤 두 번째 햅틱 파동
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            let gen2 = UIImpactFeedbackGenerator(style: .medium)
+            gen2.impactOccurred()
+        }
+        
+        if !engine.isRunning {
+            try? engine.start()
+        }
+        
+        if let bellBuffer = generateTempleBellBuffer() {
+            player.scheduleBuffer(bellBuffer, at: nil, options: [], completionHandler: nil)
+            if !player.isPlaying {
+                player.play()
+            }
+        }
+    }
+    
+    private func generateTempleBellBuffer() -> AVAudioPCMBuffer? {
+        let sampleRate: Float = 44100.0
+        let duration: Float = 4.5 // 4.5초 긴 여운
+        let frameCount = AVAudioFrameCount(sampleRate * duration)
+        
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: Double(sampleRate), channels: 1),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
+            return nil
+        }
+        
+        buffer.frameLength = frameCount
+        let channels = buffer.floatChannelData
+        guard let channelData = channels?[0] else { return nil }
+        
+        for i in 0..<Int(frameCount) {
+            let t = Float(i) / sampleRate
+            
+            // 맥놀이(Beating) 동양종 주파수 합성 (기본 주파수 330Hz)
+            let f1: Float = 330.0
+            let f2: Float = 331.5
+            let overtone1: Float = 660.0
+            let overtone2: Float = 990.0
+            
+            let fundamental = sin(2.0 * Float.pi * f1 * t) + sin(2.0 * Float.pi * f2 * t)
+            let high1 = 0.35 * sin(2.0 * Float.pi * overtone1 * t) * exp(-t * 2.5) // 배음 감쇄
+            let high2 = 0.15 * sin(2.0 * Float.pi * overtone2 * t) * exp(-t * 4.0)
+            
+            let decay = exp(-t * 0.75) // 전체 잔향 곡선
+            
+            let sample = (fundamental * 0.5 + high1 + high2) * decay * 0.35
+            channelData[i] = sample
+        }
+        return buffer
+    }
+    
     private func playRandomDrip() {
         guard let engine = audioEngine, engine.isRunning, let player = playerNode else { return }
         let pitchRandom = Float.random(in: 0.85...1.15)

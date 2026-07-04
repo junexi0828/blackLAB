@@ -234,6 +234,8 @@ struct CaveHomeView: View {
                 .transition(.opacity)
                 .animation(.easeInOut(duration: 0.8), value: currentBeast)
         }
+        .scaleEffect(store.justAchievedCycle ? 1.08 : 1.0)
+        .animation(.spring(response: 0.4, dampingFraction: 0.5), value: store.justAchievedCycle)
     }
 
     private var giantTimerView: some View {
@@ -243,7 +245,9 @@ struct CaveHomeView: View {
                     .font(.system(size: 56, weight: .black, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(.white)
-                    .shadow(color: CaveTheme.gold.opacity(0.8), radius: 15)
+                    .shadow(color: store.justAchievedCycle ? CaveTheme.ember : CaveTheme.gold.opacity(0.8), radius: store.justAchievedCycle ? 28 : 15)
+                    .scaleEffect(store.justAchievedCycle ? 1.15 : 1.0)
+                    .animation(.spring(response: 0.4, dampingFraction: 0.5), value: store.justAchievedCycle)
                     .transition(.scale.combined(with: .opacity))
             } else {
                 Text("00:00:00")

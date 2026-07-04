@@ -141,14 +141,14 @@ final class CaveSoundManager {
             reverbNode?.wetDryMix = 80
             eqNode?.bands[0].bypass = true
             
-            dripTimer = Timer.scheduledTimer(withTimeInterval: 3.6, repeats: true) { [weak self] _ in
+            dripTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { [weak self] _ in
                 Task { @MainActor in
                     self?.playWoodBlockStrike()
                 }
             }
             playWoodBlockStrike()
             
-            windTimer = Timer.scheduledTimer(withTimeInterval: 24.0, repeats: true) { [weak self] _ in
+            windTimer = Timer.scheduledTimer(withTimeInterval: 14.0, repeats: true) { [weak self] _ in
                 Task { @MainActor in
                     self?.playSubtleTempleBell()
                 }
@@ -418,26 +418,37 @@ final class CaveSoundManager {
             // 매우 가파른 지수 감쇄 (똑똑 굴리는 목탁 껍질 소리)
             let decay = exp(-t * 24.0)
             
-            let sample = (fundamental + overtone) * decay * 0.32
+            // 볼륨을 0.32에서 0.85로 크게 부스팅하여 선명하게 연주
+            let sample = (fundamental + overtone) * decay * 0.85
             channelData[i] = sample
         }
         
         player.scheduleBuffer(buffer, at: nil, options: [], completionHandler: nil)
+        
+        // 중요: 플레이어 재생 노드 기동 보증 추가 (정지 상태일 때 소리가 재생되지 않는 버그 해결)
+        if !player.isPlaying {
+            player.play()
+        }
     }
     
     // MARK: - 배경용 나지막한 종소리 재생
     private func playSubtleTempleBell() {
         guard let engine = audioEngine, engine.isRunning, let player = playerNode else { return }
         if let bellBuffer = generateTempleBellBuffer() {
-            // 배경 범종 소리는 메인 알림보다 1/3 수준으로 은은하게 믹스
+            // 배경 범종 소리는 메인 알림보다 은은하게 믹스 (볼륨을 0.35에서 0.80으로 상향 조정)
             let frameCount = bellBuffer.frameLength
             let channels = bellBuffer.floatChannelData
             if let channelData = channels?[0] {
                 for i in 0..<Int(frameCount) {
-                    channelData[i] = channelData[i] * 0.35
+                    channelData[i] = channelData[i] * 0.80
                 }
             }
             player.scheduleBuffer(bellBuffer, at: nil, options: [], completionHandler: nil)
+            
+            // 중요: 플레이어 재생 노드 기동 보증 추가 (종소리 연주 정상화)
+            if !player.isPlaying {
+                player.play()
+            }
         }
     }
 

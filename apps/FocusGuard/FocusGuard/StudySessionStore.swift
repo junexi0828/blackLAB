@@ -445,7 +445,7 @@ final class StudySessionStore: ObservableObject {
 
     private func scheduleTicker() {
         stopTicker()
-        ticker = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+        ticker = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.tick()
             }
@@ -471,12 +471,6 @@ final class StudySessionStore: ObservableObject {
         
         // Request view updates
         objectWillChange.send()
-        
-        if #available(iOS 16.1, *) {
-            Task { @MainActor in
-                await self.updateLiveActivity()
-            }
-        }
         
         // 15초 주기로 홈화면 위젯 리로드 및 물리 디스크 저장 (과도한 파일 I/O 방지)
         let currentSecondInt = Int(currentSessionSeconds)

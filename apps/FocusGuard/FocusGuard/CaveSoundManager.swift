@@ -123,6 +123,7 @@ final class CaveSoundManager {
         windTimer = nil
         
         playerNode?.stop()
+        playerNode?.reset() // 내부 스케줄링 대기 큐 완전 Flush
         audioEngine?.stop()
         currentSoundscape = "없음"
     }

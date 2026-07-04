@@ -5,6 +5,7 @@ struct CaveHomeView: View {
     @ObservedObject var guardManager = FocusGuardManager.shared
     @State private var isPulsing = false
     @State private var rotationAngle: Double = 0.0
+    @State private var isShowingTierGuide = false
 
     private var isTesting: Bool {
         NSClassFromString("XCTest") != nil
@@ -24,6 +25,8 @@ struct CaveHomeView: View {
                     
                     giantBeastCanvas
                     giantTimerView
+                    orientalTickingSubtitle
+                    shijinNarrativeBlock
                     descriptionCard
                     controlBlock
                     statsRowBlock
@@ -35,6 +38,9 @@ struct CaveHomeView: View {
                 }
                 .padding(20)
             }
+        }
+        .sheet(isPresented: $isShowingTierGuide) {
+            ZenTierGuideView()
         }
     }
 
@@ -68,24 +74,28 @@ struct CaveHomeView: View {
             }
             Spacer()
             
-            // Dynamic Tier Badge
-            VStack(spacing: 4) {
-                Image(systemName: "crown.fill")
-                    .font(.system(size: 16))
-                    .foregroundStyle(CaveTheme.gold)
-                Text(store.userTierKoreanOnly)
-                    .font(.system(size: 11, weight: .bold, design: .serif))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule()
-                            .fill(CaveTheme.gold.opacity(0.15))
-                            .overlay(
-                                Capsule()
-                                    .strokeBorder(CaveTheme.gold.opacity(0.35), lineWidth: 1)
-                            )
-                    )
+            // Dynamic Tier Badge (버튼식 팝업 호출)
+            Button {
+                isShowingTierGuide = true
+            } label: {
+                VStack(spacing: 4) {
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(CaveTheme.gold)
+                    Text(store.userTierKoreanOnly)
+                        .font(.system(size: 11, weight: .bold, design: .serif))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill(CaveTheme.gold.opacity(0.15))
+                                .overlay(
+                                    Capsule()
+                                        .strokeBorder(CaveTheme.gold.opacity(0.35), lineWidth: 1)
+                                )
+                        )
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -503,6 +513,178 @@ struct CaveHomeView: View {
         case "CaveHermit": return "신선 묵상 (神仙)"
         case "LotusZen": return "연화 평정 (蓮花)"
         default: return "수호 야수"
+        }
+    }
+
+    // MARK: - 무협 전통 기류 서브 뷰
+    private var orientalTickingSubtitle: some View {
+        Group {
+            if store.isRunning || store.isPaused {
+                Text("현재 템포: \(store.currentSessionOrientalText)")
+                    .font(.system(size: 13, weight: .bold, design: .serif))
+                    .foregroundStyle(CaveTheme.gold)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 5)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(CaveTheme.gold.opacity(0.12))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .strokeBorder(CaveTheme.gold.opacity(0.25), lineWidth: 1)
+                            )
+                    )
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            }
+        }
+    }
+
+    private var shijinNarrativeBlock: some View {
+        VStack(spacing: 6) {
+            Text("기류의 흐름")
+                .font(.system(size: 10, weight: .black, design: .serif))
+                .foregroundStyle(CaveTheme.gold.opacity(0.6))
+                .tracking(1)
+            
+            Text(OrientalTimeFormatter.getOrientalTimeNarrative())
+                .font(.system(size: 12, weight: .semibold, design: .serif))
+                .foregroundStyle(.white.opacity(0.7))
+                .multilineTextAlignment(.center)
+                .lineSpacing(4)
+                .padding(.horizontal, 16)
+        }
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.black.opacity(0.24))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.04), lineWidth: 1)
+                )
+        )
+    }
+}
+
+// MARK: - 무협 수련 경지 기준표 커스텀 팝업 뷰
+struct ZenTierGuideView: View {
+    @Environment(\.dismiss) private var dismiss
+    
+    struct TierItem: Identifiable {
+        let id = UUID()
+        let name: String
+        let condition: String
+        let desc: String
+        let color: Color
+    }
+    
+    let tiers = [
+        TierItem(name: "생사경 (生死境)", condition: "1000시간 이상", desc: "생사를 초월해 삼라만상과 일체를 이루는 전설", color: Color(red: 0.85, green: 0.2, blue: 0.2)),
+        TierItem(name: "현경 (玄境)", condition: "500시간 이상", desc: "인간의 껍질을 벗고 신선(神仙)의 격에 다다른 고수", color: CaveTheme.ember),
+        TierItem(name: "화경 (化境)", condition: "250시간 이상", desc: "반로환동을 이루고 기(氣)를 지배하는 경지", color: CaveTheme.gold),
+        TierItem(name: "초절정 고수 (超絶頂)", condition: "120시간 이상", desc: "장문인이나 강호 일파의 사조에 해당하는 무인", color: CaveTheme.jade),
+        TierItem(name: "절정 고수 (絶頂)", condition: "50시간 이상", desc: "검기를 뿜어내며 중원을 호령하는 거목", color: CaveTheme.gold.opacity(0.85)),
+        TierItem(name: "일류 고수 (一流)", condition: "15시간 이상", desc: "강호에서 당당히 한 손을 꼽히는 뛰어난 무사", color: .white.opacity(0.9)),
+        TierItem(name: "이류 고수 (二流)", condition: "5시간 이상", desc: "내공을 심장에 축적해 가기 시작한 자", color: .white.opacity(0.65)),
+        TierItem(name: "삼류 무사 (三流)", condition: "1시간 이상", desc: "외문 초식을 다듬고 주먹을 쥐기 시작한 무인", color: .white.opacity(0.45)),
+        TierItem(name: "입문자 (入門者)", condition: "1시간 미만", desc: "폐관동굴에 갓 발을 들이밀어 가부좌를 튼 초심자", color: .white.opacity(0.3))
+    ]
+    
+    var body: some View {
+        ZStack {
+            // 동양 무협 어두운 분위기
+            LinearGradient(
+                colors: [Color(red: 0.08, green: 0.08, blue: 0.09), Color(red: 0.04, green: 0.04, blue: 0.04)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+            
+            VStack(spacing: 20) {
+                // 상단 헤더
+                VStack(spacing: 6) {
+                    Text("수련境界表 (수련 경지표)")
+                        .font(.system(size: 20, weight: .black, design: .serif))
+                        .foregroundStyle(CaveTheme.gold)
+                        .tracking(1)
+                    Text("폐관동굴에서 벼려낸 내력이 그대의 경지를 증명하리라.")
+                        .font(.system(size: 11, weight: .bold, design: .serif))
+                        .foregroundStyle(.white.opacity(0.45))
+                }
+                .padding(.top, 24)
+                
+                // 경지 리스트
+                ScrollView {
+                    VStack(spacing: 12) {
+                        ForEach(tiers) { tier in
+                            HStack(spacing: 12) {
+                                Circle()
+                                    .fill(tier.color)
+                                    .frame(width: 8, height: 8)
+                                    .shadow(color: tier.color.opacity(0.6), radius: 4)
+                                
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(tier.name)
+                                        .font(.system(size: 14, weight: .bold, design: .serif))
+                                        .foregroundStyle(tier.color)
+                                    Text(tier.desc)
+                                        .font(.system(size: 11, weight: .medium, design: .serif))
+                                        .foregroundStyle(.white.opacity(0.5))
+                                        .lineLimit(2)
+                                }
+                                
+                                Spacer()
+                                
+                                Text(tier.condition)
+                                    .font(.system(size: 11, weight: .bold, design: .serif))
+                                    .foregroundStyle(CaveTheme.gold.opacity(0.85))
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(CaveTheme.gold.opacity(0.08))
+                                    )
+                            }
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 14)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .fill(Color.white.opacity(0.02))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                            .strokeBorder(Color.white.opacity(0.03), lineWidth: 1)
+                                    )
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+                
+                // 하단 닫기 도장 버튼
+                Button {
+                    dismiss()
+                } label: {
+                    Text("하산 (닫기)")
+                        .font(.system(size: 15, weight: .bold, design: .serif))
+                        .foregroundStyle(.white)
+                        .padding(.vertical, 14)
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(red: 0.55, green: 0.12, blue: 0.12), Color(red: 0.35, green: 0.08, blue: 0.08)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .strokeBorder(CaveTheme.gold.opacity(0.4), lineWidth: 1)
+                        )
+                        .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
+            }
         }
     }
 }

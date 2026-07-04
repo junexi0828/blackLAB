@@ -186,36 +186,53 @@ final class StudySessionStore: ObservableObject {
     // Tier calculation based on total study hours
     var userTier: String {
         let hours = tickingTotalSeconds / 3600.0
-        if hours >= 500 {
-            return "현경 (Divine Realm)"
-        } else if hours >= 200 {
-            return "화경 (Transcendence)"
+        if hours >= 1000 {
+            return "생사경 (生死境)"
+        } else if hours >= 500 {
+            return "현경 (玄境)"
+        } else if hours >= 250 {
+            return "화경 (化境)"
+        } else if hours >= 120 {
+            return "초절정 고수 (超絶頂高手)"
         } else if hours >= 50 {
-            return "절정 고수 (Master)"
-        } else if hours >= 10 {
-            return "일류 고수 (Expert)"
+            return "절정 고수 (絶頂高手)"
+        } else if hours >= 15 {
+            return "일류 고수 (一流高手)"
+        } else if hours >= 5 {
+            return "이류 고수 (二流高手)"
         } else if hours >= 1 {
-            return "평민 수련자 (Practitioner)"
+            return "삼류 무사 (三流武士)"
         } else {
-            return "입문자 (Novice)"
+            return "입문자 (入門者)"
         }
     }
     
     var userTierKoreanOnly: String {
         let hours = tickingTotalSeconds / 3600.0
-        if hours >= 500 {
+        if hours >= 1000 {
+            return "생사경(生死境)"
+        } else if hours >= 500 {
             return "현경(玄境)"
-        } else if hours >= 200 {
+        } else if hours >= 250 {
             return "화경(化境)"
+        } else if hours >= 120 {
+            return "초절정 고수(超絶頂高手)"
         } else if hours >= 50 {
             return "절정 고수(絶頂高手)"
-        } else if hours >= 10 {
+        } else if hours >= 15 {
             return "일류 고수(一流高手)"
+        } else if hours >= 5 {
+            return "이류 고수(二流高手)"
         } else if hours >= 1 {
-            return "평민 수련자"
+            return "삼류 무사(三流武士)"
         } else {
-            return "입문자"
+            return "입문자(入門者)"
         }
+    }
+
+    var currentSessionOrientalText: String {
+        let currentSecs = isRunning && sessionStartedAt != nil ? accumulatedTime + Date().timeIntervalSince(sessionStartedAt!) : accumulatedTime
+        return OrientalTimeFormatter.formatToOrientalDuration(seconds: currentSecs)
     }
 
     // Statistics

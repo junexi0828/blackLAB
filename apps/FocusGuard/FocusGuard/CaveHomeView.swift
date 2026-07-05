@@ -34,86 +34,94 @@ struct CaveHomeView: View {
         return ZStack {
             caveBackground
             
-            // ── 영물 전체 화면 몰입형 시네마틱 가로 모드 백드롭 (Immersive Beast Landscape Mode) ──
+            // ── 영물 전체 화면 몰입형 시네마틱 세로 꽉 찬 화면 (Immersive Beast Full Portrait Mode) ──
             if isImmersiveActive, let beast = activeBeast {
-                GeometryReader { immersiveGeo in
-                    let screenWidth = immersiveGeo.size.width
-                    let screenHeight = immersiveGeo.size.height
+                ZStack {
+                    // 영물 풀 세로 이미지 꽉 차게 렌더링
+                    WulinImageView(filename: "\(beast.imageName).png", contentMode: .fill)
+                        .scaleEffect(1.05)
+                        .ignoresSafeArea()
+                        .transition(.opacity)
                     
-                    ZStack {
-                        // 가로형 16:9 영물 원화를 가로 꽉 차게 렌더링 (90도 회전에 맞춰 가로세로 스왑 지정)
-                        WulinImageView(filename: "\(beast.imageName).png", contentMode: .fill)
-                            .frame(width: screenHeight, height: screenWidth)
-                            .scaleEffect(1.05)
-                            .clipped()
+                    // 시네마틱 어두운 비네팅 틴트
+                    Color.black.opacity(0.4)
+                        .ignoresSafeArea()
+                    
+                    LinearGradient(
+                        colors: [.black.opacity(0.7), .clear, .black.opacity(0.85)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .ignoresSafeArea()
+                    
+                    // 동양적 진기 광원 오버레이
+                    RadialGradient(
+                        colors: [beast.color.opacity(0.4), .clear],
+                        center: .center,
+                        startRadius: 10,
+                        endRadius: 280
+                    )
+                    .ignoresSafeArea()
+                    .blendMode(.screen)
+                    
+                    // 세로 꽉 찬 화면 전용 UI 요소들 (오직 대형 타이머와 영물의 위엄 서린 훈계 한마디만 노출!)
+                    VStack(spacing: 24) {
+                        Spacer()
                         
-                        // 시네마틱 어두운 비네팅 틴트
-                        Color.black.opacity(0.35)
-                        
-                        LinearGradient(
-                            colors: [.black.opacity(0.65), .clear, .black.opacity(0.85)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                        
-                        // 동양적 진기 광원 오버레이
-                        RadialGradient(
-                            colors: [beast.color.opacity(0.38), .clear],
-                            center: .center,
-                            startRadius: 10,
-                            endRadius: 280
-                        )
-                        .blendMode(.screen)
-                        
-                        // 가로 몰입 모드 전용 UI 요소들 (옆으로 눕혔을 때 균형을 이루는 시네마틱 가로 배치 레이아웃)
-                        HStack(spacing: 30) {
-                            // 좌측: 영물 뱃지 및 이름 정보
-                            VStack(alignment: .leading, spacing: 10) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "sparkles")
-                                        .font(.system(size: 13))
-                                        .foregroundStyle(.black)
-                                    Text("靈物共鳴 (영물공명 정진)")
-                                        .font(.system(size: 11, weight: .bold, design: .serif))
-                                        .foregroundStyle(.black)
-                                }
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .background(beast.color)
-                                .clipShape(Capsule())
-                                .shadow(color: beast.color.opacity(0.5), radius: 6)
-                                
-                                Text(beast.name)
-                                    .font(.system(size: 26, weight: .black, design: .serif))
-                                    .foregroundStyle(.white)
-                                    .shadow(color: .black, radius: 8)
-                                
-                                Text("공명 혜택: \(beast.buffDesc)")
-                                    .font(.system(size: 13, weight: .bold, design: .serif))
-                                    .foregroundStyle(CaveTheme.gold)
-                                    .shadow(color: .black, radius: 4)
-                                
-                                Text("화면 아무 곳이나 터치하면 수련 관리창으로 돌아갑니다")
-                                    .font(.system(size: 11, weight: .medium, design: .serif))
-                                    .foregroundStyle(.white.opacity(0.45))
-                                    .padding(.top, 16)
-                            }
-                            
-                            Spacer()
-                            
-                            // 우측: 초대형 타이머
-                            Text(store.currentSessionText)
-                                .font(.system(size: 82, weight: .black, design: .rounded))
-                                .monospacedDigit()
-                                .foregroundStyle(.white)
-                                .shadow(color: beast.color.opacity(0.9), radius: 25)
+                        // 1. 대형 영물 공명 뱃지
+                        HStack(spacing: 6) {
+                            Image(systemName: "scroll.fill")
+                                .font(.system(size: 14))
+                                .foregroundStyle(.black)
+                            Text(beast.name)
+                                .font(.system(size: 13, weight: .bold, design: .serif))
+                                .foregroundStyle(.black)
                         }
-                        .padding(.horizontal, 48)
-                        .frame(width: screenHeight, height: screenWidth)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(beast.color)
+                        .clipShape(Capsule())
+                        .shadow(color: beast.color.opacity(0.5), radius: 8)
+                        
+                        Spacer()
+                        
+                        // 2. 초대형 타이머 렌더링
+                        Text(store.currentSessionText)
+                            .font(.system(size: 96, weight: .black, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(.white)
+                            .shadow(color: beast.color.opacity(0.9), radius: 25)
+                            .padding(.vertical, 10)
+                        
+                        Spacer()
+                        
+                        // 3. 영물이 공부를 강제하는 위엄 넘치는 전통 훈계 문장 한마디
+                        VStack(spacing: 12) {
+                            Image(systemName: "laurel.leading")
+                                .font(.title3)
+                                .foregroundStyle(CaveTheme.gold)
+                            
+                            Text(getBeastStudyEnforceQuote(beastId: beast.id))
+                                .font(.system(size: 18, weight: .bold, design: .serif))
+                                .foregroundStyle(.white)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 24)
+                                .shadow(color: .black, radius: 8)
+                                .lineSpacing(6)
+                            
+                            Image(systemName: "laurel.trailing")
+                                .font(.title3)
+                                .foregroundStyle(CaveTheme.gold)
+                        }
+                        
+                        Spacer()
+                        
+                        Text("화면을 터치하면 단전을 닫고 수련 관리 영역으로 복귀합니다")
+                            .font(.system(size: 11, weight: .medium, design: .serif))
+                            .foregroundStyle(.white.opacity(0.4))
+                            .padding(.bottom, 24)
                     }
-                    .frame(width: screenHeight, height: screenWidth)
-                    .rotationEffect(.degrees(90))
-                    .position(x: screenWidth / 2, y: screenHeight / 2) // 화면 정중앙에 배치
+                    .padding(24)
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
@@ -123,7 +131,7 @@ struct CaveHomeView: View {
                 }
                 .transition(.opacity)
                 .ignoresSafeArea()
-                .zIndex(100) // 최상단 가로 뷰 오버레이
+                .zIndex(100) // 최상단 오버레이 (하단 탭 바, 수련실 지도 등 싹 다 덮어버림!)
             }
             
             // 영물별 전용 로컬 이팩트 오버레이
@@ -1077,6 +1085,26 @@ struct WulinBeastScrollView: View {
 
 // MARK: - 영물 소환 로직 및 파티클 연동 익스텐션
 extension CaveHomeView {
+    
+    // 영물별 전통 훈계 문장 (공부 강제 매치)
+    private func getBeastStudyEnforceQuote(beastId: String) -> String {
+        switch beastId {
+        case "imugi":
+            return "심연의 흑뢰가 너를 지켜보느니, 나태함은 곧 파멸이다."
+        case "dragon":
+            return "황금빛 구룡이 지켜보거늘, 어찌 일순간의 망상에 정신을 빼앗기는가?"
+        case "qilin":
+            return "단전의 불꽃이 사그라지기 전에, 네 온 정신을 무도에 집중하라."
+        case "daebung":
+            return "혹한의 빙설은 찰나의 흔들림도 용납지 않는다. 마음을 얼려 집중하라."
+        case "yonggui":
+            return "대지처럼 묵직하게 앉아 정진하라. 내 등껍질처럼 견고한 중심을 잡으라."
+        case "white_tiger":
+            return "백호의 푸른 기운이 번뜩이나니, 일체의 잡념을 베어버려라."
+        default:
+            return "한 순간의 나태가 평생의 내공을 허사로 만드느니라."
+        }
+    }
     
     // 영물 소환 배너 및 시네마틱 카드
     var spiritBeastCinematicBanner: some View {

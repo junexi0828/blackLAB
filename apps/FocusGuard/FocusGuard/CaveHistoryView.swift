@@ -34,9 +34,7 @@ struct CaveHistoryView: View {
             }
         }
         .sheet(isPresented: $isShowingDayDetail) {
-            if let date = selectedDate {
-                DayDetailSheet(store: store, date: date)
-            }
+            DayDetailSheet(store: store, date: selectedDate ?? Date())
         }
     }
 
@@ -554,6 +552,7 @@ struct DayDetailSheet: View {
     let date: Date
 
     @State private var memoText: String = ""
+    @State private var isAdviceExpanded: Bool = false // 고언 펼치기/접기 상태
     @Environment(\.dismiss) private var dismiss
 
     private static let dateFormatter: DateFormatter = {
@@ -651,7 +650,7 @@ struct DayDetailSheet: View {
                         }
 
                         // ── 오늘의 경지와 깨달음 (무학의 고언) ──
-                        VStack(alignment: .leading, spacing: 14) {
+                        VStack(alignment: .leading, spacing: 12) {
                             HStack(spacing: 10) {
                                 Image("CaveHermit")
                                     .resizable()
@@ -671,18 +670,42 @@ struct DayDetailSheet: View {
                                 Spacer()
                             }
 
-                            Text(dailyInsight.chinese)
-                                .font(.system(size: 20, weight: .black, design: .serif))
-                                .foregroundStyle(dailyInsight.accentColor)
-                                .minimumScaleFactor(0.75)
-                                .lineLimit(2)
+                            HStack {
+                                Text(dailyInsight.chinese)
+                                    .font(.system(size: 18, weight: .black, design: .serif))
+                                    .foregroundStyle(dailyInsight.accentColor)
+                                    .minimumScaleFactor(0.75)
+                                    .lineLimit(1)
+                                
+                                Spacer()
+                                
+                                Button {
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                        isAdviceExpanded.toggle()
+                                    }
+                                } label: {
+                                    HStack(spacing: 3) {
+                                        Text(isAdviceExpanded ? "간략히" : "고언 펼치기")
+                                        Image(systemName: isAdviceExpanded ? "chevron.up" : "chevron.down")
+                                    }
+                                    .font(.system(size: 11, weight: .bold, design: .serif))
+                                    .foregroundStyle(dailyInsight.accentColor)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(dailyInsight.accentColor.opacity(0.12))
+                                    .cornerRadius(6)
+                                }
+                            }
 
-                            Text(dailyInsight.message)
-                                .font(.system(size: 14, weight: .medium, design: .serif))
-                                .foregroundStyle(.white.opacity(0.86))
-                                .lineSpacing(5)
+                            if isAdviceExpanded {
+                                Text(dailyInsight.message)
+                                    .font(.system(size: 13, weight: .medium, design: .serif))
+                                    .foregroundStyle(.white.opacity(0.86))
+                                    .lineSpacing(4)
+                                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                            }
                         }
-                        .padding(16)
+                        .padding(14)
                         .background(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
                                 .fill(dailyInsight.accentColor.opacity(0.08))
@@ -836,6 +859,7 @@ struct CaveMapView: View {
     @State var isShowingWorldMap: Bool = false
     @State var npcMessage: String? = nil
     @State var isShowingElixirShop: Bool = false
+    @State var isPastEra: Bool = false // 과거/현재 시대 맵 전환 상태 추가
     
     // 진기(Jingi) 상승 흐름 입자 시뮬레이션용 상태
     @State var jingiParticles: [JingiParticle] = []
@@ -855,7 +879,108 @@ struct CaveMapView: View {
         var speed: CGFloat
     }
     
-    // 13개 문파 지리 데이터 정의 (새로운 강호 세계지도 이미지의 좌표 레이블에 맞춰 정교하게 배치)
+    // 시대에 따른 비경 배경화면 매핑 (과거: 수채화 배경만 사용, 현재: 원본 컬러 일러스트 배경만 사용)
+    private func getRegionBackground(for region: MapRegion, isPast: Bool) -> String {
+        if isPast {
+            switch region.name {
+            case "무명의 오두막":
+                return "past_wulin_hermit_hut_1783209600000.jpg"
+            case "청성파 (靑城派)":
+                return "past_wulin_cheongseong.jpg"
+            case "무림맹 (武林盟)":
+                return "past_wulin_righteous_sect_1783206411012.jpg"
+            case "녹림채 (綠林寨)":
+                return "past_wulin_outlaw_fort_1783206424103.jpg"
+            case "개방 지부 (괴력난신)":
+                return "past_wulin_monster_god.jpg"
+            case "화산파 (華山派)":
+                return "past_wulin_hwasan_return.jpg"
+            case "소림사 (少林寺)":
+                return "past_wulin_shaolin_secret.jpg"
+            case "무당파 (武당파)", "무당파 (武當派)":
+                return "past_wulin_wudang_secret.jpg"
+            case "천마신교 (天魔神敎)":
+                return "past_wulin_demonic_cult_1783206435319.jpg"
+            case "화산파 비경 (화산귀환)":
+                return "past_wulin_hwasan_secret.jpg"
+            case "소림사 비경 (소승림)":
+                return "past_wulin_shaolin_secret_past.jpg"
+            case "무당파 비경 (태극동천)":
+                return "past_wulin_wudang_secret_alt.jpg"
+            case "마교 백화전 (나노마신)":
+                return "past_wulin_nano_machine.jpg"
+            default:
+                return region.backgroundAsset
+            }
+        } else {
+            switch region.name {
+            case "무명의 오두막":
+                return "wulin_hermit_hut_1783226523355.jpg"
+            case "청성파 (靑城派)":
+                return "wulin_cheongseong_1783226532079.jpg"
+            case "무림맹 (武林盟)":
+                return "wulin_murim_league_1783226541554.jpg"
+            case "녹림채 (綠林寨)":
+                return "wulin_outlaw_fort_1783226550587.jpg"
+            case "개방 지부 (괴력난신)":
+                return "wulin_monster_god_1783226595601.jpg"
+            case "화산파 (華山派)":
+                return "wulin_hwasan_return_1783226575087.jpg"
+            case "소림사 (少林寺)":
+                return "wulin_shaolin_secret_1783209492458.jpg"
+            case "무당파 (武당파)", "무당파 (武當派)":
+                return "wulin_wudang_secret_1783209482524.jpg"
+            case "천마신교 (天魔神敎)":
+                return "wulin_demonic_cult_1783226558857.jpg"
+            case "화산파 비경 (화산귀환)":
+                return "wulin_hwasan_secret_1783209500334.jpg"
+            case "소림사 비경 (소승림)":
+                return "wulin_shaolin_secret_alt.jpg"
+            case "무당파 비경 (태극동천)":
+                return "wulin_wudang_secret_alt.jpg"
+            case "마교 백화전 (나노마신)":
+                return "wulin_nano_machine_1783226585538.jpg"
+            default:
+                return region.backgroundAsset
+            }
+        }
+    }
+    
+    // 시대에 따른 고수 프로필 인물 매핑 (과거: 수채화 스케치 인물, 현재: 원본 고퀄리티 컬러 일러스트 인물)
+    private func getRegionNpcAvatar(for region: MapRegion, isPast: Bool) -> String {
+        switch region.name {
+        case "무명의 오두막":
+            return isPast ? "past_wulin_npc_hermit.png" : "wulin_avatar_hermit.jpg"
+        case "청성파 (靑城派)":
+            return isPast ? "past_wulin_npc_wind_elder.png" : "wulin_avatar_songdoin.jpg"
+        case "무림맹 (武林盟)":
+            return isPast ? "past_wulin_npc_murimleague.png" : "wulin_avatar_murimleague.jpg"
+        case "녹림채 (綠林寨)":
+            return isPast ? "past_wulin_npc_outlaw_chief.png" : "wulin_avatar_limsobyeong.jpg"
+        case "개방 지부 (괴력난신)":
+            return isPast ? "past_wulin_npc_gaebang_elder.png" : "wulin_avatar_sashin_1783226657778.jpg"
+        case "화산파 (華山派)":
+            return isPast ? "past_wulin_npc_maehwagemsu.png" : "wulin_avatar_maehwagemsu.jpg"
+        case "소림사 (少林寺)":
+            return isPast ? "past_wulin_npc_shaolin_abbot.png" : "wulin_avatar_shaolinabbot.jpg"
+        case "무당파 (武당파)", "무당파 (武當派)":
+            return isPast ? "past_wulin_npc_jang_sampung.png" : "wulin_avatar_wudangmaster.jpg"
+        case "천마신교 (天魔神敎)":
+            return isPast ? "past_wulin_npc_heavenly_demon.png" : "wulin_avatar_gwangma.jpg"
+        case "화산파 비경 (화산귀환)":
+            return isPast ? "past_wulin_npc_cheongmyeong.png" : "wulin_avatar_cheongmyeong_1783226635757.jpg"
+        case "소림사 비경 (소승림)":
+            return isPast ? "past_wulin_npc_nahansuajwa.png" : "wulin_avatar_nahansuajwa.jpg"
+        case "무당파 비경 (태극동천)":
+            return isPast ? "past_wulin_npc_jang_sampung_alt.png" : "wulin_avatar_jangsampung_color.jpg"
+        case "마교 백화전 (나노마신)":
+            return isPast ? "past_wulin_npc_yeowun.png" : "wulin_avatar_yeowun_1783226647473.jpg"
+        default:
+            return region.npcAvatar
+        }
+    }
+    
+    // 13개 문파 지리 데이터 정의 (정교하게 매핑된 고유 NPC 아바타 및 배경 탑재)
     let regions: [MapRegion] = [
         MapRegion(
             name: "무명의 오두막",
@@ -865,7 +990,7 @@ struct CaveMapView: View {
             backgroundAsset: "wulin_hermit_hut_1783226523355.jpg",
             themeSoundscape: "Tiger Spirit",
             npcName: "무명 노인",
-            npcAvatar: "cave_hermit_1783163089832.jpg",
+            npcAvatar: "WulinNpcHermit",
             npcLine: "폐관수련을 통해 기경팔맥을 뚫고 무림의 일류 고수가 되어보시오.",
             isSecretRoute: false, secretSectKey: nil
         ),
@@ -877,7 +1002,7 @@ struct CaveMapView: View {
             backgroundAsset: "wulin_cheongseong_1783226532079.jpg",
             themeSoundscape: "Lotus Zen",
             npcName: "송도인",
-            npcAvatar: "bamboo_spirit_1783160022339.jpg",
+            npcAvatar: "WulinNpcWindElder",
             npcLine: "청성파의 쾌검은 바람을 가른다네. 자네의 집중은 어떠한가?",
             isSecretRoute: false, secretSectKey: nil
         ),
@@ -889,7 +1014,7 @@ struct CaveMapView: View {
             backgroundAsset: "wulin_murim_league_1783226541554.jpg",
             themeSoundscape: "Lotus Zen",
             npcName: "맹주부 집행검사",
-            npcAvatar: "dragon_focus_1783160010165.jpg",
+            npcAvatar: "WulinNpcShaolinAbbot",
             npcLine: "정사대전의 기운이 감도니, 맹의 무사들이여 집중을 풀지 마십시오!",
             isSecretRoute: false, secretSectKey: nil
         ),
@@ -901,7 +1026,7 @@ struct CaveMapView: View {
             backgroundAsset: "wulin_outlaw_fort_1783226550587.jpg",
             themeSoundscape: "Tiger Spirit",
             npcName: "채주 임소병",
-            npcAvatar: "tiger_spirit_1783159995791.jpg",
+            npcAvatar: "WulinNpcOutlawChief",
             npcLine: "돈을 내놓겠느냐, 네 정신을 내놓겠느냐? 농담일세 하하하!",
             isSecretRoute: false, secretSectKey: nil
         ),
@@ -913,7 +1038,7 @@ struct CaveMapView: View {
             backgroundAsset: "wulin_monster_god_1783226595601.jpg",
             themeSoundscape: "Phoenix Focus",
             npcName: "개방 장로",
-            npcAvatar: "wulin_avatar_sashin_1783226657778.jpg",
+            npcAvatar: "WulinNpcWindElder",
             npcLine: "귀신과 괴력도 굳건한 정신 앞에서는 힘을 쓰지 못하는 법이지.",
             isSecretRoute: false, secretSectKey: nil
         ),
@@ -925,7 +1050,7 @@ struct CaveMapView: View {
             backgroundAsset: "wulin_hwasan_return_1783226575087.jpg",
             themeSoundscape: "Phoenix Focus",
             npcName: "매화 검수",
-            npcAvatar: "phoenix_focus_1783163118136.jpg",
+            npcAvatar: "WulinNpcCheongmyeong",
             npcLine: "매화 향기가 사방에 진동하니, 검끝에 서린 일념을 느껴보시오.",
             isSecretRoute: false, secretSectKey: nil
         ),
@@ -937,7 +1062,7 @@ struct CaveMapView: View {
             backgroundAsset: "wulin_shaolin_secret_1783209492458.jpg",
             themeSoundscape: "Lotus Zen",
             npcName: "현공 방장",
-            npcAvatar: "lotus_zen_1783163105466.jpg",
+            npcAvatar: "WulinNpcShaolinAbbot",
             npcLine: "아미타불, 마음을 한 곳에 집중하는 것이 곧 선(禪)이자 깨달음입니다.",
             isSecretRoute: false, secretSectKey: nil
         ),
@@ -949,7 +1074,7 @@ struct CaveMapView: View {
             backgroundAsset: "wulin_wudang_secret_1783209482524.jpg",
             themeSoundscape: "Lotus Zen",
             npcName: "송혜 도장",
-            npcAvatar: "bamboo_spirit_1783160022339.jpg",
+            npcAvatar: "WulinNpcJangSampung",
             npcLine: "태극의 원리는 멈추지 않는 순환이지요. 호흡을 가다듬으십시오.",
             isSecretRoute: false, secretSectKey: nil
         ),
@@ -961,7 +1086,7 @@ struct CaveMapView: View {
             backgroundAsset: "wulin_demonic_cult_1783226558857.jpg",
             themeSoundscape: "Dragon Focus",
             npcName: "광마 (狂魔)",
-            npcAvatar: "dragon_focus_1783160010165.jpg",
+            npcAvatar: "WulinNpcHeavenlyDemon",
             npcLine: "마공을 단련함에 있어 잡념은 곧 주화입마를 부를 뿐이다.",
             isSecretRoute: false, secretSectKey: nil
         ),
@@ -973,7 +1098,7 @@ struct CaveMapView: View {
             backgroundAsset: "wulin_hwasan_secret_1783209500334.jpg",
             themeSoundscape: "Phoenix Focus",
             npcName: "화산 신룡 청명",
-            npcAvatar: "wulin_avatar_cheongmyeong_1783226635757.jpg",
+            npcAvatar: "WulinNpcCheongmyeong",
             npcLine: "대가리가 깨져도 화산은 간다! 진기를 쏟아 무념의 검을 휘두르란 말이다!",
             isSecretRoute: true, secretSectKey: "hwasan"
         ),
@@ -985,7 +1110,7 @@ struct CaveMapView: View {
             backgroundAsset: "wulin_shaolin_secret_1783209492458.jpg",
             themeSoundscape: "Lotus Zen",
             npcName: "나한 수좌",
-            npcAvatar: "lotus_zen_1783163105466.jpg",
+            npcAvatar: "WulinNpcShaolinAbbot",
             npcLine: "진정한 신체와 정신의 결합은 고난의 수련 끝에 완성됩니다.",
             isSecretRoute: true, secretSectKey: "shaolin"
         ),
@@ -997,7 +1122,7 @@ struct CaveMapView: View {
             backgroundAsset: "wulin_wudang_secret_1783209482524.jpg",
             themeSoundscape: "Lotus Zen",
             npcName: "진인 장삼풍",
-            npcAvatar: "cave_hermit_1783163089832.jpg",
+            npcAvatar: "WulinNpcJangSampung",
             npcLine: "태극이 무극이 되고 무극이 곧 하나가 되니, 무념무상의 경지에 오르라.",
             isSecretRoute: true, secretSectKey: "wudang"
         ),
@@ -1009,7 +1134,7 @@ struct CaveMapView: View {
             backgroundAsset: "wulin_demonic_cult_1783206435319.jpg",
             themeSoundscape: "Dragon Focus",
             npcName: "천마 천여운",
-            npcAvatar: "wulin_avatar_yeowun_1783226647473.jpg",
+            npcAvatar: "WulinNpcHeavenlyDemon",
             npcLine: "나노 마신이 작동합니다. 뇌파 동조율 100%, 집중을 가속하십시오.",
             isSecretRoute: true, secretSectKey: "nanomachine"
         )
@@ -1059,11 +1184,13 @@ struct MapRegion: Identifiable {
 
 extension CaveMapView {
     var body: some View {
-        ZStack {
+        let isLocked = !checkUnlocked(index: activeMapIndex)
+        return ZStack {
             // 1. 현재 활성화된 무협지 배경 렌더링
-            WulinImageView(filename: activeRegion.backgroundAsset)
+            WulinImageView(filename: getRegionBackground(for: activeRegion, isPast: isPastEra))
                 .ignoresSafeArea()
                 .id(activeMapIndex)
+                .blur(radius: isLocked ? 8 : 0)
                 .transition(.asymmetric(insertion: .opacity.combined(with: .scale(scale: 1.05)), removal: .opacity))
             
             // 한지 감성의 어두운 그라데이션 오버레이
@@ -1086,6 +1213,7 @@ extension CaveMapView {
                 }
             }
             .ignoresSafeArea()
+            .blur(radius: isLocked ? 8 : 0)
             
             VStack(spacing: 0) {
                 // 2. 상단 헤더 영역 (현 위치 & 영약 버프 표시)
@@ -1145,7 +1273,7 @@ extension CaveMapView {
                 VStack(spacing: 12) {
                     HStack(alignment: .bottom, spacing: 14) {
                         // 고수 프로필
-                        WulinAvatarImageView(avatarName: activeRegion.npcAvatar)
+                        WulinAvatarImageView(avatarName: getRegionNpcAvatar(for: activeRegion, isPast: isPastEra))
                             .frame(width: 60, height: 60)
                             .clipShape(Circle())
                             .overlay(Circle().stroke(CaveTheme.gold, lineWidth: 1.5))
@@ -1246,6 +1374,96 @@ extension CaveMapView {
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 40)
+            }
+            .blur(radius: isLocked ? 8 : 0)
+            .allowsHitTesting(!isLocked)
+            
+            // ── 비경 미개방 봉인 오버레이 (흐린 화면 위에 나타나는 안내판) ──
+            if isLocked {
+                Color.black.opacity(0.2)
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 12) {
+                    Image(systemName: "lock.shield.fill")
+                        .font(.system(size: 26))
+                        .foregroundStyle(CaveTheme.gold.opacity(0.9))
+                    
+                    Text("\(activeRegion.name) (封印)")
+                        .font(.system(size: 16, weight: .bold, design: .serif))
+                        .foregroundStyle(CaveTheme.gold)
+                    
+                    if activeRegion.isSecretRoute {
+                        let cost = activeRegion.secretSectKey == "nanomachine" ? 200 : (activeRegion.secretSectKey == "wudang" ? 150 : (activeRegion.secretSectKey == "shaolin" ? 120 : 80))
+                        let canUnlock = store.accumulatedGongryeokPoints >= cost
+                        
+                        Text("이곳의 결계를 해제하려면 진기(眞) \(cost)가 필요하오.\n(그대의 현재 진기: \(Int(store.accumulatedGongryeokPoints)) 眞)")
+                            .font(.system(size: 12, design: .serif))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(4)
+                        
+                        HStack(spacing: 12) {
+                            Button(action: {
+                                isShowingWorldMap = true
+                                triggerHaptic(.light)
+                            }) {
+                                Text("지도 열기")
+                                    .font(.system(size: 12, weight: .bold, design: .serif))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(Color.white.opacity(0.12))
+                                    .cornerRadius(6)
+                            }
+                            
+                            Button(action: {
+                                handleSecretUnlockTrigger()
+                            }) {
+                                Text("결계 해제")
+                                    .font(.system(size: 12, weight: .bold, design: .serif))
+                                    .foregroundStyle(Color.black)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(canUnlock ? CaveTheme.gold : Color.gray.opacity(0.4))
+                                    .cornerRadius(6)
+                            }
+                            .disabled(!canUnlock)
+                        }
+                        .padding(.top, 4)
+                    } else {
+                        Text("이 비경은 아직 연단할 수 없소. 총 수련 누적 공력 \(Int(activeRegion.requiredHours))시간이 필요하오.\n(그대의 현재 공력: \(String(format: "%.1f", store.totalStudySeconds / 3600.0))시간)")
+                            .font(.system(size: 12, design: .serif))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(4)
+                        
+                        Button(action: {
+                            isShowingWorldMap = true
+                            triggerHaptic(.light)
+                        }) {
+                            Text("강호천하도로 돌아가기")
+                                .font(.system(size: 12, weight: .bold, design: .serif))
+                                .foregroundStyle(Color.black)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(CaveTheme.gold)
+                                .cornerRadius(6)
+                        }
+                        .padding(.top, 4)
+                    }
+                }
+                .padding(20)
+                .frame(width: 290)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.black.opacity(0.45))
+                        .background(Material.ultraThinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                        )
+                )
+                .shadow(color: .black.opacity(0.4), radius: 15)
             }
             
             // ── 영약 제조 수련단 HUD 모달 오버레이 ──
@@ -1413,6 +1631,7 @@ extension CaveMapView {
                     activeMapIndex: $activeMapIndex,
                     isShowingWorldMap: $isShowingWorldMap,
                     npcMessage: $npcMessage,
+                    isPastEra: $isPastEra,
                     onSelectRegion: { idx in
                         if idx >= 0 {
                             withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
@@ -1664,15 +1883,16 @@ struct WulinImageView: View {
     
     var body: some View {
         if let uiImage = loadLocalImage(filename: filename) {
-            Image(uiImage: uiImage)
+            let img = Image(uiImage: uiImage)
                 .resizable()
                 .aspectRatio(contentMode: contentMode)
-                .ignoresSafeArea()
+            if contentMode == .fill {
+                img.ignoresSafeArea()
+            } else {
+                img
+            }
         } else {
-            Image("CaveHermit")
-                .resizable()
-                .aspectRatio(contentMode: contentMode)
-                .ignoresSafeArea()
+            Color.clear
         }
     }
     
@@ -1680,6 +1900,13 @@ struct WulinImageView: View {
         // 1. 메모리 캐시 확인
         if let cached = WulinImageCache.get(filename: filename) {
             return cached
+        }
+        
+        // 2. 에셋 카탈로그 컴파일 이미지 확인
+        let cleanName = (filename as NSString).deletingPathExtension
+        if let image = UIImage(named: cleanName) {
+            WulinImageCache.set(filename: filename, image: image)
+            return image
         }
         
         let nameOnly = (filename as NSString).deletingPathExtension
@@ -1770,7 +1997,7 @@ struct WulinAvatarImageView: View {
     }
 }
 
-// ── 강호천하도 월드맵 내부 경로 그리기 뷰 ──
+// ── 강호천하도 월드맵 내부 경로 그리기 ──
 struct WulinMapPathsView: View {
     let regions: [MapRegion]
     let w: CGFloat
@@ -1803,6 +2030,7 @@ struct WulinWorldMapView: View {
     @Binding var activeMapIndex: Int
     @Binding var isShowingWorldMap: Bool
     @Binding var npcMessage: String?
+    @Binding var isPastEra: Bool // 시대 전환 연동
     let onSelectRegion: (Int) -> Void
     let onClose: () -> Void
     
@@ -1811,102 +2039,120 @@ struct WulinWorldMapView: View {
             // 어두운 배경색
             Color.black.ignoresSafeArea()
             
-            // 지도 콘텐츠 컨테이너 (세로 화면 대응을 위해 정중앙 배치 후 비율 유지 맞춤)
-            VStack {
-                Spacer()
-                
+            // ── 중단 영역: 지도 및 핀 매핑 (풀 스크린 스크롤뷰) ──
+            ScrollView([.horizontal, .vertical], showsIndicators: false) {
                 ZStack {
-                    WulinImageView(filename: "wulin_world_map_new_1783229031585.jpg", contentMode: .fit)
-                        .overlay(
-                            GeometryReader { geo in
-                                let w = geo.size.width
-                                let h = geo.size.height
+                    WulinImageView(
+                        filename: isPastEra ? "past_wulin_world_map_new_1783229031585.jpg" : "wulin_world_map_1783227531825.jpg",
+                        contentMode: .fit
+                    )
+                    .frame(height: 720)
+                    .aspectRatio(isPastEra ? 1.49 : 0.558, contentMode: .fit)
+                    .overlay(
+                        GeometryReader { geo in
+                            let w = geo.size.width
+                            let h = geo.size.height
+                            
+                            ZStack {
+                                WulinMapPathsView(regions: regions, w: w, h: h)
                                 
-                                ZStack {
-                                    WulinMapPathsView(regions: regions, w: w, h: h)
+                                SwiftUI.ForEach(0..<regions.count, id: \.self) { idx in
+                                    let reg = regions[idx]
+                                    let unlocked = unlockedFlags[idx]
+                                    let isCurrent = (activeMapIndex == idx)
                                     
-                                    SwiftUI.ForEach(0..<regions.count, id: \.self) { idx in
-                                        let reg = regions[idx]
-                                        let unlocked = unlockedFlags[idx]
-                                        let isCurrent = (activeMapIndex == idx)
-                                        
-                                        VStack(spacing: 2) {
-                                            Button(action: {
-                                                if unlocked {
-                                                    onSelectRegion(idx)
-                                                } else {
-                                                    onSelectRegion(-1)
-                                                }
-                                            }) {
-                                                ZStack {
-                                                    if isCurrent {
-                                                        Circle()
-                                                            .stroke(CaveTheme.gold, lineWidth: 2)
-                                                            .frame(width: 24, height: 24)
-                                                            .scaleEffect(isShowingWorldMap ? 1.4 : 1.0)
-                                                            .opacity(isShowingWorldMap ? 0.0 : 0.8)
-                                                            .animation(
-                                                                .easeInOut(duration: 1.2).repeatForever(autoreverses: false),
-                                                                value: isShowingWorldMap
-                                                            )
-                                                    }
-                                                    
-                                                    Circle()
-                                                        .fill(isCurrent ? CaveTheme.gold : (unlocked ? CaveTheme.jade : Color.black.opacity(0.6)))
-                                                        .frame(width: 14, height: 14)
-                                                        .shadow(color: isCurrent ? CaveTheme.gold : .black, radius: 3)
-                                                        .overlay(
-                                                            Circle()
-                                                                .stroke(unlocked ? .white.opacity(0.8) : .gray.opacity(0.5), lineWidth: 1)
-                                                        )
-                                                    
-                                                    if !unlocked {
-                                                        Image(systemName: "lock.fill")
-                                                            .font(.system(size: 6))
-                                                            .foregroundStyle(.white)
-                                                    } else if reg.isSecretRoute {
-                                                        Image(systemName: "sparkles")
-                                                            .font(.system(size: 7))
-                                                            .foregroundStyle(CaveTheme.gold)
-                                                    }
-                                                }
+                                    Button(action: {
+                                        onSelectRegion(idx)
+                                    }) {
+                                        ZStack {
+                                            if isCurrent {
+                                                Circle()
+                                                    .stroke(CaveTheme.gold, lineWidth: 2.5)
+                                                    .frame(width: 28, height: 28)
+                                                    .scaleEffect(isShowingWorldMap ? 1.35 : 1.0)
+                                                    .opacity(isShowingWorldMap ? 0.0 : 0.8)
+                                                    .animation(
+                                                        .easeInOut(duration: 1.2).repeatForever(autoreverses: false),
+                                                        value: isShowingWorldMap
+                                                    )
                                             }
-                                            .buttonStyle(.plain)
                                             
-                                            // 분파 텍스트 라벨 (정밀 정렬 및 크기 최적화)
-                                            Text(reg.name)
-                                                .font(.system(size: 8, weight: .bold, design: .serif))
-                                                .foregroundStyle(isCurrent ? CaveTheme.gold : (unlocked ? .white : .white.opacity(0.4)))
-                                                .padding(.horizontal, 4)
-                                                .padding(.vertical, 1)
-                                                .background(Color.black.opacity(0.6))
-                                                .cornerRadius(3)
+                                            Circle()
+                                                .fill(isCurrent ? CaveTheme.gold : (unlocked ? CaveTheme.jade : Color.black.opacity(0.75)))
+                                                .frame(width: 18, height: 18)
+                                                .shadow(color: isCurrent ? CaveTheme.gold : .black, radius: 4)
+                                                .overlay(
+                                                    Circle()
+                                                        .stroke(unlocked ? .white.opacity(0.9) : .gray.opacity(0.6), lineWidth: 1.2)
+                                                )
+                                            
+                                            if !unlocked {
+                                                Image(systemName: "lock.fill")
+                                                    .font(.system(size: 8))
+                                                    .foregroundStyle(.white)
+                                            } else if reg.isSecretRoute {
+                                                Image(systemName: "sparkles")
+                                                    .font(.system(size: 8))
+                                                    .foregroundStyle(CaveTheme.gold)
+                                            }
                                         }
-                                        .position(x: CGFloat(reg.mapX) * w, y: CGFloat(reg.mapY) * h)
                                     }
+                                    .buttonStyle(.plain)
+                                    .position(x: CGFloat(reg.mapX) * w, y: CGFloat(reg.mapY) * h)
                                 }
                             }
-                        )
+                        }
+                    )
                 }
-                .padding(.horizontal, 10)
-                
-                Spacer()
             }
+            .ignoresSafeArea()
             
             // 지도 외곽 어두운 프레임 효과
             RadialGradient(
-                gradient: Gradient(colors: [.clear, .black.opacity(0.35), .black.opacity(0.7)]),
+                gradient: Gradient(colors: [.clear, .black.opacity(0.15), .black.opacity(0.65)]),
                 center: .center,
-                startRadius: 180,
-                endRadius: 450
+                startRadius: 200,
+                endRadius: 460
             )
             .ignoresSafeArea()
             .allowsHitTesting(false)
             
-            // 우상단 지도 닫기 버튼
+            // ── 상단 영역: 플로팅 시대 전환 토글 헤더 ──
             VStack {
-                HStack {
-                    Spacer()
+                VStack(spacing: 4) {
+                    Text(isPastEra ? "강호천하도 · 과거 시점 (過去 江湖)" : "강호천하도 · 현재 시점 (現在 江湖)")
+                        .font(.system(size: 15, weight: .bold, design: .serif))
+                        .foregroundStyle(CaveTheme.gold)
+                        .shadow(color: .black, radius: 3)
+                    
+                    Button(action: {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                            isPastEra.toggle()
+                        }
+                        triggerNotificationFeedback(.success)
+                    }) {
+                        HStack(spacing: 5) {
+                            Image(systemName: "clock.arrow.circlepath")
+                            Text(isPastEra ? "현재로 회귀 (現在)" : "과거로 전환 (過去)")
+                        }
+                        .font(.system(size: 10, weight: .bold, design: .serif))
+                        .foregroundStyle(Color.black)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(CaveTheme.gold)
+                        .cornerRadius(6)
+                    }
+                }
+                .padding(.top, 50)
+                Spacer()
+            }
+            .allowsHitTesting(true)
+            
+            // ── 하단 영역: 플로팅 안내문 및 닫기 버튼 ──
+            VStack {
+                Spacer()
+                HStack(alignment: .bottom) {
+                    // 지도 닫기 버튼
                     Button(action: {
                         onClose()
                     }) {
@@ -1917,19 +2163,36 @@ struct WulinWorldMapView: View {
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(Color.black.opacity(0.75))
+                        .background(Color.black.opacity(0.8))
                         .foregroundStyle(CaveTheme.gold)
                         .cornerRadius(10)
                         .overlay(
                             RoundedRectangle(cornerRadius: 10)
-                                .stroke(CaveTheme.gold.opacity(0.3), lineWidth: 1.5)
+                                .stroke(CaveTheme.gold.opacity(0.3), lineWidth: 1)
                         )
                     }
+                    .padding(.leading, 20)
+                    
+                    Spacer()
+                    
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("💡 비경 터치 시 수련 거처 결정")
+                            .font(.system(size: 10, weight: .semibold, design: .serif))
+                            .foregroundStyle(CaveTheme.gold.opacity(0.85))
+                        Text("잠긴 비경 터치 시 봉인 정보 고찰")
+                            .font(.system(size: 9, design: .serif))
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
                     .padding(.trailing, 20)
-                    .padding(.top, 50)
                 }
-                Spacer()
+                .padding(.bottom, 30)
             }
         }
+    }
+    
+    private func triggerNotificationFeedback(_ type: UINotificationFeedbackGenerator.FeedbackType) {
+        let generator = UINotificationFeedbackGenerator()
+        generator.prepare()
+        generator.notificationOccurred(type)
     }
 }

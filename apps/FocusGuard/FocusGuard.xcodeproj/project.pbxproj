@@ -8,45 +8,91 @@
 
 /* Begin PBXBuildFile section */
 		00C1F4AD176BE7B65AA730C8 /* wulin_outlaw_fort_1783226550587.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 06008CD9968488CB1674BFD2 /* wulin_outlaw_fort_1783226550587.jpg */; };
+		01DEE3CFD5FFCFBD59AC574D /* wulin_avatar_limsobyeong.jpg in Resources */ = {isa = PBXBuildFile; fileRef = C6F95C8A0271DF191C79149C /* wulin_avatar_limsobyeong.jpg */; };
+		02B29E6B52B3BBACF0684078 /* past_wulin_npc_hermit.png in Resources */ = {isa = PBXBuildFile; fileRef = 6C0CB3C85CA52DCD7E054E37 /* past_wulin_npc_hermit.png */; };
 		04013B14201D8371C13B21C3 /* wulin_monster_god_1783226595601.jpg in Resources */ = {isa = PBXBuildFile; fileRef = EE403C8B62A43AA834BAD737 /* wulin_monster_god_1783226595601.jpg */; };
+		044E4C221F32B288F93A55E7 /* past_wulin_npc_yeowun.png in Resources */ = {isa = PBXBuildFile; fileRef = BDC50D128F5592988DBAB927 /* past_wulin_npc_yeowun.png */; };
+		0500C393C858995D8797D9ED /* wulin_avatar_jangsampung_color.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 67B75034E261C20CCEE5AEC5 /* wulin_avatar_jangsampung_color.jpg */; };
+		0D81CC594C6B155F6B6FF8FB /* CaveHermit.png in Resources */ = {isa = PBXBuildFile; fileRef = F613AF7505F4612DE8486135 /* CaveHermit.png */; };
 		0E11B4D2EB30A7F206123F99 /* thunder.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 6A7ECD60FCFA9BB92ED88888 /* thunder.mp3 */; };
+		14EE7FB6E5B68D14B30E4454 /* past_wulin_wudang_secret.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9E7E90F27B1E07DDBA91E288 /* past_wulin_wudang_secret.jpg */; };
+		1834E89FAB3BF42CC8824F8F /* past_wulin_npc_jang_sampung_alt.png in Resources */ = {isa = PBXBuildFile; fileRef = 3735EF17EB5CCFB0195A8E6A /* past_wulin_npc_jang_sampung_alt.png */; };
+		1A1B7C4DF7163531DA849DD2 /* wulin_avatar_shaolinabbot.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 5FC71DE571727B6B5E960EE6 /* wulin_avatar_shaolinabbot.jpg */; };
 		1D2474CD5E09D61D1C8FA1DE /* CaveWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B77FE8C031EBBFCD99C84E3B /* CaveWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		22C6EAB2E7566DA20CF60BA2 /* FocusGuardDebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53A187143013BF92EAE449E8 /* FocusGuardDebugView.swift */; };
+		2733E7975E4F50354BD1FED5 /* past_wulin_npc_wind_elder.png in Resources */ = {isa = PBXBuildFile; fileRef = 279E9F0F6FE217C387F27174 /* past_wulin_npc_wind_elder.png */; };
+		2E568CE2A22F5FBDC0D7AECF /* wulin_avatar_wudangmaster.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 09AF22ED9DD54F45E3877CB3 /* wulin_avatar_wudangmaster.jpg */; };
+		2FFE86583D71DEAD08E1967C /* past_wulin_shaolin_secret_past.jpg in Resources */ = {isa = PBXBuildFile; fileRef = DD2A3AD953250D4519A21FEB /* past_wulin_shaolin_secret_past.jpg */; };
+		30F83A7A057DD39126D6DC5E /* LotusZen.png in Resources */ = {isa = PBXBuildFile; fileRef = 4297F3E14FAAF5920B59F1E9 /* LotusZen.png */; };
 		332EC9E4DB09A7C8ABCBD2EC /* tiger_roar.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 859D82D22C996FE80B56D9AE /* tiger_roar.mp3 */; };
+		3471D17AA101EACBA325FD11 /* wulin_world_map_1783227531825.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9B8F3092BF4015E7AC904DE3 /* wulin_world_map_1783227531825.jpg */; };
 		3492B9EDEC2B3E6747564C20 /* wulin_hermit_hut_1783209600000.jpg in Resources */ = {isa = PBXBuildFile; fileRef = F920C2B907901DD15AC4A22F /* wulin_hermit_hut_1783209600000.jpg */; };
 		356CDA887C52948142EEF054 /* wulin_hwasan_return_1783226575087.jpg in Resources */ = {isa = PBXBuildFile; fileRef = B2A4D2EA753B96009A797CF5 /* wulin_hwasan_return_1783226575087.jpg */; };
+		361CF0172F793AA71C0C83B2 /* wulin_avatar_maehwagemsu.jpg in Resources */ = {isa = PBXBuildFile; fileRef = D5E6114ED8DA8B22BFC0E34B /* wulin_avatar_maehwagemsu.jpg */; };
 		37763CE91EC67E204B7EC903 /* CaveSoundManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DB3E43738CD3778F8ECA2A0 /* CaveSoundManager.swift */; };
 		38C97DAE8C6FBF9A9DAE0913 /* FocusStudyActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC366F4BEB443162CF024955 /* FocusStudyActivity.swift */; };
+		3A964A676661509428A3EB3B /* past_wulin_npc_murimleague.png in Resources */ = {isa = PBXBuildFile; fileRef = F8191A842A090B1197A74594 /* past_wulin_npc_murimleague.png */; };
 		3DC0F70F4E3BA903FEFED504 /* CaveWidgetExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74DA5C67A1BBD9F3ABCB5EEF /* CaveWidgetExtension.swift */; };
 		3E1EAABC4C0F07C8FC2FE1D2 /* CaveTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEF6D0ACA48B910A5F29169B /* CaveTheme.swift */; };
+		413BBA487D67FBEED71EA201 /* past_wulin_righteous_sect_1783206411012.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 62B53122276B38A1AEA38FF0 /* past_wulin_righteous_sect_1783206411012.jpg */; };
+		42D472437D16ACAC1F8B9CDD /* TigerSpirit.png in Resources */ = {isa = PBXBuildFile; fileRef = 6C670B15CDC755A39CEBAAE8 /* TigerSpirit.png */; };
 		43B8F1452463FEE0B16846A5 /* CaveSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA42FF148A33D9CD3D20B5B5 /* CaveSettingsView.swift */; };
 		47850B02134B1555F3134C7A /* StudySessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F6BB7448065E182665AF6DD /* StudySessionStore.swift */; };
+		48E450E11D13E59BB716BB2F /* past_wulin_cheongseong.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 0D3B83C5C044A91147A72C3B /* past_wulin_cheongseong.jpg */; };
 		4A328CF83A7A0EBDC81F50F7 /* wulin_cheongseong_1783226532079.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 741DCB65155F19AB092303C3 /* wulin_cheongseong_1783226532079.jpg */; };
 		4FBEBCDCB7AD599FCB132DA4 /* FocusGuardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA6E942BF2717436D4AC9357 /* FocusGuardApp.swift */; };
+		4FEE6F75CBC07C26763036D2 /* past_wulin_hwasan_return.jpg in Resources */ = {isa = PBXBuildFile; fileRef = AC06773D615CF1A4678EC308 /* past_wulin_hwasan_return.jpg */; };
 		51A0A0E613AE7FADC32007AE /* CaveTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEF6D0ACA48B910A5F29169B /* CaveTheme.swift */; };
 		565B239598D71A64E3D87176 /* wulin_outlaw_fort_1783206424103.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 18EF41A2FAE791296D512871 /* wulin_outlaw_fort_1783206424103.jpg */; };
+		57A05FB44B3DF175AEB48352 /* past_wulin_npc_nahansuajwa.png in Resources */ = {isa = PBXBuildFile; fileRef = 94F1E813275573C1327FA18D /* past_wulin_npc_nahansuajwa.png */; };
+		5F3E9F07E5BE447F4D958916 /* wulin_avatar_songdoin.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 840F91B39206D5F3561A3EDA /* wulin_avatar_songdoin.jpg */; };
+		5FE342C04F62BD47AF60B851 /* wulin_avatar_nahansuajwa.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2FCEDEA3ACBE604F1AFCC8B9 /* wulin_avatar_nahansuajwa.jpg */; };
 		654A7954BDBAD6907132CE90 /* wulin_hermit_hut_1783226523355.jpg in Resources */ = {isa = PBXBuildFile; fileRef = A1007B715A81CF87A0C8F0AA /* wulin_hermit_hut_1783226523355.jpg */; };
 		6828E859B7EBA3767428024E /* FocusGuardManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 983F57FF230514EB23D6D6F4 /* FocusGuardManager.swift */; };
+		6AC4E181D90EE4C0C3366087 /* wulin_avatar_hermit.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 25BB71AAF0B0A29D5D99F62E /* wulin_avatar_hermit.jpg */; };
+		6FADA9A0985B18BD334F45B5 /* BambooSpirit.png in Resources */ = {isa = PBXBuildFile; fileRef = AEF7D7B2ADC9C47FF183C932 /* BambooSpirit.png */; };
+		7C190EFD2B5B1FF104092E3D /* past_wulin_npc_jang_sampung.png in Resources */ = {isa = PBXBuildFile; fileRef = 7072AEEFB1F095179CA33F68 /* past_wulin_npc_jang_sampung.png */; };
 		7C630F97192DA7F20714DD10 /* wulin_avatar_yeowun_1783226647473.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 1AA05E409CF9665E23B63447 /* wulin_avatar_yeowun_1783226647473.jpg */; };
 		7CF4C027783CD1672764D29B /* wulin_nano_machine_1783226585538.jpg in Resources */ = {isa = PBXBuildFile; fileRef = AB6D87ED18E522FD75080F41 /* wulin_nano_machine_1783226585538.jpg */; };
+		822C305419184426DF21CE71 /* wulin_shaolin_secret_alt.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 69CB7987E04E7383844FFFC7 /* wulin_shaolin_secret_alt.jpg */; };
+		823A317EFD266338174EAB5E /* past_wulin_npc_maehwagemsu.png in Resources */ = {isa = PBXBuildFile; fileRef = 0228668DBE635D1FE379F826 /* past_wulin_npc_maehwagemsu.png */; };
+		83CF1287CFF0F2F77DEB374A /* past_wulin_outlaw_fort_1783206424103.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 61DD6E8EA61FFD9448E8523F /* past_wulin_outlaw_fort_1783206424103.jpg */; };
 		842CD9FDC007E6D07BD51370 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6256C8E2AC07C3BF8FE450C3 /* Assets.xcassets */; };
+		861F80FF63CA82D4D0701D14 /* wulin_avatar_murimleague.jpg in Resources */ = {isa = PBXBuildFile; fileRef = C7034F05BE4B79623D7F5BB6 /* wulin_avatar_murimleague.jpg */; };
+		87BAB909ADE9AB0B78F7C4B3 /* past_wulin_npc_shaolin_abbot.png in Resources */ = {isa = PBXBuildFile; fileRef = 2CB09E9E7C2EF4289D78844B /* past_wulin_npc_shaolin_abbot.png */; };
 		8E42C3C4E08D99DEE39EEFAC /* wulin_world_map_new_1783229031585.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 15B70ED9452800792D152878 /* wulin_world_map_new_1783229031585.jpg */; };
+		8F3E636D6BCE4F0EC7C23CB1 /* past_wulin_nano_machine.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 79B5E56C036122BA42467CD7 /* past_wulin_nano_machine.jpg */; };
+		9B1B59627855B925025C95B3 /* past_wulin_demonic_cult_1783206435319.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 7917EA612673B5C9A3F66202 /* past_wulin_demonic_cult_1783206435319.jpg */; };
+		A5A26D7F71662EEC3A1CC165 /* PhoenixFocus.png in Resources */ = {isa = PBXBuildFile; fileRef = E88D027B42E48E207509BF4B /* PhoenixFocus.png */; };
 		AA65D72134E72E20FEDA9263 /* SharedCaveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A8C0C3EBC2B621A349383C2 /* SharedCaveStore.swift */; };
 		AD042067180EE6A688031312 /* FocusGuardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EA29CDED82BD4B715D6B7E6 /* FocusGuardUITests.swift */; };
 		B0D2424A70C05E6F33EC6304 /* wulin_shaolin_secret_1783209492458.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 8CEB564A7139A0FEB9897D57 /* wulin_shaolin_secret_1783209492458.jpg */; };
+		BAAB812B49FF6FADC71B2150 /* past_wulin_npc_gaebang_elder.png in Resources */ = {isa = PBXBuildFile; fileRef = 73F1D7E9C8B029B42CCA6877 /* past_wulin_npc_gaebang_elder.png */; };
 		BBFFF5CE75D9918225EB8FF3 /* wulin_righteous_sect_1783206411012.jpg in Resources */ = {isa = PBXBuildFile; fileRef = AB056D4662C4333CD48FFF7B /* wulin_righteous_sect_1783206411012.jpg */; };
+		BF07999445B68EB1ED4779EE /* DragonFocus.png in Resources */ = {isa = PBXBuildFile; fileRef = 6236AE00511B5572F838D4B8 /* DragonFocus.png */; };
+		C01CF8901BECE90B87FEDCE5 /* past_wulin_wudang_secret_alt.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 5B6AA7D79FA85B8103168CC9 /* past_wulin_wudang_secret_alt.jpg */; };
 		C06E3EAA80B7B5C54B1DE788 /* SharedCaveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A8C0C3EBC2B621A349383C2 /* SharedCaveStore.swift */; };
+		C4F5AB8C73CC75A1711C94C7 /* past_wulin_world_map_new_1783229031585.jpg in Resources */ = {isa = PBXBuildFile; fileRef = AF1D624CBF9D6B0E67B371F2 /* past_wulin_world_map_new_1783229031585.jpg */; };
 		C5DE0A712B611E14F409AB60 /* wulin_hwasan_secret_1783209500334.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 817557527D64A0542FD4449B /* wulin_hwasan_secret_1783209500334.jpg */; };
+		C9A80B3832402D7039E6EAE0 /* past_wulin_shaolin_secret.jpg in Resources */ = {isa = PBXBuildFile; fileRef = A6466D1ED50FCB6379DEE925 /* past_wulin_shaolin_secret.jpg */; };
+		CE00D9A486A6FD208EDD2B31 /* past_wulin_hermit_hut_1783209600000.jpg in Resources */ = {isa = PBXBuildFile; fileRef = A48E43A8E9C70BBDE92AD584 /* past_wulin_hermit_hut_1783209600000.jpg */; };
 		D7A4BE2C068FC8D5EB1EBD38 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FC3B721531AB64A1575EFBE6 /* Assets.xcassets */; };
+		D7DA97066CBBEF9D6222D6AD /* past_wulin_npc_outlaw_chief.png in Resources */ = {isa = PBXBuildFile; fileRef = 4E292AC8BD5D09C58A3B7042 /* past_wulin_npc_outlaw_chief.png */; };
+		D8113C1C85F87799220173C8 /* wulin_wudang_secret_alt.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 8C24AD631550FDE1FA7A9DB9 /* wulin_wudang_secret_alt.jpg */; };
+		D9DCEDA69D80D5BF41097088 /* wulin_avatar_gwangma.jpg in Resources */ = {isa = PBXBuildFile; fileRef = D5B9F6E34237D07375795ECF /* wulin_avatar_gwangma.jpg */; };
 		DA4E33E2BE859D6BCEAF4707 /* wulin_avatar_cheongmyeong_1783226635757.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 72F431BEEE743901DF392490 /* wulin_avatar_cheongmyeong_1783226635757.jpg */; };
 		DA61CA416EFBC44226D6AFFE /* wulin_wudang_secret_1783209482524.jpg in Resources */ = {isa = PBXBuildFile; fileRef = F16840D9836BD0337450282D /* wulin_wudang_secret_1783209482524.jpg */; };
+		DC2472B0ABF00B1A55D7647A /* past_wulin_npc_heavenly_demon.png in Resources */ = {isa = PBXBuildFile; fileRef = 60CD9F2CAADAC544088F9024 /* past_wulin_npc_heavenly_demon.png */; };
 		E1F91C101A8FAA05254D369E /* wulin_demonic_cult_1783206435319.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 5B2364030257BE911BC3FDCA /* wulin_demonic_cult_1783206435319.jpg */; };
 		ED506385BF10A2B20021D698 /* wulin_avatar_sashin_1783226657778.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 30ED2BA142612C1776139B44 /* wulin_avatar_sashin_1783226657778.jpg */; };
+		EDA370898AF22A909E729226 /* past_wulin_hwasan_secret.jpg in Resources */ = {isa = PBXBuildFile; fileRef = B22BD27A7DB84AE0D906B5F7 /* past_wulin_hwasan_secret.jpg */; };
 		F0817EEB9BC02865197D735B /* wulin_demonic_cult_1783226558857.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9BDF84CA451113273F784F75 /* wulin_demonic_cult_1783226558857.jpg */; };
 		F19EDF0AF7E7403180A36ADD /* CaveMainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 276D0450B03909B5262117AD /* CaveMainView.swift */; };
 		F29099E307DCE3C4260EDA13 /* CaveHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 694E2C1358C9FCD012ADC951 /* CaveHomeView.swift */; };
 		F3B31F8D4B7114DADEC97612 /* CaveHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C16201CE12E3F5FF1BF9D2F /* CaveHistoryView.swift */; };
 		F686DB33C35553EB62AF0612 /* FocusStudyActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC366F4BEB443162CF024955 /* FocusStudyActivity.swift */; };
+		F7D65B9A4F15A9F1CADC9490 /* past_wulin_npc_cheongmyeong.png in Resources */ = {isa = PBXBuildFile; fileRef = 736CC93B7F26C05E520CA961 /* past_wulin_npc_cheongmyeong.png */; };
+		F8DD85F08BA8CC66D830F6BC /* past_wulin_monster_god.jpg in Resources */ = {isa = PBXBuildFile; fileRef = B01BD1CB6476A0B09309E812 /* past_wulin_monster_god.jpg */; };
 		FC2C51CA704665A255D4BBE2 /* temple_bell.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 7DC7D8419013717B23AB2E89 /* temple_bell.mp3 */; };
 		FDE7747E76A0470BC7A8D268 /* wulin_murim_league_1783226541554.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 4A874205AFCC1CF5437A9E12 /* wulin_murim_league_1783226541554.jpg */; };
 /* End PBXBuildFile section */
@@ -83,45 +129,91 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0228668DBE635D1FE379F826 /* past_wulin_npc_maehwagemsu.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = past_wulin_npc_maehwagemsu.png; sourceTree = "<group>"; };
 		06008CD9968488CB1674BFD2 /* wulin_outlaw_fort_1783226550587.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_outlaw_fort_1783226550587.jpg; sourceTree = "<group>"; };
+		09AF22ED9DD54F45E3877CB3 /* wulin_avatar_wudangmaster.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_avatar_wudangmaster.jpg; sourceTree = "<group>"; };
+		0D3B83C5C044A91147A72C3B /* past_wulin_cheongseong.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = past_wulin_cheongseong.jpg; sourceTree = "<group>"; };
 		15B70ED9452800792D152878 /* wulin_world_map_new_1783229031585.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_world_map_new_1783229031585.jpg; sourceTree = "<group>"; };
 		18EF41A2FAE791296D512871 /* wulin_outlaw_fort_1783206424103.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_outlaw_fort_1783206424103.jpg; sourceTree = "<group>"; };
 		1A8C0C3EBC2B621A349383C2 /* SharedCaveStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedCaveStore.swift; sourceTree = "<group>"; };
 		1AA05E409CF9665E23B63447 /* wulin_avatar_yeowun_1783226647473.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_avatar_yeowun_1783226647473.jpg; sourceTree = "<group>"; };
 		1C16201CE12E3F5FF1BF9D2F /* CaveHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaveHistoryView.swift; sourceTree = "<group>"; };
+		25BB71AAF0B0A29D5D99F62E /* wulin_avatar_hermit.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_avatar_hermit.jpg; sourceTree = "<group>"; };
 		276D0450B03909B5262117AD /* CaveMainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaveMainView.swift; sourceTree = "<group>"; };
+		279E9F0F6FE217C387F27174 /* past_wulin_npc_wind_elder.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = past_wulin_npc_wind_elder.png; sourceTree = "<group>"; };
+		2CB09E9E7C2EF4289D78844B /* past_wulin_npc_shaolin_abbot.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = past_wulin_npc_shaolin_abbot.png; sourceTree = "<group>"; };
+		2FCEDEA3ACBE604F1AFCC8B9 /* wulin_avatar_nahansuajwa.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_avatar_nahansuajwa.jpg; sourceTree = "<group>"; };
 		30ED2BA142612C1776139B44 /* wulin_avatar_sashin_1783226657778.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_avatar_sashin_1783226657778.jpg; sourceTree = "<group>"; };
+		3735EF17EB5CCFB0195A8E6A /* past_wulin_npc_jang_sampung_alt.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = past_wulin_npc_jang_sampung_alt.png; sourceTree = "<group>"; };
+		4297F3E14FAAF5920B59F1E9 /* LotusZen.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = LotusZen.png; sourceTree = "<group>"; };
 		4A874205AFCC1CF5437A9E12 /* wulin_murim_league_1783226541554.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_murim_league_1783226541554.jpg; sourceTree = "<group>"; };
+		4E292AC8BD5D09C58A3B7042 /* past_wulin_npc_outlaw_chief.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = past_wulin_npc_outlaw_chief.png; sourceTree = "<group>"; };
 		53A187143013BF92EAE449E8 /* FocusGuardDebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusGuardDebugView.swift; sourceTree = "<group>"; };
 		5B2364030257BE911BC3FDCA /* wulin_demonic_cult_1783206435319.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_demonic_cult_1783206435319.jpg; sourceTree = "<group>"; };
+		5B6AA7D79FA85B8103168CC9 /* past_wulin_wudang_secret_alt.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = past_wulin_wudang_secret_alt.jpg; sourceTree = "<group>"; };
+		5FC71DE571727B6B5E960EE6 /* wulin_avatar_shaolinabbot.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_avatar_shaolinabbot.jpg; sourceTree = "<group>"; };
+		60CD9F2CAADAC544088F9024 /* past_wulin_npc_heavenly_demon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = past_wulin_npc_heavenly_demon.png; sourceTree = "<group>"; };
+		61DD6E8EA61FFD9448E8523F /* past_wulin_outlaw_fort_1783206424103.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = past_wulin_outlaw_fort_1783206424103.jpg; sourceTree = "<group>"; };
+		6236AE00511B5572F838D4B8 /* DragonFocus.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = DragonFocus.png; sourceTree = "<group>"; };
 		6256C8E2AC07C3BF8FE450C3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		62B53122276B38A1AEA38FF0 /* past_wulin_righteous_sect_1783206411012.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = past_wulin_righteous_sect_1783206411012.jpg; sourceTree = "<group>"; };
+		67B75034E261C20CCEE5AEC5 /* wulin_avatar_jangsampung_color.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_avatar_jangsampung_color.jpg; sourceTree = "<group>"; };
 		694E2C1358C9FCD012ADC951 /* CaveHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaveHomeView.swift; sourceTree = "<group>"; };
+		69CB7987E04E7383844FFFC7 /* wulin_shaolin_secret_alt.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_shaolin_secret_alt.jpg; sourceTree = "<group>"; };
 		6A7ECD60FCFA9BB92ED88888 /* thunder.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = thunder.mp3; sourceTree = "<group>"; };
+		6C0CB3C85CA52DCD7E054E37 /* past_wulin_npc_hermit.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = past_wulin_npc_hermit.png; sourceTree = "<group>"; };
+		6C670B15CDC755A39CEBAAE8 /* TigerSpirit.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = TigerSpirit.png; sourceTree = "<group>"; };
 		6EA29CDED82BD4B715D6B7E6 /* FocusGuardUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusGuardUITests.swift; sourceTree = "<group>"; };
+		7072AEEFB1F095179CA33F68 /* past_wulin_npc_jang_sampung.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = past_wulin_npc_jang_sampung.png; sourceTree = "<group>"; };
 		72F431BEEE743901DF392490 /* wulin_avatar_cheongmyeong_1783226635757.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_avatar_cheongmyeong_1783226635757.jpg; sourceTree = "<group>"; };
+		736CC93B7F26C05E520CA961 /* past_wulin_npc_cheongmyeong.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = past_wulin_npc_cheongmyeong.png; sourceTree = "<group>"; };
+		73F1D7E9C8B029B42CCA6877 /* past_wulin_npc_gaebang_elder.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = past_wulin_npc_gaebang_elder.png; sourceTree = "<group>"; };
 		741DCB65155F19AB092303C3 /* wulin_cheongseong_1783226532079.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_cheongseong_1783226532079.jpg; sourceTree = "<group>"; };
 		74DA5C67A1BBD9F3ABCB5EEF /* CaveWidgetExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaveWidgetExtension.swift; sourceTree = "<group>"; };
+		7917EA612673B5C9A3F66202 /* past_wulin_demonic_cult_1783206435319.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = past_wulin_demonic_cult_1783206435319.jpg; sourceTree = "<group>"; };
+		79B5E56C036122BA42467CD7 /* past_wulin_nano_machine.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = past_wulin_nano_machine.jpg; sourceTree = "<group>"; };
 		7DC7D8419013717B23AB2E89 /* temple_bell.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = temple_bell.mp3; sourceTree = "<group>"; };
 		817557527D64A0542FD4449B /* wulin_hwasan_secret_1783209500334.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_hwasan_secret_1783209500334.jpg; sourceTree = "<group>"; };
+		840F91B39206D5F3561A3EDA /* wulin_avatar_songdoin.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_avatar_songdoin.jpg; sourceTree = "<group>"; };
 		859D82D22C996FE80B56D9AE /* tiger_roar.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = tiger_roar.mp3; sourceTree = "<group>"; };
+		8C24AD631550FDE1FA7A9DB9 /* wulin_wudang_secret_alt.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_wudang_secret_alt.jpg; sourceTree = "<group>"; };
 		8CEB564A7139A0FEB9897D57 /* wulin_shaolin_secret_1783209492458.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_shaolin_secret_1783209492458.jpg; sourceTree = "<group>"; };
 		8DB3E43738CD3778F8ECA2A0 /* CaveSoundManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaveSoundManager.swift; sourceTree = "<group>"; };
+		94F1E813275573C1327FA18D /* past_wulin_npc_nahansuajwa.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = past_wulin_npc_nahansuajwa.png; sourceTree = "<group>"; };
 		983F57FF230514EB23D6D6F4 /* FocusGuardManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusGuardManager.swift; sourceTree = "<group>"; };
+		9B8F3092BF4015E7AC904DE3 /* wulin_world_map_1783227531825.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_world_map_1783227531825.jpg; sourceTree = "<group>"; };
 		9BDF84CA451113273F784F75 /* wulin_demonic_cult_1783226558857.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_demonic_cult_1783226558857.jpg; sourceTree = "<group>"; };
+		9E7E90F27B1E07DDBA91E288 /* past_wulin_wudang_secret.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = past_wulin_wudang_secret.jpg; sourceTree = "<group>"; };
 		9F6BB7448065E182665AF6DD /* StudySessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudySessionStore.swift; sourceTree = "<group>"; };
 		A1007B715A81CF87A0C8F0AA /* wulin_hermit_hut_1783226523355.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_hermit_hut_1783226523355.jpg; sourceTree = "<group>"; };
+		A48E43A8E9C70BBDE92AD584 /* past_wulin_hermit_hut_1783209600000.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = past_wulin_hermit_hut_1783209600000.jpg; sourceTree = "<group>"; };
+		A6466D1ED50FCB6379DEE925 /* past_wulin_shaolin_secret.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = past_wulin_shaolin_secret.jpg; sourceTree = "<group>"; };
 		AB056D4662C4333CD48FFF7B /* wulin_righteous_sect_1783206411012.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_righteous_sect_1783206411012.jpg; sourceTree = "<group>"; };
 		AB6D87ED18E522FD75080F41 /* wulin_nano_machine_1783226585538.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_nano_machine_1783226585538.jpg; sourceTree = "<group>"; };
+		AC06773D615CF1A4678EC308 /* past_wulin_hwasan_return.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = past_wulin_hwasan_return.jpg; sourceTree = "<group>"; };
+		AEF7D7B2ADC9C47FF183C932 /* BambooSpirit.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = BambooSpirit.png; sourceTree = "<group>"; };
+		AF1D624CBF9D6B0E67B371F2 /* past_wulin_world_map_new_1783229031585.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = past_wulin_world_map_new_1783229031585.jpg; sourceTree = "<group>"; };
+		B01BD1CB6476A0B09309E812 /* past_wulin_monster_god.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = past_wulin_monster_god.jpg; sourceTree = "<group>"; };
+		B22BD27A7DB84AE0D906B5F7 /* past_wulin_hwasan_secret.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = past_wulin_hwasan_secret.jpg; sourceTree = "<group>"; };
 		B2A4D2EA753B96009A797CF5 /* wulin_hwasan_return_1783226575087.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_hwasan_return_1783226575087.jpg; sourceTree = "<group>"; };
 		B5ADDB72BE72D00682670C6A /* FocusGuardUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FocusGuardUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B77FE8C031EBBFCD99C84E3B /* CaveWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CaveWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA42FF148A33D9CD3D20B5B5 /* CaveSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaveSettingsView.swift; sourceTree = "<group>"; };
+		BDC50D128F5592988DBAB927 /* past_wulin_npc_yeowun.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = past_wulin_npc_yeowun.png; sourceTree = "<group>"; };
 		BEF6D0ACA48B910A5F29169B /* CaveTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaveTheme.swift; sourceTree = "<group>"; };
 		C5A9A6B3A2300DE7E4C6F25B /* 폐관수련.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "폐관수련.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		C6F95C8A0271DF191C79149C /* wulin_avatar_limsobyeong.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_avatar_limsobyeong.jpg; sourceTree = "<group>"; };
+		C7034F05BE4B79623D7F5BB6 /* wulin_avatar_murimleague.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_avatar_murimleague.jpg; sourceTree = "<group>"; };
 		CC366F4BEB443162CF024955 /* FocusStudyActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusStudyActivity.swift; sourceTree = "<group>"; };
+		D5B9F6E34237D07375795ECF /* wulin_avatar_gwangma.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_avatar_gwangma.jpg; sourceTree = "<group>"; };
+		D5E6114ED8DA8B22BFC0E34B /* wulin_avatar_maehwagemsu.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_avatar_maehwagemsu.jpg; sourceTree = "<group>"; };
 		DA6E942BF2717436D4AC9357 /* FocusGuardApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusGuardApp.swift; sourceTree = "<group>"; };
+		DD2A3AD953250D4519A21FEB /* past_wulin_shaolin_secret_past.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = past_wulin_shaolin_secret_past.jpg; sourceTree = "<group>"; };
+		E88D027B42E48E207509BF4B /* PhoenixFocus.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = PhoenixFocus.png; sourceTree = "<group>"; };
 		EE403C8B62A43AA834BAD737 /* wulin_monster_god_1783226595601.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_monster_god_1783226595601.jpg; sourceTree = "<group>"; };
 		F16840D9836BD0337450282D /* wulin_wudang_secret_1783209482524.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_wudang_secret_1783209482524.jpg; sourceTree = "<group>"; };
+		F613AF7505F4612DE8486135 /* CaveHermit.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = CaveHermit.png; sourceTree = "<group>"; };
+		F8191A842A090B1197A74594 /* past_wulin_npc_murimleague.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = past_wulin_npc_murimleague.png; sourceTree = "<group>"; };
 		F920C2B907901DD15AC4A22F /* wulin_hermit_hut_1783209600000.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_hermit_hut_1783209600000.jpg; sourceTree = "<group>"; };
 		FC3B721531AB64A1575EFBE6 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -131,23 +223,66 @@
 			isa = PBXGroup;
 			children = (
 				FC3B721531AB64A1575EFBE6 /* Assets.xcassets */,
+				AEF7D7B2ADC9C47FF183C932 /* BambooSpirit.png */,
+				F613AF7505F4612DE8486135 /* CaveHermit.png */,
 				1C16201CE12E3F5FF1BF9D2F /* CaveHistoryView.swift */,
 				694E2C1358C9FCD012ADC951 /* CaveHomeView.swift */,
 				276D0450B03909B5262117AD /* CaveMainView.swift */,
 				BA42FF148A33D9CD3D20B5B5 /* CaveSettingsView.swift */,
 				8DB3E43738CD3778F8ECA2A0 /* CaveSoundManager.swift */,
 				BEF6D0ACA48B910A5F29169B /* CaveTheme.swift */,
+				6236AE00511B5572F838D4B8 /* DragonFocus.png */,
 				DA6E942BF2717436D4AC9357 /* FocusGuardApp.swift */,
 				53A187143013BF92EAE449E8 /* FocusGuardDebugView.swift */,
 				983F57FF230514EB23D6D6F4 /* FocusGuardManager.swift */,
 				CC366F4BEB443162CF024955 /* FocusStudyActivity.swift */,
+				4297F3E14FAAF5920B59F1E9 /* LotusZen.png */,
+				0D3B83C5C044A91147A72C3B /* past_wulin_cheongseong.jpg */,
+				7917EA612673B5C9A3F66202 /* past_wulin_demonic_cult_1783206435319.jpg */,
+				A48E43A8E9C70BBDE92AD584 /* past_wulin_hermit_hut_1783209600000.jpg */,
+				AC06773D615CF1A4678EC308 /* past_wulin_hwasan_return.jpg */,
+				B22BD27A7DB84AE0D906B5F7 /* past_wulin_hwasan_secret.jpg */,
+				B01BD1CB6476A0B09309E812 /* past_wulin_monster_god.jpg */,
+				79B5E56C036122BA42467CD7 /* past_wulin_nano_machine.jpg */,
+				736CC93B7F26C05E520CA961 /* past_wulin_npc_cheongmyeong.png */,
+				73F1D7E9C8B029B42CCA6877 /* past_wulin_npc_gaebang_elder.png */,
+				60CD9F2CAADAC544088F9024 /* past_wulin_npc_heavenly_demon.png */,
+				6C0CB3C85CA52DCD7E054E37 /* past_wulin_npc_hermit.png */,
+				3735EF17EB5CCFB0195A8E6A /* past_wulin_npc_jang_sampung_alt.png */,
+				7072AEEFB1F095179CA33F68 /* past_wulin_npc_jang_sampung.png */,
+				0228668DBE635D1FE379F826 /* past_wulin_npc_maehwagemsu.png */,
+				F8191A842A090B1197A74594 /* past_wulin_npc_murimleague.png */,
+				94F1E813275573C1327FA18D /* past_wulin_npc_nahansuajwa.png */,
+				4E292AC8BD5D09C58A3B7042 /* past_wulin_npc_outlaw_chief.png */,
+				2CB09E9E7C2EF4289D78844B /* past_wulin_npc_shaolin_abbot.png */,
+				279E9F0F6FE217C387F27174 /* past_wulin_npc_wind_elder.png */,
+				BDC50D128F5592988DBAB927 /* past_wulin_npc_yeowun.png */,
+				61DD6E8EA61FFD9448E8523F /* past_wulin_outlaw_fort_1783206424103.jpg */,
+				62B53122276B38A1AEA38FF0 /* past_wulin_righteous_sect_1783206411012.jpg */,
+				DD2A3AD953250D4519A21FEB /* past_wulin_shaolin_secret_past.jpg */,
+				A6466D1ED50FCB6379DEE925 /* past_wulin_shaolin_secret.jpg */,
+				AF1D624CBF9D6B0E67B371F2 /* past_wulin_world_map_new_1783229031585.jpg */,
+				5B6AA7D79FA85B8103168CC9 /* past_wulin_wudang_secret_alt.jpg */,
+				9E7E90F27B1E07DDBA91E288 /* past_wulin_wudang_secret.jpg */,
+				E88D027B42E48E207509BF4B /* PhoenixFocus.png */,
 				1A8C0C3EBC2B621A349383C2 /* SharedCaveStore.swift */,
 				9F6BB7448065E182665AF6DD /* StudySessionStore.swift */,
 				7DC7D8419013717B23AB2E89 /* temple_bell.mp3 */,
 				6A7ECD60FCFA9BB92ED88888 /* thunder.mp3 */,
 				859D82D22C996FE80B56D9AE /* tiger_roar.mp3 */,
+				6C670B15CDC755A39CEBAAE8 /* TigerSpirit.png */,
 				72F431BEEE743901DF392490 /* wulin_avatar_cheongmyeong_1783226635757.jpg */,
+				D5B9F6E34237D07375795ECF /* wulin_avatar_gwangma.jpg */,
+				25BB71AAF0B0A29D5D99F62E /* wulin_avatar_hermit.jpg */,
+				67B75034E261C20CCEE5AEC5 /* wulin_avatar_jangsampung_color.jpg */,
+				C6F95C8A0271DF191C79149C /* wulin_avatar_limsobyeong.jpg */,
+				D5E6114ED8DA8B22BFC0E34B /* wulin_avatar_maehwagemsu.jpg */,
+				C7034F05BE4B79623D7F5BB6 /* wulin_avatar_murimleague.jpg */,
+				2FCEDEA3ACBE604F1AFCC8B9 /* wulin_avatar_nahansuajwa.jpg */,
 				30ED2BA142612C1776139B44 /* wulin_avatar_sashin_1783226657778.jpg */,
+				5FC71DE571727B6B5E960EE6 /* wulin_avatar_shaolinabbot.jpg */,
+				840F91B39206D5F3561A3EDA /* wulin_avatar_songdoin.jpg */,
+				09AF22ED9DD54F45E3877CB3 /* wulin_avatar_wudangmaster.jpg */,
 				1AA05E409CF9665E23B63447 /* wulin_avatar_yeowun_1783226647473.jpg */,
 				741DCB65155F19AB092303C3 /* wulin_cheongseong_1783226532079.jpg */,
 				5B2364030257BE911BC3FDCA /* wulin_demonic_cult_1783206435319.jpg */,
@@ -163,8 +298,11 @@
 				06008CD9968488CB1674BFD2 /* wulin_outlaw_fort_1783226550587.jpg */,
 				AB056D4662C4333CD48FFF7B /* wulin_righteous_sect_1783206411012.jpg */,
 				8CEB564A7139A0FEB9897D57 /* wulin_shaolin_secret_1783209492458.jpg */,
+				69CB7987E04E7383844FFFC7 /* wulin_shaolin_secret_alt.jpg */,
+				9B8F3092BF4015E7AC904DE3 /* wulin_world_map_1783227531825.jpg */,
 				15B70ED9452800792D152878 /* wulin_world_map_new_1783229031585.jpg */,
 				F16840D9836BD0337450282D /* wulin_wudang_secret_1783209482524.jpg */,
+				8C24AD631550FDE1FA7A9DB9 /* wulin_wudang_secret_alt.jpg */,
 			);
 			path = FocusGuard;
 			sourceTree = "<group>";
@@ -322,11 +460,54 @@
 			buildActionMask = 2147483647;
 			files = (
 				D7A4BE2C068FC8D5EB1EBD38 /* Assets.xcassets in Resources */,
+				6FADA9A0985B18BD334F45B5 /* BambooSpirit.png in Resources */,
+				0D81CC594C6B155F6B6FF8FB /* CaveHermit.png in Resources */,
+				BF07999445B68EB1ED4779EE /* DragonFocus.png in Resources */,
+				30F83A7A057DD39126D6DC5E /* LotusZen.png in Resources */,
+				A5A26D7F71662EEC3A1CC165 /* PhoenixFocus.png in Resources */,
+				42D472437D16ACAC1F8B9CDD /* TigerSpirit.png in Resources */,
+				48E450E11D13E59BB716BB2F /* past_wulin_cheongseong.jpg in Resources */,
+				9B1B59627855B925025C95B3 /* past_wulin_demonic_cult_1783206435319.jpg in Resources */,
+				CE00D9A486A6FD208EDD2B31 /* past_wulin_hermit_hut_1783209600000.jpg in Resources */,
+				4FEE6F75CBC07C26763036D2 /* past_wulin_hwasan_return.jpg in Resources */,
+				EDA370898AF22A909E729226 /* past_wulin_hwasan_secret.jpg in Resources */,
+				F8DD85F08BA8CC66D830F6BC /* past_wulin_monster_god.jpg in Resources */,
+				8F3E636D6BCE4F0EC7C23CB1 /* past_wulin_nano_machine.jpg in Resources */,
+				F7D65B9A4F15A9F1CADC9490 /* past_wulin_npc_cheongmyeong.png in Resources */,
+				BAAB812B49FF6FADC71B2150 /* past_wulin_npc_gaebang_elder.png in Resources */,
+				DC2472B0ABF00B1A55D7647A /* past_wulin_npc_heavenly_demon.png in Resources */,
+				02B29E6B52B3BBACF0684078 /* past_wulin_npc_hermit.png in Resources */,
+				7C190EFD2B5B1FF104092E3D /* past_wulin_npc_jang_sampung.png in Resources */,
+				1834E89FAB3BF42CC8824F8F /* past_wulin_npc_jang_sampung_alt.png in Resources */,
+				823A317EFD266338174EAB5E /* past_wulin_npc_maehwagemsu.png in Resources */,
+				3A964A676661509428A3EB3B /* past_wulin_npc_murimleague.png in Resources */,
+				57A05FB44B3DF175AEB48352 /* past_wulin_npc_nahansuajwa.png in Resources */,
+				D7DA97066CBBEF9D6222D6AD /* past_wulin_npc_outlaw_chief.png in Resources */,
+				87BAB909ADE9AB0B78F7C4B3 /* past_wulin_npc_shaolin_abbot.png in Resources */,
+				2733E7975E4F50354BD1FED5 /* past_wulin_npc_wind_elder.png in Resources */,
+				044E4C221F32B288F93A55E7 /* past_wulin_npc_yeowun.png in Resources */,
+				83CF1287CFF0F2F77DEB374A /* past_wulin_outlaw_fort_1783206424103.jpg in Resources */,
+				413BBA487D67FBEED71EA201 /* past_wulin_righteous_sect_1783206411012.jpg in Resources */,
+				C9A80B3832402D7039E6EAE0 /* past_wulin_shaolin_secret.jpg in Resources */,
+				2FFE86583D71DEAD08E1967C /* past_wulin_shaolin_secret_past.jpg in Resources */,
+				C4F5AB8C73CC75A1711C94C7 /* past_wulin_world_map_new_1783229031585.jpg in Resources */,
+				14EE7FB6E5B68D14B30E4454 /* past_wulin_wudang_secret.jpg in Resources */,
+				C01CF8901BECE90B87FEDCE5 /* past_wulin_wudang_secret_alt.jpg in Resources */,
 				FC2C51CA704665A255D4BBE2 /* temple_bell.mp3 in Resources */,
 				0E11B4D2EB30A7F206123F99 /* thunder.mp3 in Resources */,
 				332EC9E4DB09A7C8ABCBD2EC /* tiger_roar.mp3 in Resources */,
 				DA4E33E2BE859D6BCEAF4707 /* wulin_avatar_cheongmyeong_1783226635757.jpg in Resources */,
+				D9DCEDA69D80D5BF41097088 /* wulin_avatar_gwangma.jpg in Resources */,
+				6AC4E181D90EE4C0C3366087 /* wulin_avatar_hermit.jpg in Resources */,
+				0500C393C858995D8797D9ED /* wulin_avatar_jangsampung_color.jpg in Resources */,
+				01DEE3CFD5FFCFBD59AC574D /* wulin_avatar_limsobyeong.jpg in Resources */,
+				361CF0172F793AA71C0C83B2 /* wulin_avatar_maehwagemsu.jpg in Resources */,
+				861F80FF63CA82D4D0701D14 /* wulin_avatar_murimleague.jpg in Resources */,
+				5FE342C04F62BD47AF60B851 /* wulin_avatar_nahansuajwa.jpg in Resources */,
 				ED506385BF10A2B20021D698 /* wulin_avatar_sashin_1783226657778.jpg in Resources */,
+				1A1B7C4DF7163531DA849DD2 /* wulin_avatar_shaolinabbot.jpg in Resources */,
+				5F3E9F07E5BE447F4D958916 /* wulin_avatar_songdoin.jpg in Resources */,
+				2E568CE2A22F5FBDC0D7AECF /* wulin_avatar_wudangmaster.jpg in Resources */,
 				7C630F97192DA7F20714DD10 /* wulin_avatar_yeowun_1783226647473.jpg in Resources */,
 				4A328CF83A7A0EBDC81F50F7 /* wulin_cheongseong_1783226532079.jpg in Resources */,
 				E1F91C101A8FAA05254D369E /* wulin_demonic_cult_1783206435319.jpg in Resources */,
@@ -342,8 +523,11 @@
 				00C1F4AD176BE7B65AA730C8 /* wulin_outlaw_fort_1783226550587.jpg in Resources */,
 				BBFFF5CE75D9918225EB8FF3 /* wulin_righteous_sect_1783206411012.jpg in Resources */,
 				B0D2424A70C05E6F33EC6304 /* wulin_shaolin_secret_1783209492458.jpg in Resources */,
+				822C305419184426DF21CE71 /* wulin_shaolin_secret_alt.jpg in Resources */,
+				3471D17AA101EACBA325FD11 /* wulin_world_map_1783227531825.jpg in Resources */,
 				8E42C3C4E08D99DEE39EEFAC /* wulin_world_map_new_1783229031585.jpg in Resources */,
 				DA61CA416EFBC44226D6AFFE /* wulin_wudang_secret_1783209482524.jpg in Resources */,
+				D8113C1C85F87799220173C8 /* wulin_wudang_secret_alt.jpg in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

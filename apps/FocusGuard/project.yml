@@ -64,6 +64,52 @@ targets:
       - path: FocusGuard/tiger_roar.mp3
       - path: FocusGuard/thunder.mp3
       - path: FocusGuard/temple_bell.mp3
+      - path: FocusGuard/CaveHermit.png
+      - path: FocusGuard/past_wulin_npc_cheongmyeong.png
+      - path: FocusGuard/past_wulin_npc_hermit.png
+      - path: FocusGuard/past_wulin_npc_jang_sampung_alt.png
+      - path: FocusGuard/wulin_avatar_shaolinabbot.jpg
+      - path: FocusGuard/past_wulin_shaolin_secret.jpg
+      - path: FocusGuard/wulin_avatar_hermit.jpg
+      - path: FocusGuard/past_wulin_npc_yeowun.png
+      - path: FocusGuard/past_wulin_wudang_secret.jpg
+      - path: FocusGuard/past_wulin_wudang_secret_alt.jpg
+      - path: FocusGuard/past_wulin_righteous_sect_1783206411012.jpg
+      - path: FocusGuard/wulin_avatar_maehwagemsu.jpg
+      - path: FocusGuard/wulin_avatar_murimleague.jpg
+      - path: FocusGuard/past_wulin_nano_machine.jpg
+      - path: FocusGuard/wulin_avatar_songdoin.jpg
+      - path: FocusGuard/past_wulin_outlaw_fort_1783206424103.jpg
+      - path: FocusGuard/LotusZen.png
+      - path: FocusGuard/past_wulin_npc_shaolin_abbot.png
+      - path: FocusGuard/past_wulin_shaolin_secret_past.jpg
+      - path: FocusGuard/past_wulin_npc_jang_sampung.png
+      - path: FocusGuard/wulin_avatar_jangsampung_color.jpg
+      - path: FocusGuard/past_wulin_hwasan_return.jpg
+      - path: FocusGuard/wulin_avatar_nahansuajwa.jpg
+      - path: FocusGuard/past_wulin_hwasan_secret.jpg
+      - path: FocusGuard/past_wulin_world_map_new_1783229031585.jpg
+      - path: FocusGuard/past_wulin_monster_god.jpg
+      - path: FocusGuard/past_wulin_demonic_cult_1783206435319.jpg
+      - path: FocusGuard/past_wulin_npc_gaebang_elder.png
+      - path: FocusGuard/wulin_world_map_1783227531825.jpg
+      - path: FocusGuard/DragonFocus.png
+      - path: FocusGuard/wulin_avatar_gwangma.jpg
+      - path: FocusGuard/PhoenixFocus.png
+      - path: FocusGuard/TigerSpirit.png
+      - path: FocusGuard/wulin_avatar_wudangmaster.jpg
+      - path: FocusGuard/past_wulin_cheongseong.jpg
+      - path: FocusGuard/past_wulin_npc_heavenly_demon.png
+      - path: FocusGuard/wulin_avatar_limsobyeong.jpg
+      - path: FocusGuard/past_wulin_npc_wind_elder.png
+      - path: FocusGuard/past_wulin_npc_nahansuajwa.png
+      - path: FocusGuard/past_wulin_npc_murimleague.png
+      - path: FocusGuard/BambooSpirit.png
+      - path: FocusGuard/wulin_wudang_secret_alt.jpg
+      - path: FocusGuard/past_wulin_npc_outlaw_chief.png
+      - path: FocusGuard/past_wulin_npc_maehwagemsu.png
+      - path: FocusGuard/wulin_shaolin_secret_alt.jpg
+      - path: FocusGuard/past_wulin_hermit_hut_1783209600000.jpg
     entitlements:
       path: FocusGuard/FocusGuard.entitlements
       properties:

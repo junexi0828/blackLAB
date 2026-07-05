@@ -34,80 +34,86 @@ struct CaveHomeView: View {
         return ZStack {
             caveBackground
             
-            // ── 영물 전체 화면 몰입형 시네마틱 백드롭 (Immersive Beast Backdrop) ──
+            // ── 영물 전체 화면 몰입형 시네마틱 가로 모드 백드롭 (Immersive Beast Landscape Mode) ──
             if isImmersiveActive, let beast = activeBeast {
-                ZStack {
-                    // 영물 풀 이미지 백그라운드
-                    WulinImageView(filename: "\(beast.imageName).png", contentMode: .fill)
-                        .scaleEffect(1.05)
-                        .ignoresSafeArea()
-                        .transition(.opacity)
+                GeometryReader { immersiveGeo in
+                    let screenWidth = immersiveGeo.size.width
+                    let screenHeight = immersiveGeo.size.height
                     
-                    // 어두운 시네마틱 비네팅 레이어
-                    Color.black.opacity(0.4)
-                        .ignoresSafeArea()
-                    
-                    LinearGradient(
-                        colors: [.black.opacity(0.8), .clear, .black.opacity(0.9)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .ignoresSafeArea()
-                    
-                    // 이팩트 뿜어짐
-                    RadialGradient(
-                        colors: [beast.color.opacity(0.4), .clear],
-                        center: .center,
-                        startRadius: 10,
-                        endRadius: 280
-                    )
-                    .blendMode(.screen)
-                    
-                    // 몰입 모드 전용 UI 요소들
-                    VStack(spacing: 20) {
-                        Spacer()
+                    ZStack {
+                        // 가로형 16:9 영물 원화를 가로 꽉 차게 렌더링 (90도 회전에 맞춰 가로세로 스왑 지정)
+                        WulinImageView(filename: "\(beast.imageName).png", contentMode: .fill)
+                            .frame(width: screenHeight, height: screenWidth)
+                            .scaleEffect(1.05)
+                            .clipped()
                         
-                        // 영물 명칭 태그
-                        HStack(spacing: 8) {
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 14))
-                                .foregroundStyle(.black)
-                            Text("동반 영물 공명 중")
-                                .font(.system(size: 12, weight: .bold, design: .serif))
-                                .foregroundStyle(.black)
+                        // 시네마틱 어두운 비네팅 틴트
+                        Color.black.opacity(0.35)
+                        
+                        LinearGradient(
+                            colors: [.black.opacity(0.65), .clear, .black.opacity(0.85)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        
+                        // 동양적 진기 광원 오버레이
+                        RadialGradient(
+                            colors: [beast.color.opacity(0.38), .clear],
+                            center: .center,
+                            startRadius: 10,
+                            endRadius: 280
+                        )
+                        .blendMode(.screen)
+                        
+                        // 가로 몰입 모드 전용 UI 요소들 (옆으로 눕혔을 때 균형을 이루는 시네마틱 가로 배치 레이아웃)
+                        HStack(spacing: 30) {
+                            // 좌측: 영물 뱃지 및 이름 정보
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "sparkles")
+                                        .font(.system(size: 13))
+                                        .foregroundStyle(.black)
+                                    Text("靈物共鳴 (영물공명 정진)")
+                                        .font(.system(size: 11, weight: .bold, design: .serif))
+                                        .foregroundStyle(.black)
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(beast.color)
+                                .clipShape(Capsule())
+                                .shadow(color: beast.color.opacity(0.5), radius: 6)
+                                
+                                Text(beast.name)
+                                    .font(.system(size: 26, weight: .black, design: .serif))
+                                    .foregroundStyle(.white)
+                                    .shadow(color: .black, radius: 8)
+                                
+                                Text("공명 혜택: \(beast.buffDesc)")
+                                    .font(.system(size: 13, weight: .bold, design: .serif))
+                                    .foregroundStyle(CaveTheme.gold)
+                                    .shadow(color: .black, radius: 4)
+                                
+                                Text("화면 아무 곳이나 터치하면 수련 관리창으로 돌아갑니다")
+                                    .font(.system(size: 11, weight: .medium, design: .serif))
+                                    .foregroundStyle(.white.opacity(0.45))
+                                    .padding(.top, 16)
+                            }
+                            
+                            Spacer()
+                            
+                            // 우측: 초대형 타이머
+                            Text(store.currentSessionText)
+                                .font(.system(size: 82, weight: .black, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(.white)
+                                .shadow(color: beast.color.opacity(0.9), radius: 25)
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(beast.color)
-                        .clipShape(Capsule())
-                        .shadow(color: beast.color.opacity(0.5), radius: 8)
-                        
-                        Text(beast.name)
-                            .font(.system(size: 28, weight: .black, design: .serif))
-                            .foregroundStyle(.white)
-                            .shadow(color: .black, radius: 8)
-                        
-                        // 초대형 타이머 렌더링
-                        Text(store.currentSessionText)
-                            .font(.system(size: 82, weight: .black, design: .rounded))
-                            .monospacedDigit()
-                            .foregroundStyle(.white)
-                            .shadow(color: beast.color.opacity(0.8), radius: 25)
-                            .padding(.vertical, 10)
-                        
-                        Text("공명 효과 : \(beast.buffDesc)")
-                            .font(.system(size: 14, weight: .bold, design: .serif))
-                            .foregroundStyle(CaveTheme.gold)
-                            .shadow(color: .black, radius: 4)
-                        
-                        Spacer()
-                        
-                        Text("화면 아무 곳이나 터치하면 수련 관리창이 나타납니다")
-                            .font(.system(size: 12, weight: .medium, design: .serif))
-                            .foregroundStyle(.white.opacity(0.45))
-                            .padding(.bottom, 24)
+                        .padding(.horizontal, 48)
+                        .frame(width: screenHeight, height: screenWidth)
                     }
-                    .padding(24)
+                    .frame(width: screenHeight, height: screenWidth)
+                    .rotationEffect(.degrees(90))
+                    .position(x: screenWidth / 2, y: screenHeight / 2) // 화면 정중앙에 배치
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
@@ -115,9 +121,9 @@ struct CaveHomeView: View {
                         isImmersiveDismissed = true
                     }
                 }
-                .transition(.asymmetric(insertion: .opacity, removal: .opacity))
+                .transition(.opacity)
                 .ignoresSafeArea()
-                .zIndex(100) // 최상단 오버레이
+                .zIndex(100) // 최상단 가로 뷰 오버레이
             }
             
             // 영물별 전용 로컬 이팩트 오버레이
@@ -263,65 +269,99 @@ struct CaveHomeView: View {
 
     private var titleBlock: some View {
         HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("폐관수련 (閉關修練)")
-                    .font(.system(size: 19, weight: .black, design: .serif))
-                    .foregroundStyle(.white)
+            VStack(spacing: 8) {
+                // 한자 현판 가로 테두리 디자인 (무협 감성 위엄 보강)
+                HStack(spacing: 8) {
+                    Image(systemName: "laurel.leading")
+                        .font(.title3)
+                        .foregroundStyle(CaveTheme.gold)
+                    
+                    Text("閉關修練")
+                        .font(.system(size: 18, weight: .bold, design: .serif))
+                        .foregroundStyle(CaveTheme.gold)
+                        .tracking(4)
+                    
+                    Image(systemName: "laurel.trailing")
+                        .font(.title3)
+                        .foregroundStyle(CaveTheme.gold)
+                }
                 
-                // 실시간 기류 흐름 나레이션
-                Text(OrientalTimeFormatter.getOrientalTimeNarrative())
-                    .font(.system(size: 11, weight: .bold, design: .serif))
-                    .foregroundStyle(CaveTheme.gold.opacity(0.85))
-                    .lineLimit(2)
+                Text("폐관수련")
+                    .font(.system(size: 28, weight: .black, design: .serif))
+                    .foregroundStyle(.white)
+                    .tracking(2)
+                    .shadow(color: CaveTheme.gold.opacity(0.35), radius: 6)
                 
                 // 실시간 수련 공력 (세션 가동 시에만 고풍스럽게 노출)
                 if store.isRunning || store.isPaused {
-                    Text("수련 공력 : \(store.currentSessionOrientalText)")
+                    Text("현재 수련 내공 : \(store.currentSessionOrientalText)")
                         .font(.system(size: 13, weight: .black, design: .serif))
                         .foregroundStyle(CaveTheme.ember)
-                        .padding(.top, 2)
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(CaveTheme.ember.opacity(0.12))
+                                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(CaveTheme.ember.opacity(0.35), lineWidth: 1))
+                        )
                 }
+                
+                // 실시간 기류 흐름 나레이션
+                Text(OrientalTimeFormatter.getOrientalTimeNarrative())
+                    .font(.system(size: 11, weight: .medium, design: .serif))
+                    .foregroundStyle(.white.opacity(0.55))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 12)
             }
-            Spacer()
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .padding(.horizontal, 20)
+            .background(
+                ZStack {
+                    // 고풍스러운 흑색 현판 배경 질감
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(LinearGradient(
+                            colors: [Color(white: 0.12), Color(white: 0.05)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ))
+                    
+                    // 이중 황금 테두리
+                    RoundedRectangle(cornerRadius: 16)
+                        .strokeBorder(CaveTheme.gold.opacity(0.4), lineWidth: 1.5)
+                        .padding(3)
+                    RoundedRectangle(cornerRadius: 16)
+                        .strokeBorder(CaveTheme.gold.opacity(0.15), lineWidth: 1)
+                        .padding(6)
+                }
+            )
+            .shadow(color: .black.opacity(0.5), radius: 8, y: 4)
             
-            // Dynamic Tier Badge (버튼식 팝업 호출)
+            // 경지 뱃지는 우측 끝에 플로팅식 배치
             Button {
                 isShowingTierGuide = true
             } label: {
                 VStack(spacing: 4) {
                     Image(systemName: "flame.fill")
-                        .font(.system(size: 16))
+                        .font(.system(size: 15))
                         .foregroundStyle(CaveTheme.ember)
                     Text(store.userTierKoreanOnly)
-                        .font(.system(size: 11, weight: .bold, design: .serif))
+                        .font(.system(size: 10, weight: .bold, design: .serif))
                         .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
+                        .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(
                             Capsule()
-                                .fill(CaveTheme.gold.opacity(0.15))
-                                .overlay(
-                                    Capsule()
-                                        .strokeBorder(CaveTheme.gold.opacity(0.35), lineWidth: 1)
-                                )
+                                .fill(CaveTheme.gold.opacity(0.12))
+                                .overlay(Capsule().strokeBorder(CaveTheme.gold.opacity(0.25), lineWidth: 1))
                         )
                 }
             }
+            .padding(.leading, 8)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 12)
-        .padding(.horizontal, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(CaveTheme.panel.opacity(0.88))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(CaveTheme.gold.opacity(0.24), lineWidth: 1)
-        )
+        .padding(.horizontal, 4)
     }
-
+    
     private var giantBeastCanvas: some View {
         let beastImages = ["TigerSpirit", "DragonFocus", "PhoenixFocus", "BambooSpirit", "CaveHermit", "LotusZen"]
         let currentBeast = store.isRunning ? beastImages[Int(store.currentSessionSeconds) / 8 % beastImages.count] : "TigerSpirit"

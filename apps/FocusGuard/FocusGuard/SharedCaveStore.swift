@@ -30,6 +30,8 @@ struct SessionLogEntry: Codable, Hashable, Identifiable {
     let id: UUID
     let date: Date
     let duration: TimeInterval
+    var memo: String? = nil
+    var advice: String? = nil
 }
 
 enum CaveTimeFormatter {

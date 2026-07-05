@@ -1,0 +1,21 @@
+{
+  "images": [
+    {
+      "idiom": "universal",
+      "scale": "1x",
+      "filename": "wulin_hermit_hut_1783209600000.jpg"
+    },
+    {
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "idiom": "universal",
+      "scale": "3x"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}

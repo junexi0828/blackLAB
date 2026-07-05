@@ -12,8 +12,10 @@ struct CaveMainView: View {
                 case 0:
                     CaveHomeView(store: store)
                 case 1:
-                    CaveHistoryView(store: store)
+                    CaveMapView(store: store)
                 case 2:
+                    CaveHistoryView(store: store)
+                case 3:
                     CaveSettingsView(store: store)
                 default:
                     CaveHomeView(store: store)
@@ -36,11 +38,13 @@ struct CaveMainView: View {
             HStack {
                 tabButton(index: 0, text: "修", label: "수련실", icon: "bolt.shield")
                 Spacer()
-                tabButton(index: 1, text: "簿", label: "장부", icon: "doc.text.magnifyingglass")
+                tabButton(index: 1, text: "圖", label: "지도", icon: "map")
                 Spacer()
-                tabButton(index: 2, text: "設", label: "설정", icon: "slider.horizontal.3")
+                tabButton(index: 2, text: "簿", label: "장부", icon: "doc.text.magnifyingglass")
+                Spacer()
+                tabButton(index: 3, text: "設", label: "설정", icon: "slider.horizontal.3")
             }
-            .padding(.horizontal, 40)
+            .padding(.horizontal, 20)
             .padding(.vertical, 12)
             .background(
                 LinearGradient(

@@ -42,6 +42,28 @@ targets:
       - path: FocusGuard/CaveMainView.swift
       - path: FocusGuard/CaveSoundManager.swift
       - path: FocusGuard/Assets.xcassets
+      - path: FocusGuard/wulin_demonic_cult_1783206435319.jpg
+      - path: FocusGuard/wulin_hwasan_secret_1783209500334.jpg
+      - path: FocusGuard/wulin_outlaw_fort_1783206424103.jpg
+      - path: FocusGuard/wulin_righteous_sect_1783206411012.jpg
+      - path: FocusGuard/wulin_shaolin_secret_1783209492458.jpg
+      - path: FocusGuard/wulin_wudang_secret_1783209482524.jpg
+      - path: FocusGuard/wulin_hermit_hut_1783209600000.jpg
+      - path: FocusGuard/wulin_avatar_cheongmyeong_1783226635757.jpg
+      - path: FocusGuard/wulin_avatar_sashin_1783226657778.jpg
+      - path: FocusGuard/wulin_avatar_yeowun_1783226647473.jpg
+      - path: FocusGuard/wulin_cheongseong_1783226532079.jpg
+      - path: FocusGuard/wulin_demonic_cult_1783226558857.jpg
+      - path: FocusGuard/wulin_hermit_hut_1783226523355.jpg
+      - path: FocusGuard/wulin_hwasan_return_1783226575087.jpg
+      - path: FocusGuard/wulin_monster_god_1783226595601.jpg
+      - path: FocusGuard/wulin_murim_league_1783226541554.jpg
+      - path: FocusGuard/wulin_nano_machine_1783226585538.jpg
+      - path: FocusGuard/wulin_outlaw_fort_1783226550587.jpg
+      - path: FocusGuard/wulin_world_map_new_1783229031585.jpg
+      - path: FocusGuard/tiger_roar.mp3
+      - path: FocusGuard/thunder.mp3
+      - path: FocusGuard/temple_bell.mp3
     entitlements:
       path: FocusGuard/FocusGuard.entitlements
       properties:

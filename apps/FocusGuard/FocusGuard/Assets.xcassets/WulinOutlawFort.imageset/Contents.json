@@ -1,0 +1,21 @@
+{
+  "images": [
+    {
+      "idiom": "universal",
+      "scale": "1x",
+      "filename": "wulin_outlaw_fort_1783206424103.jpg"
+    },
+    {
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "idiom": "universal",
+      "scale": "3x"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}

@@ -2,6 +2,7 @@ import Foundation
 @preconcurrency import ActivityKit
 import SwiftUI
 import WidgetKit
+@preconcurrency import UserNotifications
 
 @MainActor
 final class StudySessionStore: ObservableObject {
@@ -9,11 +10,15 @@ final class StudySessionStore: ObservableObject {
         let id: UUID
         let date: Date
         let duration: TimeInterval
+        var memo: String?
+        var advice: String?
 
-        init(id: UUID = UUID(), date: Date, duration: TimeInterval) {
+        init(id: UUID = UUID(), date: Date, duration: TimeInterval, memo: String? = nil, advice: String? = nil) {
             self.id = id
             self.date = date
             self.duration = duration
+            self.memo = memo
+            self.advice = advice
         }
     }
 
@@ -96,6 +101,77 @@ final class StudySessionStore: ObservableObject {
         }
     }
     
+    @Published var sessionNotes: [String: String] {
+        didSet {
+            if let data = try? JSONEncoder().encode(sessionNotes) {
+                userDefaults?.set(data, forKey: "settings.sessionNotes")
+            }
+        }
+    }
+    
+    @Published var accumulatedGongryeokPoints: Int {
+        didSet {
+            userDefaults?.set(accumulatedGongryeokPoints, forKey: "settings.accumulatedGongryeokPoints")
+        }
+    }
+    
+    @Published var clearedMapsToday: [String] {
+        didSet {
+            userDefaults?.set(clearedMapsToday, forKey: "settings.clearedMapsToday")
+        }
+    }
+    
+    @Published var lastClearedDateString: String {
+        didSet {
+            userDefaults?.set(lastClearedDateString, forKey: "settings.lastClearedDateString")
+        }
+    }
+    
+    @Published var gongryeokMultiplier: Double {
+        didSet {
+            userDefaults?.set(gongryeokMultiplier, forKey: "settings.gongryeokMultiplier")
+        }
+    }
+    
+    @Published var activeBuffRemainingSeconds: TimeInterval {
+        didSet {
+            userDefaults?.set(activeBuffRemainingSeconds, forKey: "settings.activeBuffRemainingSeconds")
+        }
+    }
+    
+    @Published var isWudangUnlocked: Bool {
+        didSet {
+            userDefaults?.set(isWudangUnlocked, forKey: "settings.isWudangUnlocked")
+        }
+    }
+    
+    @Published var isShaolinUnlocked: Bool {
+        didSet {
+            userDefaults?.set(isShaolinUnlocked, forKey: "settings.isShaolinUnlocked")
+        }
+    }
+    
+    
+    @Published var isHwasanSecretUnlocked: Bool {
+        didSet {
+            userDefaults?.set(isHwasanSecretUnlocked, forKey: "settings.isHwasanSecretUnlocked")
+        }
+    }
+    
+    @Published var isNanomachineUnlocked: Bool {
+        didSet {
+            userDefaults?.set(isNanomachineUnlocked, forKey: "settings.isNanomachineUnlocked")
+        }
+    }
+
+    
+    /// 개발자 테스트: 모든 강호 지역·비경 즉시 접근
+    @Published var isDevAllMapsUnlocked: Bool {
+        didSet {
+            userDefaults?.set(isDevAllMapsUnlocked, forKey: "settings.isDevAllMapsUnlocked")
+        }
+    }
+    
     private var ticker: Timer?
     private var lastWidgetReloadSecond: Int = -1
     @available(iOS 16.1, *)
@@ -120,7 +196,7 @@ final class StudySessionStore: ObservableObject {
         totalStudySeconds = snapshot.totalStudySeconds
         todayStudySeconds = snapshot.todayStudySeconds
         currentSessionSeconds = snapshot.currentSessionSeconds
-        sessionLog = snapshot.sessionLog.map { SessionEntry(id: $0.id, date: $0.date, duration: $0.duration) }
+        sessionLog = snapshot.sessionLog.map { SessionEntry(id: $0.id, date: $0.date, duration: $0.duration, memo: $0.memo, advice: $0.advice) }
         
         // Restore active session state for single source of truth and crash resilience
         isRunning = snapshot.isRunning
@@ -146,6 +222,28 @@ final class StudySessionStore: ObservableObject {
         self.progressCycleType = defaults?.string(forKey: "settings.progressCycleType") ?? "1각 (15분)"
         self.isBreakthroughFeedbackEnabled = defaults?.object(forKey: "settings.isBreakthroughFeedbackEnabled") as? Bool ?? true
 
+        if let data = defaults?.data(forKey: "settings.sessionNotes"),
+           let notes = try? JSONDecoder().decode([String: String].self, from: data) {
+            self.sessionNotes = notes
+        } else {
+            self.sessionNotes = [:]
+        }
+        
+        self.accumulatedGongryeokPoints = defaults?.integer(forKey: "settings.accumulatedGongryeokPoints") ?? 0
+        self.clearedMapsToday = defaults?.stringArray(forKey: "settings.clearedMapsToday") ?? []
+        self.lastClearedDateString = defaults?.string(forKey: "settings.lastClearedDateString") ?? ""
+        
+        self.gongryeokMultiplier = defaults?.double(forKey: "settings.gongryeokMultiplier") ?? 1.0
+        self.activeBuffRemainingSeconds = defaults?.double(forKey: "settings.activeBuffRemainingSeconds") ?? 0
+        self.isWudangUnlocked = defaults?.bool(forKey: "settings.isWudangUnlocked") ?? false
+        self.isShaolinUnlocked = defaults?.bool(forKey: "settings.isShaolinUnlocked") ?? false
+        self.isHwasanSecretUnlocked = defaults?.bool(forKey: "settings.isHwasanSecretUnlocked") ?? false
+        self.isNanomachineUnlocked = defaults?.bool(forKey: "settings.isNanomachineUnlocked") ?? false
+        self.isDevAllMapsUnlocked = defaults?.bool(forKey: "settings.isDevAllMapsUnlocked") ?? false
+        
+        // 날짜가 자정을 넘었으면 비무 초기화 작동
+        self.checkDailyReset()
+
         // Resume ticker if session is active
         if isRunning {
             scheduleTicker()
@@ -158,7 +256,12 @@ final class StudySessionStore: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                self?.stopTicker()
+                guard let self = self else { return }
+                self.stopTicker()
+                // 백그라운드 진입 시 즉시 오디오 중지 및 하드웨어 리소스 100% 반환 (발열/전력 방지)
+                CaveSoundManager.shared.stop()
+                // 백그라운드에서도 내공 돌파 알림을 들을 수 있도록 시스템에 로컬 알림 등록
+                self.scheduleLocalNotification()
             }
         }
         
@@ -169,11 +272,16 @@ final class StudySessionStore: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor in
                 guard let self = self else { return }
+                // 포그라운드로 복귀 시 푸시 알림 배너가 앱 켜짐 상태에서 중복으로 날아오지 않도록 즉시 예약 취소
+                self.cancelLocalNotification()
+                
                 if self.isRunning {
                     if let startedAt = self.sessionStartedAt {
                         self.currentSessionSeconds = self.accumulatedTime + Date().timeIntervalSince(startedAt)
                     }
                     self.scheduleTicker()
+                    // 포그라운드 복귀 시 수련이 진행 상태이면 자연스럽게 명상 음원 재생 재개
+                    CaveSoundManager.shared.start(soundscape: self.selectedSoundscape)
                 }
             }
         }
@@ -313,6 +421,17 @@ final class StudySessionStore: ObservableObject {
         todayStudySeconds = 0
         currentSessionSeconds = 0
         sessionLog = []
+        sessionNotes = [:]
+        accumulatedGongryeokPoints = 0
+        clearedMapsToday = []
+        lastClearedDateString = ""
+        gongryeokMultiplier = 1.0
+        activeBuffRemainingSeconds = 0
+        isWudangUnlocked = false
+        isShaolinUnlocked = false
+        isHwasanSecretUnlocked = false
+        isNanomachineUnlocked = false
+        isDevAllMapsUnlocked = false
         
         userDefaults?.set(0.0, forKey: "settings.startupGrace")
         userDefaults?.set(0.0, forKey: "settings.warningThreshold")
@@ -323,6 +442,17 @@ final class StudySessionStore: ObservableObject {
         userDefaults?.set("없음", forKey: "settings.selectedSoundscape")
         userDefaults?.set("1각 (15분)", forKey: "settings.progressCycleType")
         userDefaults?.set(true, forKey: "settings.isBreakthroughFeedbackEnabled")
+        userDefaults?.removeObject(forKey: "settings.sessionNotes")
+        userDefaults?.set(0, forKey: "settings.accumulatedGongryeokPoints")
+        userDefaults?.removeObject(forKey: "settings.clearedMapsToday")
+        userDefaults?.removeObject(forKey: "settings.lastClearedDateString")
+        userDefaults?.removeObject(forKey: "settings.gongryeokMultiplier")
+        userDefaults?.removeObject(forKey: "settings.activeBuffRemainingSeconds")
+        userDefaults?.removeObject(forKey: "settings.isWudangUnlocked")
+        userDefaults?.removeObject(forKey: "settings.isShaolinUnlocked")
+        userDefaults?.removeObject(forKey: "settings.isHwasanSecretUnlocked")
+        userDefaults?.removeObject(forKey: "settings.isNanomachineUnlocked")
+        userDefaults?.removeObject(forKey: "settings.isDevAllMapsUnlocked")
         
         isFocusGuardActive = true
         isMockCameraEnabledSetting = false
@@ -335,6 +465,31 @@ final class StudySessionStore: ObservableObject {
         isBreakthroughFeedbackEnabled = true
         
         persist()
+    }
+    
+    /// 개발자 테스트: 공력·비경·진기 일괄 해제
+    func applyDeveloperUnlockAll() {
+        isDevAllMapsUnlocked = true
+        isWudangUnlocked = true
+        isShaolinUnlocked = true
+        isHwasanSecretUnlocked = true
+        isNanomachineUnlocked = true
+        if totalStudySeconds < 30 * 3600 {
+            totalStudySeconds = 30 * 3600
+        }
+        if accumulatedGongryeokPoints < 9999 {
+            accumulatedGongryeokPoints = 9999
+        }
+        persist()
+    }
+    
+    func grantDeveloperGongryeokPoints(_ amount: Int = 500) {
+        accumulatedGongryeokPoints += amount
+    }
+    
+    func resetDeveloperSparringProgress() {
+        clearedMapsToday = []
+        lastClearedDateString = ""
     }
 
     func deleteEntry(id: UUID) {
@@ -355,6 +510,8 @@ final class StudySessionStore: ObservableObject {
 
     func startSession() {
         guard !isRunning else { return }
+        checkDailyReset()
+        
         isRunning = true
         isPaused = false
         accumulatedTime = 0
@@ -374,6 +531,9 @@ final class StudySessionStore: ObservableObject {
         
         // 가벼운 환경음 재생 시작
         CaveSoundManager.shared.start(soundscape: selectedSoundscape)
+        
+        // 포그라운드 시작 시 푸시 알림 예약 (수련이 끝날 시점 기준)
+        scheduleLocalNotification()
     }
 
     func pauseSession() {
@@ -388,6 +548,9 @@ final class StudySessionStore: ObservableObject {
         
         // 가벼운 환경음 재생 중지
         CaveSoundManager.shared.stop()
+        
+        // 수련 일시정지 시 시스템 푸시 알림 즉시 취소
+        cancelLocalNotification()
         
         if FocusGuardManager.shared.isMockCameraEnabled {
             FocusGuardManager.shared.stopTracking()
@@ -405,6 +568,8 @@ final class StudySessionStore: ObservableObject {
 
     func resumeSession() {
         guard isPaused else { return }
+        checkDailyReset()
+        
         isRunning = true
         isPaused = false
         sessionStartedAt = Date()
@@ -418,17 +583,23 @@ final class StudySessionStore: ObservableObject {
         
         // 가벼운 환경음 재생 재개
         CaveSoundManager.shared.start(soundscape: selectedSoundscape)
+        
+        // 수련 재개 시 남은 수련 시간에 맞춰 푸시 알림 재예약
+        scheduleLocalNotification()
     }
 
     func stopSession() {
         guard isRunning || isPaused else { return }
         
-        let finalSessionSeconds: TimeInterval
+        let finalSessionSecondsRaw: TimeInterval
         if isRunning, let startedAt = sessionStartedAt {
-            finalSessionSeconds = accumulatedTime + Date().timeIntervalSince(startedAt)
+            finalSessionSecondsRaw = accumulatedTime + Date().timeIntervalSince(startedAt)
         } else {
-            finalSessionSeconds = accumulatedTime
+            finalSessionSecondsRaw = accumulatedTime
         }
+        
+        let multiplierToApply = activeBuffRemainingSeconds > 0 ? gongryeokMultiplier : 1.0
+        let finalSessionSeconds = finalSessionSecondsRaw * multiplierToApply
         
         // Stop FocusGuard tracking if enabled
         if FocusGuardManager.shared.isMockCameraEnabled {
@@ -444,9 +615,17 @@ final class StudySessionStore: ObservableObject {
         // 가벼운 환경음 재생 중지
         CaveSoundManager.shared.stop()
         
+        // 수련 완료/중단 시 시스템 푸시 알림 취소
+        cancelLocalNotification()
+        
         totalStudySeconds += finalSessionSeconds
         todayStudySeconds += finalSessionSeconds
-        sessionLog.insert(SessionEntry(date: Date(), duration: finalSessionSeconds), at: 0)
+        let adviceText = StudySessionStore.generateHermitAdvice(duration: finalSessionSeconds)
+        sessionLog.insert(SessionEntry(date: Date(), duration: finalSessionSeconds, memo: "", advice: adviceText), at: 0)
+        
+        // 버프 소모 처리
+        activeBuffRemainingSeconds = 0
+        gongryeokMultiplier = 1.0
         
         if #available(iOS 16.1, *) {
             Task { @MainActor in
@@ -475,6 +654,14 @@ final class StudySessionStore: ObservableObject {
         // If paused, ticker shouldn't be running, but guard isRunning
         guard isRunning, let startedAt = sessionStartedAt else { return }
         
+        // 버프 카운트다운 (0.5초 주기이므로 0.5초씩 감산)
+        if activeBuffRemainingSeconds > 0 {
+            activeBuffRemainingSeconds = max(activeBuffRemainingSeconds - 0.5, 0)
+            if activeBuffRemainingSeconds == 0 {
+                gongryeokMultiplier = 1.0
+            }
+        }
+
         // If FocusGuard has failed, freeze the time update.
         if FocusGuardManager.shared.isMockCameraEnabled && FocusGuardManager.shared.state == .failed {
             persist(reloadWidget: true)
@@ -514,7 +701,7 @@ final class StudySessionStore: ObservableObject {
         }
     }
 
-    private func persist(reloadWidget: Bool = false) {
+    func persist(reloadWidget: Bool = false) {
         let effectiveCurrentSeconds: TimeInterval
         if isRunning, let startedAt = sessionStartedAt {
             effectiveCurrentSeconds = accumulatedTime + Date().timeIntervalSince(startedAt)
@@ -532,12 +719,36 @@ final class StudySessionStore: ObservableObject {
                 progressCycleType: progressCycleType,
                 lastUpdatedAt: Date(),
                 sessionStartedAt: sessionStartedAt,
-                sessionLog: sessionLog.map { SessionLogEntry(id: $0.id, date: $0.date, duration: $0.duration) }
+                sessionLog: sessionLog.map { SessionLogEntry(id: $0.id, date: $0.date, duration: $0.duration, memo: $0.memo, advice: $0.advice) }
             )
         )
         // 불필요한 빈번한 위젯 리로드를 피하고 요청한 타이밍에만 수행
         if reloadWidget {
             WidgetCenter.shared.reloadAllTimelines()
+        }
+    }
+    
+    // ── 훈장님 훈수 한마디 자동 생성기 ──
+    static func generateHermitAdvice(duration: TimeInterval) -> String {
+        let minutes = Int(duration / 60)
+        if minutes < 5 {
+            return "이 정도의 얕은 입정으로는 강호에서 진기를 보존하기 어렵소. 마음을 다잡으시오."
+        } else if minutes < 15 {
+            return "한 걸음 내딛은 초입이구려. 호흡을 고르게 가다듬고 정진을 멈추지 마시오."
+        } else if minutes < 30 {
+            return "1각(15분)을 넘어 섰구려. 단전이 조금씩 뜨거워지는 것이 기운이 맑소."
+        } else if minutes < 60 {
+            return "정진의 깊이가 제법 깊소. 훌륭한 비경 수련이 되었을 것이니 스스로를 믿으시오."
+        } else {
+            return "한 조각 번뇌마저 지워낸 깊은 입관 수련에 도달하셨소! 내 그대의 굳건한 마음에 훈수를 거두고 경의를 표하리다."
+        }
+    }
+    
+    // ── 메모/훈수 업데이트 ──
+    func updateMemo(entryId: UUID, memoText: String) {
+        if let index = sessionLog.firstIndex(where: { $0.id == entryId }) {
+            sessionLog[index].memo = memoText
+            persist(reloadWidget: false)
         }
     }
 
@@ -620,5 +831,60 @@ final class StudySessionStore: ObservableObject {
             return accumulatedTime + Date().timeIntervalSince(startedAt)
         }
         return currentSessionSeconds
+    }
+    
+    // MARK: - 로컬 알림 예약 및 취소 시스템
+    private func scheduleLocalNotification() {
+        guard isBreakthroughFeedbackEnabled else { return }
+        
+        // 1. @MainActor 격리 변수를 클로저 바깥에서 로컬 상수로 즉시 동적 복사
+        let cycleSecs: TimeInterval = self.progressCycleType == "1식경 (30분)" ? 1800 : 900
+        let currentSecs = self.currentSessionSeconds
+        let remaining = cycleSecs - currentSecs
+        guard remaining > 0 else { return }
+        
+        let center = UNUserNotificationCenter.current()
+        // 중복 예약 방지를 위해 이전 요청 정리
+        center.removeAllPendingNotificationRequests()
+        
+        center.requestAuthorization(options: [.alert, .sound]) { granted, error in
+            guard granted else { return }
+            
+            let content = UNMutableNotificationContent()
+            content.title = "내공 돌파 (大突破)!"
+            content.body = "수련 주기가 무사히 마감되어 내공이 상승했습니다."
+            
+            // 앱 번들에 실질적으로 포함되어 있는 temple_bell.mp3 (산사 범종소리)를 백그라운드 푸시 알림음으로 지정
+            content.sound = UNNotificationSound(named: UNNotificationSoundName("temple_bell.mp3"))
+            
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: remaining, repeats: false)
+            let request = UNNotificationRequest(identifier: "BreakthroughNotification", content: content, trigger: trigger)
+            
+            // center를 캡쳐하는 대신 current()를 통해 non-Sendable 캡쳐 경고 원천 소거
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error = error {
+                    print("[StudySessionStore] Failed to schedule breakthrough notification: \(error)")
+                } else {
+                    print("[StudySessionStore] Local notification registered. Fires in \(remaining) seconds.")
+                }
+            }
+        }
+    }
+    
+    private func cancelLocalNotification() {
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+    }
+    
+    // MARK: - 무림 비무 일일 초기화 엔진
+    func checkDailyReset() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        let todayStr = formatter.string(from: Date())
+        
+        if lastClearedDateString != todayStr {
+            clearedMapsToday = []
+            lastClearedDateString = todayStr
+            persist()
+        }
     }
 }

@@ -14,6 +14,7 @@ struct CaveSettingsView: View {
                     focusGuardSettingsSection
                     soundscapeSettingsSection
                     progressCycleSettingsSection
+                    developerTestSection
                     resetSection
                     appInfoBlock
                 }
@@ -241,6 +242,80 @@ struct CaveSettingsView: View {
             .padding(20)
             .background(stonePanel)
         }
+    }
+
+    private var developerTestSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Image(systemName: "hammer.fill")
+                    .foregroundStyle(CaveTheme.jade)
+                Text("개발자 테스트 (Developer)")
+                    .font(.system(size: 17, weight: .bold, design: .serif))
+                    .foregroundStyle(.white)
+            }
+            .padding(.horizontal, 4)
+            
+            VStack(spacing: 14) {
+                Toggle(isOn: $store.isDevAllMapsUnlocked) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("모든 강호 지역 즉시 해제")
+                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .foregroundStyle(.white)
+                        Text("공력·비경 잠금 없이 전 지역 NPC·비무·테마 동화 테스트")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.45))
+                    }
+                }
+                .tint(CaveTheme.jade)
+                
+                Divider().background(Color.white.opacity(0.08))
+                
+                Button {
+                    store.applyDeveloperUnlockAll()
+                } label: {
+                    devActionLabel(title: "일괄 해제 + 진기 9999", icon: "map.fill")
+                }
+                
+                Button {
+                    store.grantDeveloperGongryeokPoints(500)
+                } label: {
+                    devActionLabel(title: "진기 500 眞 추가", icon: "sparkles")
+                }
+                
+                Button {
+                    store.resetDeveloperSparringProgress()
+                } label: {
+                    devActionLabel(title: "오늘 비무 기록 초기화", icon: "arrow.counterclockwise")
+                }
+                
+                Text("지도 탭에서 모든 지역·영약전·비무 기능을 바로 확인할 수 있습니다.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.45))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(20)
+            .background(stonePanel)
+        }
+    }
+    
+    private func devActionLabel(title: String, icon: String) -> some View {
+        HStack {
+            Image(systemName: icon)
+            Text(title)
+            Spacer()
+        }
+        .font(.system(size: 14, weight: .semibold, design: .serif))
+        .foregroundStyle(CaveTheme.jade)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(CaveTheme.jade.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(CaveTheme.jade.opacity(0.25), lineWidth: 1)
+                )
+        )
     }
 
     private var resetSection: some View {

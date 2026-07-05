@@ -145,31 +145,42 @@ struct CaveHomeView: View {
                 .zIndex(100) // 최상단 오버레이 (하단 탭 바, 설정 등 싹 다 가림)
             }
             
-            // 영물별 전용 로컬 이팩트 오버레이
+            // 영물별 전용 로컬 이팩트 오버레이 (신비로운 안개 및 호흡하는 기류 스모그 디자인 개편)
             GeometryReader { geo in
                 let w = geo.size.width
                 let h = geo.size.height
                 ZStack {
                     ForEach(homeParticles) { p in
+                        // rotation 변수를 삼각함수 위상 차이로 매핑하여 안개 기류가 숨쉬듯 부드럽게 밝아졌다 약해졌다 호흡함
+                        let breathIntensity = 0.4 + 0.6 * sin(p.rotation * 0.04 + p.x * 3.0)
+                        let adjustedOpacity = p.opacity * breathIntensity
+                        
                         Group {
                             if store.selectedBeast == "imugi" {
-                                Rectangle()
-                                    .fill(p.color.opacity(p.opacity))
-                                    .frame(width: p.size * 0.2, height: p.size * 1.5)
+                                Ellipse()
+                                    .fill(p.color.opacity(adjustedOpacity * 0.8))
+                                    .frame(width: p.size * 2.2, height: p.size * 0.85)
+                                    .blur(radius: p.size * 0.35)
+                            } else if store.selectedBeast == "qilin" {
+                                Ellipse()
+                                    .fill(p.color.opacity(adjustedOpacity * 0.85))
+                                    .frame(width: p.size * 1.8, height: p.size * 0.95)
+                                    .blur(radius: p.size * 0.4)
                             } else if store.selectedBeast == "daebung" {
-                                Capsule()
-                                    .fill(p.color.opacity(p.opacity))
-                                    .frame(width: 1.5, height: p.size * 2)
+                                Ellipse()
+                                    .fill(p.color.opacity(adjustedOpacity * 0.65))
+                                    .frame(width: p.size * 2.6, height: p.size * 0.6)
+                                    .blur(radius: p.size * 0.3)
                             } else if store.selectedBeast == "white_tiger" {
-                                Circle()
-                                    .fill(p.color.opacity(p.opacity))
-                                    .frame(width: p.size * 1.8, height: p.size * 0.9)
+                                Ellipse()
+                                    .fill(p.color.opacity(adjustedOpacity * 0.75))
+                                    .frame(width: p.size * 2.4, height: p.size * 0.9)
                                     .blur(radius: p.size * 0.4)
                             } else {
-                                Circle()
-                                    .fill(p.color.opacity(p.opacity))
-                                    .frame(width: p.size, height: p.size)
-                                    .blur(radius: 0.3)
+                                Ellipse()
+                                    .fill(p.color.opacity(adjustedOpacity * 0.7))
+                                    .frame(width: p.size * 2.0, height: p.size * 0.75)
+                                    .blur(radius: p.size * 0.35)
                             }
                         }
                         .position(x: p.x * w, y: p.y * h)
@@ -177,6 +188,7 @@ struct CaveHomeView: View {
                 }
             }
             .ignoresSafeArea()
+            .allowsHitTesting(false).ignoresSafeArea()
 
             ScrollView {
                 VStack(spacing: 24) {
@@ -1287,42 +1299,42 @@ extension CaveHomeView {
         
         switch beastId {
         case "imugi":
-            color = Color(red: 0.2, green: 0.85, blue: 1.0)
-            speedRange = 0.002...0.005 // 매우 느리고 은은하게 하강/상승
-            sizeRange = 3...7
+            color = Color(red: 0.15, green: 0.6, blue: 0.95) // 신비로운 검푸른 흑뢰 진기
+            speedRange = 0.0006...0.0016
+            sizeRange = 160...280 // 거대한 가로 안개 안착
         case "qilin":
-            color = Bool.random() ? Color(red: 1.0, green: 0.4, blue: 0.1) : Color(red: 1.0, green: 0.2, blue: 0.0)
-            speedRange = 0.001...0.0025
-            sizeRange = 4...8
+            color = Bool.random() ? Color(red: 0.95, green: 0.35, blue: 0.05) : Color(red: 0.9, green: 0.15, blue: 0.0)
+            speedRange = 0.0005...0.0015
+            sizeRange = 150...260
         case "daebung":
-            color = Color(red: 0.8, green: 0.95, blue: 1.0)
-            speedRange = 0.0012...0.0028
-            sizeRange = 3...6
+            color = Color(red: 0.75, green: 0.92, blue: 1.0)
+            speedRange = 0.0004...0.0012
+            sizeRange = 180...320
         case "dragon":
             color = CaveTheme.gold
-            speedRange = 0.0005...0.0015
-            sizeRange = 8...15
+            speedRange = 0.0003...0.0010
+            sizeRange = 200...350 // 황금빛으로 가득 찬 진기 스모그
         case "white_tiger":
-            color = Color(white: 0.85)
-            speedRange = 0.0008...0.0018
-            sizeRange = 25...45
+            color = Color(white: 0.9)
+            speedRange = 0.0005...0.0014
+            sizeRange = 220...380
         case "yonggui":
-            color = Color(red: 0.15, green: 0.65, blue: 0.45)
-            speedRange = 0.001...0.0025
-            sizeRange = 5...9
+            color = Color(red: 0.12, green: 0.58, blue: 0.4)
+            speedRange = 0.0006...0.0016
+            sizeRange = 150...270
         default:
             color = CaveTheme.gold
-            speedRange = 0.0008...0.002
-            sizeRange = 3...7
+            speedRange = 0.0005...0.0015
+            sizeRange = 150...260
         }
         
-        for _ in 0..<20 { // 파티클 개수를 30개에서 20개로 줄여 CPU 리소스 소모 및 번잡함 감소
+        for _ in 0..<14 { // 파티클 개수를 14개로 최적화하여 겹겹의 안개가 포개어져 발열 zero 보장
             particles.append(
                 HomeParticle(
-                    x: CGFloat.random(in: 0...1),
-                    y: CGFloat.random(in: 0.0...1.0),
+                    x: CGFloat.random(in: -0.1...1.1),
+                    y: CGFloat.random(in: -0.1...1.1),
                     size: CGFloat.random(in: sizeRange),
-                    opacity: Double.random(in: 0.2...0.6), // 오파시티 낮춤
+                    opacity: Double.random(in: 0.04...0.12), // 안개 질감을 위해 투명도를 극도로 낮춤 (0.04~0.12)
                     speed: CGFloat.random(in: speedRange),
                     rotation: Double.random(in: 0...360),
                     color: color
@@ -1334,7 +1346,7 @@ extension CaveHomeView {
     
     func startHomeParticles() {
         homeTimer?.invalidate()
-        // 프레임 업데이트 타이밍을 0.04초에서 0.08초로 늘려 CPU 리소스를 50% 절약
+        // 프레임 업데이트 타이밍을 0.08초로 조율하여 CPU 소모 극소화
         homeTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { _ in
             Task { @MainActor in
                 guard store.isRunning && store.selectedBeast != "없음" else { return }
@@ -1342,35 +1354,39 @@ extension CaveHomeView {
                 
                 for i in 0..<homeParticles.count {
                     if i < homeParticles.count {
+                        // rotation 값을 프레임마다 증가시켜 숨쉬는 불빛/안개 애니메이션 페이즈 전환
+                        homeParticles[i].rotation += 1.2
+                        
                         switch beastId {
                         case "daebung":
                             homeParticles[i].y += homeParticles[i].speed
-                            homeParticles[i].x += sin(homeParticles[i].y * 4.0) * 0.001 // 좌우 요동 대폭 축소
-                            homeParticles[i].rotation += 0.3 // 회전속도 3배 감속
-                            if homeParticles[i].y > 1.0 {
-                                homeParticles[i].y = 0.0
-                                homeParticles[i].x = CGFloat.random(in: 0...1)
+                            homeParticles[i].x += sin(homeParticles[i].y * 2.0) * 0.0006 // 부드럽고 잔잔한 좌우 흔들림
+                            if homeParticles[i].y > 1.2 {
+                                homeParticles[i].y = -0.2
+                                homeParticles[i].x = CGFloat.random(in: -0.1...1.1)
                             }
                         case "imugi":
-                            // 번쩍이는 흑뢰 주기 감속
-                            if Double.random(in: 0...1) > 0.94 {
-                                homeParticles[i].x = CGFloat.random(in: 0.05...0.95)
-                                homeParticles[i].y = CGFloat.random(in: 0.05...0.95)
-                                homeParticles[i].opacity = Double.random(in: 0.15...0.6)
+                            // 이무기 검푸른 안개의 불규칙 이동 감속
+                            homeParticles[i].y += homeParticles[i].speed
+                            homeParticles[i].x += cos(homeParticles[i].y * 3.0) * 0.0005
+                            if homeParticles[i].y > 1.2 {
+                                homeParticles[i].y = -0.2
+                                homeParticles[i].x = CGFloat.random(in: -0.1...1.1)
                             }
                         case "white_tiger":
-                            homeParticles[i].x += homeParticles[i].speed * 1.0
-                            homeParticles[i].y += sin(homeParticles[i].x * 6.0) * 0.0004
+                            homeParticles[i].x += homeParticles[i].speed * 0.8
+                            homeParticles[i].y += sin(homeParticles[i].x * 4.0) * 0.0003
                             if homeParticles[i].x > 1.2 {
                                 homeParticles[i].x = -0.2
-                                homeParticles[i].y = CGFloat.random(in: 0.1...0.9)
+                                homeParticles[i].y = CGFloat.random(in: -0.1...1.1)
                             }
                         default:
+                            // 상승하는 은은한 연기/안개
                             homeParticles[i].y -= homeParticles[i].speed
-                            homeParticles[i].x += CGFloat.random(in: -0.001...0.001) // 유동폭 극소화
-                            if homeParticles[i].y < 0 {
-                                homeParticles[i].y = 1.0
-                                homeParticles[i].x = CGFloat.random(in: 0...1)
+                            homeParticles[i].x += CGFloat.random(in: -0.0005...0.0005)
+                            if homeParticles[i].y < -0.2 {
+                                homeParticles[i].y = 1.2
+                                homeParticles[i].x = CGFloat.random(in: -0.1...1.1)
                             }
                         }
                     }

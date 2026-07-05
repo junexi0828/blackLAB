@@ -1334,7 +1334,7 @@ extension CaveHomeView {
                     x: CGFloat.random(in: -0.1...1.1),
                     y: CGFloat.random(in: -0.1...1.1),
                     size: CGFloat.random(in: sizeRange),
-                    opacity: Double.random(in: 0.04...0.12), // 안개 질감을 위해 투명도를 극도로 낮춤 (0.04~0.12)
+                    opacity: Double.random(in: 0.12...0.28), // 안개 질감을 위해 최적화된 짙은 농도 (0.12~0.28)
                     speed: CGFloat.random(in: speedRange),
                     rotation: Double.random(in: 0...360),
                     color: color

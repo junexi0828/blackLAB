@@ -40,8 +40,8 @@ struct CaveHomeView: View {
                     let screenHeight = geo.size.height
                     let screenWidth = geo.size.width
                     
-                    ZStack {
-                        // 가로 16:9 영물이 세로 모드 화면에서 잘리지 않도록, 월드맵처럼 가로/세로 스크롤(드래그) 지원!
+                    ZStack(alignment: .bottom) {
+                        // 1. 최하단 레이어: 가로 16:9 영물을 상하좌우 자유롭게 터치 드래그하며 볼 수 있는 스크롤뷰
                         ScrollView([.horizontal, .vertical], showsIndicators: false) {
                             WulinImageView(filename: "\(beast.imageName).png", contentMode: .fit)
                                 .frame(height: screenHeight) // 세로 길이를 화면 높이에 맞춤
@@ -49,32 +49,34 @@ struct CaveHomeView: View {
                         }
                         .ignoresSafeArea()
                         
-                        // 시네마틱 어두운 비네팅 틴트
-                        Color.black.opacity(0.35)
-                            .ignoresSafeArea()
-                        
-                        LinearGradient(
-                            colors: [.black.opacity(0.65), .clear, .black.opacity(0.85)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
+                        #if os(iOS)
+                        // 2. 중간 시네마틱 이팩트 및 그라데이션 (.allowsHitTesting(false)로 드래그 제스처 방해 차단)
+                        Group {
+                            Color.black.opacity(0.35)
+                            
+                            LinearGradient(
+                                colors: [.black.opacity(0.65), .clear, .black.opacity(0.85)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                            
+                            RadialGradient(
+                                colors: [beast.color.opacity(0.35), .clear],
+                                center: .center,
+                                startRadius: 10,
+                                endRadius: 280
+                            )
+                            .blendMode(.screen)
+                        }
+                        .allowsHitTesting(false)
                         .ignoresSafeArea()
+                        #endif
                         
-                        // 동양적 진기 광원 오버레이
-                        RadialGradient(
-                            colors: [beast.color.opacity(0.35), .clear],
-                            center: .center,
-                            startRadius: 10,
-                            endRadius: 280
-                        )
-                        .ignoresSafeArea()
-                        .blendMode(.screen)
-                        
-                        // UI 요소: 복잡한 이름 태그나 설명은 완전히 배제하여 깔끔함과 고풍스러움을 극대화
+                        // 3. UI 텍스트 오버레이 (.allowsHitTesting(false) 처리로 텍스트 위를 문질러도 스크롤이 작동됨)
                         VStack(spacing: 24) {
                             Spacer()
                             
-                            // 1. 초대형 타이머 렌더링
+                            // 초대형 타이머 렌더링
                             Text(store.currentSessionText)
                                 .font(.system(size: 96, weight: .black, design: .rounded))
                                 .monospacedDigit()
@@ -84,7 +86,7 @@ struct CaveHomeView: View {
                             
                             Spacer()
                             
-                            // 2. 영물이 공부를 강제하는 위엄 넘치는 전통 훈계 문장 한마디
+                            // 영물이 공부를 강제하는 위엄 넘치는 전통 훈계 문장 한마디
                             VStack(spacing: 12) {
                                 Image(systemName: "laurel.leading")
                                     .font(.title3)
@@ -105,39 +107,44 @@ struct CaveHomeView: View {
                             
                             Spacer()
                             
-                            // 3. 신전 귀환 물리 버튼 (화면 전체 탭 제스처를 걷어내어 스크롤 뷰가 부드럽게 작동되도록 함)
-                            Button {
-                                withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
-                                    isImmersiveDismissed = true
-                                }
-                            } label: {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "door.right.hand.closed")
-                                        .font(.system(size: 13))
-                                    Text("神殿歸還 (신전귀환 - 수련실 복귀)")
-                                }
-                                .font(.system(size: 13, weight: .bold, design: .serif))
-                                .foregroundStyle(CaveTheme.gold)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 10)
-                                .background(
-                                    Capsule()
-                                        .fill(Color.black.opacity(0.75))
-                                        .overlay(
-                                            Capsule()
-                                                .strokeBorder(CaveTheme.gold.opacity(0.4), lineWidth: 1)
-                                        )
-                                )
-                            }
-                            .padding(.bottom, 24)
+                            // 신전귀환 버튼 공간용 스페이서
+                            Color.clear.frame(height: 70)
                         }
                         .padding(24)
+                        .allowsHitTesting(false)
+                        
+                        // 4. 최상단 터치 레이어: 신전귀환 물리 복귀 버튼 (터치 활성화)
+                        Button {
+                            withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
+                                isImmersiveDismissed = true
+                            }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "door.right.hand.closed")
+                                    .font(.system(size: 13))
+                                Text("神殿歸還 (신전귀환 - 수련실 복귀)")
+                            }
+                            .font(.system(size: 13, weight: .bold, design: .serif))
+                            .foregroundStyle(CaveTheme.gold)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .background(
+                                Capsule()
+                                    .fill(Color.black.opacity(0.75))
+                                    .overlay(
+                                        Capsule()
+                                            .strokeBorder(CaveTheme.gold.opacity(0.4), lineWidth: 1)
+                                    )
+                            )
+                        }
+                        .padding(.bottom, 24)
                     }
                 }
                 .transition(.opacity)
                 .ignoresSafeArea()
                 .zIndex(100) // 최상단 오버레이 (하단 탭 바, 설정 등 싹 다 가림)
             }
+            
             // 영물별 전용 로컬 이팩트 오버레이
             GeometryReader { geo in
                 let w = geo.size.width

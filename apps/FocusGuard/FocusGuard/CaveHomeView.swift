@@ -7,6 +7,7 @@ struct CaveHomeView: View {
     @State private var rotationAngle: Double = 0.0
     @State private var isShowingTierGuide = false
     @State private var isShowingBeastScroll = false
+    @State private var isImmersiveDismissed = false
     @State private var homeParticles: [HomeParticle] = []
     @State private var homeTimer: Timer? = nil
     
@@ -26,8 +27,98 @@ struct CaveHomeView: View {
     }
 
     var body: some View {
-        ZStack {
+        let hasActiveBeast = store.selectedBeast != "없음"
+        let isImmersiveActive = store.isRunning && hasActiveBeast && !isImmersiveDismissed
+        let activeBeast = wulinBeasts.first(where: { $0.id == store.selectedBeast })
+        
+        return ZStack {
             caveBackground
+            
+            // ── 영물 전체 화면 몰입형 시네마틱 백드롭 (Immersive Beast Backdrop) ──
+            if isImmersiveActive, let beast = activeBeast {
+                ZStack {
+                    // 영물 풀 이미지 백그라운드
+                    WulinImageView(filename: "\(beast.imageName).png", contentMode: .fill)
+                        .scaleEffect(1.05)
+                        .ignoresSafeArea()
+                        .transition(.opacity)
+                    
+                    // 어두운 시네마틱 비네팅 레이어
+                    Color.black.opacity(0.4)
+                        .ignoresSafeArea()
+                    
+                    LinearGradient(
+                        colors: [.black.opacity(0.8), .clear, .black.opacity(0.9)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .ignoresSafeArea()
+                    
+                    // 이팩트 뿜어짐
+                    RadialGradient(
+                        colors: [beast.color.opacity(0.4), .clear],
+                        center: .center,
+                        startRadius: 10,
+                        endRadius: 280
+                    )
+                    .blendMode(.screen)
+                    
+                    // 몰입 모드 전용 UI 요소들
+                    VStack(spacing: 20) {
+                        Spacer()
+                        
+                        // 영물 명칭 태그
+                        HStack(spacing: 8) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 14))
+                                .foregroundStyle(.black)
+                            Text("동반 영물 공명 중")
+                                .font(.system(size: 12, weight: .bold, design: .serif))
+                                .foregroundStyle(.black)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(beast.color)
+                        .clipShape(Capsule())
+                        .shadow(color: beast.color.opacity(0.5), radius: 8)
+                        
+                        Text(beast.name)
+                            .font(.system(size: 28, weight: .black, design: .serif))
+                            .foregroundStyle(.white)
+                            .shadow(color: .black, radius: 8)
+                        
+                        // 초대형 타이머 렌더링
+                        Text(store.currentSessionText)
+                            .font(.system(size: 82, weight: .black, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(.white)
+                            .shadow(color: beast.color.opacity(0.8), radius: 25)
+                            .padding(.vertical, 10)
+                        
+                        Text("공명 효과 : \(beast.buffDesc)")
+                            .font(.system(size: 14, weight: .bold, design: .serif))
+                            .foregroundStyle(CaveTheme.gold)
+                            .shadow(color: .black, radius: 4)
+                        
+                        Spacer()
+                        
+                        Text("화면 아무 곳이나 터치하면 수련 관리창이 나타납니다")
+                            .font(.system(size: 12, weight: .medium, design: .serif))
+                            .foregroundStyle(.white.opacity(0.45))
+                            .padding(.bottom, 24)
+                    }
+                    .padding(24)
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
+                        isImmersiveDismissed = true
+                    }
+                }
+                .transition(.asymmetric(insertion: .opacity, removal: .opacity))
+                .ignoresSafeArea()
+                .zIndex(100) // 최상단 오버레이
+            }
             
             // 영물별 전용 로컬 이팩트 오버레이
             GeometryReader { geo in
@@ -63,7 +154,7 @@ struct CaveHomeView: View {
             .ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: 16) {
                     titleBlock
                     
                     if guardManager.isMockCameraEnabled {
@@ -86,6 +177,27 @@ struct CaveHomeView: View {
                         descriptionCard
                     }
                     
+                    if store.isRunning && hasActiveBeast && isImmersiveDismissed {
+                        Button {
+                            withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
+                                isImmersiveDismissed = false
+                            }
+                        } label: {
+                            HStack {
+                                Image(systemName: "sparkles")
+                                Text("몰입형 영물 전체화면으로 복귀")
+                            }
+                            .font(.system(size: 13, weight: .bold, design: .serif))
+                            .foregroundStyle(.black)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity)
+                            .background(activeBeast?.color ?? CaveTheme.gold)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                        .padding(.horizontal, 4)
+                        .transition(.scale.combined(with: .opacity))
+                    }
+                    
                     controlBlock
                     statsRowBlock
                     recentLogBlock
@@ -106,6 +218,10 @@ struct CaveHomeView: View {
         .onAppear {
             setupHomeParticles()
             startHomeParticles()
+            // 세션 시작 또는 화면 진입 시 상태 리셋
+            if !store.isRunning {
+                isImmersiveDismissed = false
+            }
         }
         .onDisappear {
             homeTimer?.invalidate()
@@ -115,9 +231,15 @@ struct CaveHomeView: View {
             setupHomeParticles()
             startHomeParticles()
         }
-        .onChange(of: store.isRunning) { _ in
+        .onChange(of: store.isRunning) { running in
             setupHomeParticles()
             startHomeParticles()
+            if running {
+                // 수련이 새로 시작될 때 자동으로 다시 전체 몰입 모드 진입
+                isImmersiveDismissed = false
+            } else {
+                isImmersiveDismissed = false
+            }
         }
     }
 
@@ -141,9 +263,9 @@ struct CaveHomeView: View {
 
     private var titleBlock: some View {
         HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text("폐관수련 (閉關修練)")
-                    .font(.system(size: 26, weight: .black, design: .serif))
+                    .font(.system(size: 19, weight: .black, design: .serif))
                     .foregroundStyle(.white)
                 
                 // 실시간 기류 흐름 나레이션
@@ -188,9 +310,10 @@ struct CaveHomeView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
         .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(CaveTheme.panel.opacity(0.88))
         )
         .overlay(

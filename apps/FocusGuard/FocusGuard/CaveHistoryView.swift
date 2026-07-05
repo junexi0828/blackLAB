@@ -1166,15 +1166,15 @@ struct CaveMapView: View {
     func themeSoundscapeKorean(for english: String) -> String {
         switch english {
         case "Tiger Spirit":
-            return "호랑이 기운 소리"
+            return "백호 포효 바람소리"
         case "Lotus Zen":
-            return "산사 목탁과 종소리"
+            return "수호신룡 천룡명상"
         case "Dragon Thunder", "Dragon Focus":
-            return "청룡 뇌우 소리"
+            return "이무기 심연 우레음"
         case "Bamboo Spirit":
-            return "차분한 대나무 바람"
+            return "대붕 설산 바람소리"
         case "Cave Hermit", "Phoenix Focus":
-            return "동굴 낙수 소리"
+            return "용귀 파도 동종소리"
         default:
             return "동굴 낙수 소리"
         }

@@ -262,63 +262,70 @@ struct CaveHomeView: View {
     }
 
     private var titleBlock: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("폐관수련 (閉關修練)")
-                    .font(.system(size: 26, weight: .black, design: .serif))
-                    .foregroundStyle(.white)
+        Button {
+            isShowingTierGuide = true
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("폐관수련 (閉關修練)")
+                        .font(.system(size: 26, weight: .black, design: .serif))
+                        .foregroundStyle(.white)
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(CaveTheme.gold.opacity(0.6))
+                }
                 
                 // 실시간 기류 흐름 나레이션
                 Text(OrientalTimeFormatter.getOrientalTimeNarrative())
                     .font(.system(size: 11, weight: .bold, design: .serif))
                     .foregroundStyle(CaveTheme.gold.opacity(0.85))
                     .lineLimit(2)
+                    .multilineTextAlignment(.leading)
                 
                 // 실시간 수련 공력 (세션 가동 시에만 고풍스럽게 노출)
                 if store.isRunning || store.isPaused {
                     Text("수련 공력 : \(store.currentSessionOrientalText)")
                         .font(.system(size: 13, weight: .black, design: .serif))
                         .foregroundStyle(CaveTheme.ember)
-                        .padding(.top, 2)
                         .transition(.opacity.combined(with: .scale(scale: 0.95)))
                 }
-            }
-            Spacer()
-            
-            // Dynamic Tier Badge (버튼식 팝업 호출)
-            Button {
-                isShowingTierGuide = true
-            } label: {
-                VStack(spacing: 4) {
+                
+                // 수련 경지 배너를 하단에 가로로 길게 배치 (절대 잘리지 않고 일체감을 줌)
+                HStack(spacing: 6) {
                     Image(systemName: "flame.fill")
-                        .font(.system(size: 16))
+                        .font(.system(size: 12))
                         .foregroundStyle(CaveTheme.ember)
-                    Text(store.userTierKoreanOnly)
-                        .font(.system(size: 11, weight: .bold, design: .serif))
+                    Text("현재 경지: \(store.userTierKoreanOnly)")
+                        .font(.system(size: 12, weight: .bold, design: .serif))
                         .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(
-                            Capsule()
-                                .fill(CaveTheme.gold.opacity(0.15))
-                                .overlay(
-                                    Capsule()
-                                        .strokeBorder(CaveTheme.gold.opacity(0.35), lineWidth: 1)
-                                )
-                        )
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule()
+                        .fill(CaveTheme.gold.opacity(0.12))
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(CaveTheme.gold.opacity(0.3), lineWidth: 1)
+                        )
+                )
+                .padding(.top, 2)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(18)
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(CaveTheme.panel.opacity(0.88))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(CaveTheme.gold.opacity(0.24), lineWidth: 1)
+            )
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(CaveTheme.panel.opacity(0.88))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(CaveTheme.gold.opacity(0.24), lineWidth: 1)
-        )
+        .buttonStyle(.plain)
     }
     
     private var giantBeastCanvas: some View {

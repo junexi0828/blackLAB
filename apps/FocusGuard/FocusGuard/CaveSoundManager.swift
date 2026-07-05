@@ -249,7 +249,7 @@ final class CaveSoundManager {
             if let rainURL = getBundleOrCachedURL(filename: "rain_loop.mp3") {
                 backgroundPlayer = try? AVAudioPlayer(contentsOf: rainURL)
                 backgroundPlayer?.numberOfLoops = -1
-                backgroundPlayer?.volume = 0.15
+                backgroundPlayer?.volume = 0.42 // 빗소리 배경 볼륨 상향 (0.15 -> 0.42)
                 backgroundPlayer?.play()
             }
             setupAudioEngineIfNeeded()
@@ -654,10 +654,12 @@ final class CaveSoundManager {
         
         for i in 0..<Int(frameCount) {
             let t = Float(i) / sampleRate
-            // 이무기: 90Hz 초저음 서브 베이스의 파동비트 합성 (심연의 동굴 울림 효과)
-            let wave = sin(2.0 * Float.pi * 90.0 * t + sin(2.0 * Float.pi * 1.5 * t) * 0.8)
-            let decay = exp(-t * 0.5)
-            channelData?[i] = Float(wave) * decay * 0.35
+            // 휴대폰 스피커에서도 묵직하게 잘 들리도록 주파수를 160Hz로 튜닝하고 320Hz 배음을 섞어 고급진 질감 묘사
+            let baseWave = sin(2.0 * Float.pi * 160.0 * t + sin(2.0 * Float.pi * 2.0 * t) * 0.9)
+            let harmonicWave = 0.4 * sin(2.0 * Float.pi * 320.0 * t)
+            let decay = exp(-t * 0.4)
+            // 진폭 볼륨을 0.35에서 0.90으로 상향하여 위압감 있는 타격감 부여
+            channelData?[i] = Float(baseWave + harmonicWave) * decay * 0.90
         }
         return buffer
     }

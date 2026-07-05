@@ -105,25 +105,39 @@ struct CaveHomeView: View {
                             
                             Spacer()
                             
-                            Text("화면을 터치하면 단전을 닫고 수련 관리 영역으로 복귀합니다")
-                                .font(.system(size: 11, weight: .medium, design: .serif))
-                                .foregroundStyle(.white.opacity(0.4))
-                                .padding(.bottom, 24)
+                            // 3. 신전 귀환 물리 버튼 (화면 전체 탭 제스처를 걷어내어 스크롤 뷰가 부드럽게 작동되도록 함)
+                            Button {
+                                withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
+                                    isImmersiveDismissed = true
+                                }
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "door.right.hand.closed")
+                                        .font(.system(size: 13))
+                                    Text("神殿歸還 (신전귀환 - 수련실 복귀)")
+                                }
+                                .font(.system(size: 13, weight: .bold, design: .serif))
+                                .foregroundStyle(CaveTheme.gold)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 10)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.black.opacity(0.75))
+                                        .overlay(
+                                            Capsule()
+                                                .strokeBorder(CaveTheme.gold.opacity(0.4), lineWidth: 1)
+                                        )
+                                )
+                            }
+                            .padding(.bottom, 24)
                         }
                         .padding(24)
-                    }
-                }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
-                        isImmersiveDismissed = true
                     }
                 }
                 .transition(.opacity)
                 .ignoresSafeArea()
                 .zIndex(100) // 최상단 오버레이 (하단 탭 바, 설정 등 싹 다 가림)
             }
-            
             // 영물별 전용 로컬 이팩트 오버레이
             GeometryReader { geo in
                 let w = geo.size.width
@@ -181,14 +195,21 @@ struct CaveHomeView: View {
                         } label: {
                             HStack {
                                 Image(systemName: "scroll.fill")
-                                Text("靈物共鳴 幻影入境 (영물 전체 가로화면 복귀)")
+                                Text("靈物共鳴 幻影入境 (영물 몰입 화면 진입)")
                             }
-                            .font(.system(size: 13, weight: .bold, design: .serif))
-                            .foregroundStyle(.black)
-                            .padding(.vertical, 12)
+                            .font(.system(size: 14, weight: .black, design: .serif))
+                            .foregroundStyle(CaveTheme.gold)
+                            .padding(.vertical, 14)
                             .frame(maxWidth: .infinity)
-                            .background(activeBeast?.color ?? CaveTheme.gold)
+                            .background(
+                                ZStack {
+                                    Color(white: 0.07)
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .strokeBorder(CaveTheme.gold.opacity(0.6), lineWidth: 1.5)
+                                }
+                            )
                             .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .shadow(color: .black.opacity(0.6), radius: 6, y: 3)
                         }
                         .padding(.horizontal, 4)
                         .transition(.scale.combined(with: .opacity))

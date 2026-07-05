@@ -28,6 +28,9 @@ struct CaveMainView: View {
             customTabBar
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
+        .onChange(of: selectedTab) { newTab in
+            FocusGuardManager.shared.isSuspended = (newTab != 0)
+        }
     }
 
     private var customTabBar: some View {

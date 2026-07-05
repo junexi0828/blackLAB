@@ -18,7 +18,9 @@ final class FocusGuardManager: ObservableObject {
     @Published var isSpeechDisabled: Bool = false
     @Published var startupGraceSeconds: TimeInterval = 5.0
     @Published var warningThresholdSeconds: TimeInterval = 3.0
-    @Published var failThresholdSeconds: TimeInterval = 8.0
+        @Published var failThresholdSeconds: TimeInterval = 8.0
+
+    @Published var isSuspended: Bool = false // 감시 일시 예외 상태 추가
 
     @Published var isFacePresent: Bool = true {
         didSet {
@@ -108,6 +110,14 @@ final class FocusGuardManager: ObservableObject {
 
     private func updateTracking() {
         guard let sessionStartTime = sessionStartTime else { return }
+        
+        // 상점, 설정, 영물 스크롤 팝업이 활성화되었거나 다른 탭으로 이동 시 감시 일시 유예
+        if isSuspended {
+            lastFaceDetectedTime = Date()
+            state = .normal
+            absentDuration = 0
+            return
+        }
         
         let elapsedSinceStart = Date().timeIntervalSince(sessionStartTime)
         

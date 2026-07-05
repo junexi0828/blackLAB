@@ -1424,7 +1424,7 @@ extension CaveMapView {
                                 npcMessage = "소음을 지워 정신을 맑게 가다듬소."
                             }
                         } else {
-                            CaveSoundManager.shared.start(soundscape: targetSound)
+                            CaveSoundManager.shared.start(soundscape: targetSound, isPast: isPastEra)
                             store.selectedSoundscape = targetSound
                             withAnimation {
                                 npcMessage = "강호의 한 자락 정취를 깨웠소."
@@ -1756,8 +1756,12 @@ extension CaveMapView {
         .onChange(of: activeMapIndex) { _ in
             setupJingiParticles()
         }
-        .onChange(of: isPastEra) { _ in
+        .onChange(of: isPastEra) { newValue in
             setupJingiParticles()
+            let targetSound = themeSoundscapeKorean(for: activeRegion.themeSoundscape)
+            if store.selectedSoundscape == targetSound {
+                CaveSoundManager.shared.start(soundscape: targetSound, isPast: newValue)
+            }
         }
     }
     

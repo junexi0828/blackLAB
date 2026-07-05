@@ -255,6 +255,12 @@ struct CaveHomeView: View {
         .sheet(isPresented: $isShowingBeastScroll) {
             WulinBeastScrollView(store: store)
         }
+        .onChange(of: isShowingTierGuide) { val in
+            FocusGuardManager.shared.isSuspended = val || isShowingBeastScroll
+        }
+        .onChange(of: isShowingBeastScroll) { val in
+            FocusGuardManager.shared.isSuspended = val || isShowingTierGuide
+        }
         .onAppear {
             setupHomeParticles()
             startHomeParticles()

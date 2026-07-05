@@ -126,7 +126,7 @@ final class CaveSoundManager {
     }
     
     // MARK: - 사운드 테라피 시작
-    func start(soundscape: String) {
+    func start(soundscape: String, isPast: Bool = false) {
         stop()
         currentSoundscape = soundscape
         guard soundscape != "없음" else { return }
@@ -149,7 +149,7 @@ final class CaveSoundManager {
                 setupAudioEngineIfNeeded()
                 if let engine = audioEngine, playerNode != nil {
                     if !engine.isRunning { try? engine.start() }
-                    reverbNode?.wetDryMix = 75
+                    reverbNode?.wetDryMix = isPast ? 90 : 75
                     
                     dripTimer = Timer.scheduledTimer(withTimeInterval: 4.2, repeats: true) { [weak self] _ in
                         Task { @MainActor in
@@ -170,7 +170,7 @@ final class CaveSoundManager {
                 setupAudioEngineIfNeeded()
                 if let engine = audioEngine, let player = playerNode {
                     if !engine.isRunning { try? engine.start() }
-                    reverbNode?.wetDryMix = 45
+                    reverbNode?.wetDryMix = isPast ? 60 : 45
                     
                     if let noiseBuffer = generateNoiseBuffer() {
                         player.scheduleBuffer(noiseBuffer, at: nil, options: .loops, completionHandler: nil)
@@ -264,7 +264,7 @@ final class CaveSoundManager {
             setupAudioEngineIfNeeded()
             if let engine = audioEngine, let player = playerNode {
                 if !engine.isRunning { try? engine.start() }
-                reverbNode?.wetDryMix = 80
+                reverbNode?.wetDryMix = isPast ? 95 : 80
                 
                 dripTimer = Timer.scheduledTimer(withTimeInterval: 8.0, repeats: true) { [weak self] _ in
                     Task { @MainActor in
@@ -279,7 +279,7 @@ final class CaveSoundManager {
             setupAudioEngineIfNeeded()
             if let engine = audioEngine, let player = playerNode {
                 if !engine.isRunning { try? engine.start() }
-                reverbNode?.wetDryMix = 25
+                reverbNode?.wetDryMix = isPast ? 40 : 25
                 
                 dripTimer = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: true) { [weak self] _ in
                     Task { @MainActor in
@@ -294,7 +294,7 @@ final class CaveSoundManager {
             setupAudioEngineIfNeeded()
             if let engine = audioEngine, let player = playerNode {
                 if !engine.isRunning { try? engine.start() }
-                reverbNode?.wetDryMix = 50
+                reverbNode?.wetDryMix = isPast ? 65 : 50
                 
                 if let noiseBuffer = generateNoiseBuffer() {
                     player.scheduleBuffer(noiseBuffer, at: nil, options: .loops, completionHandler: nil)
@@ -317,7 +317,7 @@ final class CaveSoundManager {
             setupAudioEngineIfNeeded()
             if let engine = audioEngine, let player = playerNode {
                 if !engine.isRunning { try? engine.start() }
-                reverbNode?.wetDryMix = 60
+                reverbNode?.wetDryMix = isPast ? 75 : 60
                 
                 if let noiseBuffer = generateNoiseBuffer() {
                     player.scheduleBuffer(noiseBuffer, at: nil, options: .loops, completionHandler: nil)

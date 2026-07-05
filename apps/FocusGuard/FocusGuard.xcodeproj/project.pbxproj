@@ -207,11 +207,11 @@
 		B22BD27A7DB84AE0D906B5F7 /* past_wulin_hwasan_secret.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = past_wulin_hwasan_secret.jpg; sourceTree = "<group>"; };
 		B2A4D2EA753B96009A797CF5 /* wulin_hwasan_return_1783226575087.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_hwasan_return_1783226575087.jpg; sourceTree = "<group>"; };
 		B5ADDB72BE72D00682670C6A /* FocusGuardUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FocusGuardUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		B77FE8C031EBBFCD99C84E3B /* CaveWidgetExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = CaveWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B77FE8C031EBBFCD99C84E3B /* CaveWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CaveWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA42FF148A33D9CD3D20B5B5 /* CaveSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaveSettingsView.swift; sourceTree = "<group>"; };
 		BDC50D128F5592988DBAB927 /* past_wulin_npc_yeowun.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = past_wulin_npc_yeowun.png; sourceTree = "<group>"; };
 		BEF6D0ACA48B910A5F29169B /* CaveTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaveTheme.swift; sourceTree = "<group>"; };
-		C5A9A6B3A2300DE7E4C6F25B /* FocusGuard.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FocusGuard.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C5A9A6B3A2300DE7E4C6F25B /* 폐관수련.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "폐관수련.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C6F95C8A0271DF191C79149C /* wulin_avatar_limsobyeong.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_avatar_limsobyeong.jpg; sourceTree = "<group>"; };
 		C7034F05BE4B79623D7F5BB6 /* wulin_avatar_murimleague.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = wulin_avatar_murimleague.jpg; sourceTree = "<group>"; };
 		CC366F4BEB443162CF024955 /* FocusStudyActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusStudyActivity.swift; sourceTree = "<group>"; };
@@ -356,7 +356,7 @@
 			isa = PBXGroup;
 			children = (
 				B77FE8C031EBBFCD99C84E3B /* CaveWidgetExtension.appex */,
-				C5A9A6B3A2300DE7E4C6F25B /* FocusGuard.app */,
+				C5A9A6B3A2300DE7E4C6F25B /* 폐관수련.app */,
 				B5ADDB72BE72D00682670C6A /* FocusGuardUITests.xctest */,
 			);
 			name = Products;
@@ -382,7 +382,7 @@
 			packageProductDependencies = (
 			);
 			productName = FocusGuard;
-			productReference = C5A9A6B3A2300DE7E4C6F25B /* FocusGuard.app */;
+			productReference = C5A9A6B3A2300DE7E4C6F25B /* 폐관수련.app */;
 			productType = "com.apple.product-type.application";
 		};
 		9905197CF493EE87FAE48CC8 /* CaveWidgetExtension */ = {
@@ -431,11 +431,9 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					6DF3988E425C2007636B04F9 = {
-						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 					9905197CF493EE87FAE48CC8 = {
-						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 					E79679DF1CA72B68656F2670 = {
@@ -780,6 +778,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = FocusGuard/FocusGuard.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = LTR32SJ42C;
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -811,6 +810,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = CaveWidgetExtension/CaveWidgetExtension.entitlements;
+				DEVELOPMENT_TEAM = LTR32SJ42C;
 				INFOPLIST_FILE = CaveWidgetExtension/Info.plist;
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
@@ -831,6 +831,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = CaveWidgetExtension/CaveWidgetExtension.entitlements;
+				DEVELOPMENT_TEAM = LTR32SJ42C;
 				INFOPLIST_FILE = CaveWidgetExtension/Info.plist;
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
@@ -853,6 +854,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = FocusGuard/FocusGuard.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = LTR32SJ42C;
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

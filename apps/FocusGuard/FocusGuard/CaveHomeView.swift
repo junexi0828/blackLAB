@@ -70,11 +70,22 @@ struct CaveHomeView: View {
                         focusGuardStatusBlock
                     }
                     
-                    spiritBeastCinematicBanner
+                    if store.selectedBeast != "없음" {
+                        // 영물이 소환된 동안에는 거대 원형 캔버스와 기본 설명란을 완전히 숨기고,
+                        // 시네마틱 16:9 와이드 카드와 타이머를 조화롭게 배치하여 극적인 영물 뷰를 연출합니다.
+                        spiritBeastCinematicBanner
+                        
+                        giantTimerView
+                            .padding(.top, -10)
+                    } else {
+                        // 영물이 소환되지 않았을 때의 원래 기본 원형 레이아웃
+                        spiritBeastCinematicBanner
+                        
+                        giantBeastCanvas
+                        giantTimerView
+                        descriptionCard
+                    }
                     
-                    giantBeastCanvas
-                    giantTimerView
-                    descriptionCard
                     controlBlock
                     statsRowBlock
                     recentLogBlock
@@ -845,11 +856,12 @@ struct WulinBeastScrollView: View {
                             VStack(spacing: 0) {
                                 // 16:9 와이드 시네마틱 프레임
                                 ZStack(alignment: .bottomLeading) {
-                                    Image(beast.imageName)
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                        .frame(height: 180)
-                                        .clipped()
+                                    WulinImageView(
+                                        filename: "\(beast.imageName).png",
+                                        contentMode: .fill
+                                    )
+                                    .frame(height: 180)
+                                    .clipped()
                                     
                                     LinearGradient(
                                         colors: [.clear, .black.opacity(0.85)],
@@ -951,11 +963,12 @@ extension CaveHomeView {
             if let beast = beast {
                 VStack(spacing: 0) {
                     ZStack(alignment: .bottomLeading) {
-                        Image(beast.imageName)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(height: 180)
-                            .clipped()
+                        WulinImageView(
+                            filename: "\(beast.imageName).png",
+                            contentMode: .fill
+                        )
+                        .frame(height: 180)
+                        .clipped()
                         
                         LinearGradient(
                             colors: [.clear, .black.opacity(0.8)],

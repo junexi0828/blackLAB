@@ -245,43 +245,50 @@ final class CaveSoundManager {
             playActualSubtleBell()
             
         } else if soundscape == "이무기 심연 우레음" {
-            // 이무기: 빗소리 + 20초마다 천둥소리 격발
+            // 이무기: 일반 빗소리 외에 심연의 동굴에서 울리는 90Hz 초저음 기류 비트 + 리버브 98% 낙수와 벼락
             if let rainURL = getBundleOrCachedURL(filename: "rain_loop.mp3") {
                 backgroundPlayer = try? AVAudioPlayer(contentsOf: rainURL)
                 backgroundPlayer?.numberOfLoops = -1
-                backgroundPlayer?.volume = 0.20
+                backgroundPlayer?.volume = 0.15
                 backgroundPlayer?.play()
             }
-            dripTimer = Timer.scheduledTimer(withTimeInterval: 20.0, repeats: true) { [weak self] _ in
-                Task { @MainActor in
-                    self?.playActualThunder()
-                }
-            }
-            playActualThunder()
-            
-        } else if soundscape == "수호신룡 천룡명상" {
-            // 영룡: 명상 싱잉볼 소리를 실시간 주파수 합성 재생 (마음의 파동 평정)
             setupAudioEngineIfNeeded()
             if let engine = audioEngine, let player = playerNode {
                 if !engine.isRunning { try? engine.start() }
-                reverbNode?.wetDryMix = isPast ? 95 : 80
+                reverbNode?.wetDryMix = isPast ? 98 : 92
                 
-                dripTimer = Timer.scheduledTimer(withTimeInterval: 8.0, repeats: true) { [weak self] _ in
+                // 7초마다 심연의 흑뢰 기류 소리 합성 재생
+                dripTimer = Timer.scheduledTimer(withTimeInterval: 7.0, repeats: true) { [weak self] _ in
                     Task { @MainActor in
-                        self?.playSingingBowl()
+                        self?.playAbyssRumble()
                     }
                 }
-                playSingingBowl()
+                playAbyssRumble()
+            }
+            
+        } else if soundscape == "수호신룡 천룡명상" {
+            // 영룡: 산사 목탁 대신 천상의 2음역 싱잉볼과 무작위 고주파 풍경(Wind Chime) 음을 엮어 무아지경 유도
+            setupAudioEngineIfNeeded()
+            if let engine = audioEngine, let player = playerNode {
+                if !engine.isRunning { try? engine.start() }
+                reverbNode?.wetDryMix = isPast ? 95 : 85
+                
+                dripTimer = Timer.scheduledTimer(withTimeInterval: 6.0, repeats: true) { [weak self] _ in
+                    Task { @MainActor in
+                        self?.playCelestialChime()
+                    }
+                }
+                playCelestialChime()
             }
             
         } else if soundscape == "화기린 겁화 모닥불" {
-            // 화기린: 타닥타닥 튀는 모닥불 소리를 0.6초 주기로 랜덤 합성 재생
+            // 화기린: 따뜻한 110Hz 저음 노이즈 베이스 루프 + 0.4초 주기의 탁탁 튀는 겁화 불꽃 스파크
             setupAudioEngineIfNeeded()
             if let engine = audioEngine, let player = playerNode {
                 if !engine.isRunning { try? engine.start() }
-                reverbNode?.wetDryMix = isPast ? 40 : 25
+                reverbNode?.wetDryMix = isPast ? 45 : 30
                 
-                dripTimer = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: true) { [weak self] _ in
+                dripTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in
                     Task { @MainActor in
                         self?.playFireCrackle()
                     }
@@ -290,11 +297,11 @@ final class CaveSoundManager {
             }
             
         } else if soundscape == "대붕 설산 바람소리" {
-            // 대붕: 350Hz~550Hz 대역의 쓸쓸한 만년설 혹한풍 노이즈 스위핑 합성 재생
+            // 대붕: 휭휭 휘파람 부는 혹한의 칼바람 소리 스위핑 + 만년설을 깨우는 차가운 얼음 유리 종(Glacier Bell) 선율
             setupAudioEngineIfNeeded()
             if let engine = audioEngine, let player = playerNode {
                 if !engine.isRunning { try? engine.start() }
-                reverbNode?.wetDryMix = isPast ? 65 : 50
+                reverbNode?.wetDryMix = isPast ? 75 : 55
                 
                 if let noiseBuffer = generateNoiseBuffer() {
                     player.scheduleBuffer(noiseBuffer, at: nil, options: .loops, completionHandler: nil)
@@ -302,22 +309,30 @@ final class CaveSoundManager {
                 }
                 
                 windAngle = 0.0
-                windTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] _ in
+                windTimer = Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { [weak self] _ in
                     Task { @MainActor in
                         guard let self = self else { return }
-                        self.windAngle += 0.09
-                        let frequency = 350.0 + 200.0 * sin(self.windAngle)
+                        self.windAngle += 0.15
+                        let frequency = 450.0 + 280.0 * sin(self.windAngle) // 바람 소리 고조
                         self.eqNode?.bands[0].frequency = Float(frequency)
                     }
                 }
+                
+                // 9초마다 대붕의 유리종 소리 격발
+                dripTimer = Timer.scheduledTimer(withTimeInterval: 9.0, repeats: true) { [weak self] _ in
+                    Task { @MainActor in
+                        self?.playGlacierBell()
+                    }
+                }
+                playGlacierBell()
             }
             
         } else if soundscape == "용귀 파도 동종소리" {
-            // 용귀: 6초 주기로 파도가 밀려들고 쓸려나가는 화이트 노이즈 볼륨 모듈레이션 + 45초 주기 범종
+            // 용귀: 8초 주기로 밀물과 썰물이 오가는 백색소음 볼륨 스윕 + 용귀의 무거운 발걸음 같은 55Hz 초저음 심연 동종
             setupAudioEngineIfNeeded()
             if let engine = audioEngine, let player = playerNode {
                 if !engine.isRunning { try? engine.start() }
-                reverbNode?.wetDryMix = isPast ? 75 : 60
+                reverbNode?.wetDryMix = isPast ? 80 : 65
                 
                 if let noiseBuffer = generateNoiseBuffer() {
                     player.scheduleBuffer(noiseBuffer, at: nil, options: .loops, completionHandler: nil)
@@ -328,29 +343,33 @@ final class CaveSoundManager {
                 windTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
                     Task { @MainActor in
                         guard let self = self else { return }
-                        self.windAngle += 0.05
-                        let volume = 0.1 + 0.3 * (0.5 + 0.5 * sin(self.windAngle))
+                        self.windAngle += 0.04
+                        let volume = 0.05 + 0.35 * (0.5 + 0.5 * sin(self.windAngle))
                         self.playerNode?.volume = Float(volume)
                     }
                 }
                 
-                dripTimer = Timer.scheduledTimer(withTimeInterval: 45.0, repeats: true) { [weak self] _ in
+                dripTimer = Timer.scheduledTimer(withTimeInterval: 28.0, repeats: true) { [weak self] _ in
                     Task { @MainActor in
-                        self?.playActualSubtleBell()
+                        self?.playDeepTurtleBell()
                     }
                 }
-                playActualSubtleBell()
+                playDeepTurtleBell()
             }
             
         } else if soundscape == "백호 포효 바람소리" {
-            // 백호: 거친 백호 숨소리와 35초 주기 우렁찬 호랑이 포효 격발
-            if let breathURL = getBundleOrCachedURL(filename: "tiger_breath.mp3") {
-                backgroundPlayer = try? AVAudioPlayer(contentsOf: breathURL)
-                backgroundPlayer?.numberOfLoops = -1
-                backgroundPlayer?.volume = 0.50
-                backgroundPlayer?.play()
+            // 백호: 일반 호랑이 소리와 차별화되도록 성난 절벽 폭풍우 소리 + 주파수 변조된 신화적 울음소리 연출
+            setupAudioEngineIfNeeded()
+            if let engine = audioEngine, let player = playerNode {
+                if !engine.isRunning { try? engine.start() }
+                reverbNode?.wetDryMix = isPast ? 70 : 50
+                
+                if let noiseBuffer = generateNoiseBuffer() {
+                    player.scheduleBuffer(noiseBuffer, at: nil, options: .loops, completionHandler: nil)
+                    player.play()
+                }
             }
-            dripTimer = Timer.scheduledTimer(withTimeInterval: 35.0, repeats: true) { [weak self] _ in
+            dripTimer = Timer.scheduledTimer(withTimeInterval: 20.0, repeats: true) { [weak self] _ in
                 Task { @MainActor in
                     self?.playActualTigerRoar()
                 }
@@ -358,6 +377,8 @@ final class CaveSoundManager {
             playActualTigerRoar()
         }
     }
+    
+    
     
     func stop() {
         dripTimer?.invalidate()
@@ -610,7 +631,126 @@ final class CaveSoundManager {
         }
         return buffer
     }
+
+    // ── 신규 고품질 실시간 음향 합성기들 (기본음과 완전히 차별화) ──
     
+    private func playAbyssRumble() {
+        guard let engine = audioEngine, engine.isRunning, let player = playerNode else { return }
+        if let buffer = generateAbyssRumbleBuffer() {
+            player.scheduleBuffer(buffer, at: nil, options: [], completionHandler: nil)
+            if !player.isPlaying { player.play() }
+        }
+    }
+    
+    private func generateAbyssRumbleBuffer() -> AVAudioPCMBuffer? {
+        let sampleRate: Float = 44100.0
+        let duration: Float = 4.0
+        let frameCount = AVAudioFrameCount(sampleRate * duration)
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: Double(sampleRate), channels: 1),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return nil }
+        
+        buffer.frameLength = frameCount
+        let channelData = buffer.floatChannelData?[0]
+        
+        for i in 0..<Int(frameCount) {
+            let t = Float(i) / sampleRate
+            // 이무기: 90Hz 초저음 서브 베이스의 파동비트 합성 (심연의 동굴 울림 효과)
+            let wave = sin(2.0 * Float.pi * 90.0 * t + sin(2.0 * Float.pi * 1.5 * t) * 0.8)
+            let decay = exp(-t * 0.5)
+            channelData?[i] = Float(wave) * decay * 0.35
+        }
+        return buffer
+    }
+    
+    private func playCelestialChime() {
+        guard let engine = audioEngine, engine.isRunning, let player = playerNode else { return }
+        if let buffer = generateCelestialChimeBuffer() {
+            player.scheduleBuffer(buffer, at: nil, options: [], completionHandler: nil)
+            if !player.isPlaying { player.play() }
+        }
+    }
+    
+    private func generateCelestialChimeBuffer() -> AVAudioPCMBuffer? {
+        let sampleRate: Float = 44100.0
+        let duration: Float = 6.0
+        let frameCount = AVAudioFrameCount(sampleRate * duration)
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: Double(sampleRate), channels: 1),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return nil }
+        
+        buffer.frameLength = frameCount
+        let channelData = buffer.floatChannelData?[0]
+        
+        for i in 0..<Int(frameCount) {
+            let t = Float(i) / sampleRate
+            // 영룡: 2음역 싱잉볼(150Hz + 300Hz) 명상 드론 + 천상의 고주파 풍경소리(2200Hz) 랜덤 비팅
+            let bowl1 = sin(2.0 * Float.pi * 150.0 * t) * exp(-t * 0.3)
+            let bowl2 = 0.5 * sin(2.0 * Float.pi * 300.0 * t) * exp(-t * 0.5)
+            let chime = 0.12 * sin(2.0 * Float.pi * 2200.0 * t) * exp(-t * 3.5)
+            channelData?[i] = (Float(bowl1 + bowl2 + chime)) * 0.30
+        }
+        return buffer
+    }
+    
+    private func playGlacierBell() {
+        guard let engine = audioEngine, engine.isRunning, let player = playerNode else { return }
+        if let buffer = generateGlacierBellBuffer() {
+            player.scheduleBuffer(buffer, at: nil, options: [], completionHandler: nil)
+            if !player.isPlaying { player.play() }
+        }
+    }
+    
+    private func generateGlacierBellBuffer() -> AVAudioPCMBuffer? {
+        let sampleRate: Float = 44100.0
+        let duration: Float = 5.0
+        let frameCount = AVAudioFrameCount(sampleRate * duration)
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: Double(sampleRate), channels: 1),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return nil }
+        
+        buffer.frameLength = frameCount
+        let channelData = buffer.floatChannelData?[0]
+        
+        for i in 0..<Int(frameCount) {
+            let t = Float(i) / sampleRate
+            // 대붕: 뼛속까지 시린 유리 구슬종 주파수 합성 (1700Hz + 2400Hz 교차 변조)
+            let bell1 = sin(2.0 * Float.pi * 1700.0 * t)
+            let bell2 = sin(2.0 * Float.pi * 2400.0 * t)
+            let beat = 0.5 + 0.5 * sin(2.0 * Float.pi * 2.0 * t) // 2Hz 비팅
+            let decay = exp(-t * 1.5)
+            channelData?[i] = Float(bell1 + bell2) * Float(beat) * decay * 0.08
+        }
+        return buffer
+    }
+    
+    private func playDeepTurtleBell() {
+        guard let engine = audioEngine, engine.isRunning, let player = playerNode else { return }
+        if let buffer = generateDeepTurtleBellBuffer() {
+            player.scheduleBuffer(buffer, at: nil, options: [], completionHandler: nil)
+            if !player.isPlaying { player.play() }
+        }
+    }
+    
+    private func generateDeepTurtleBellBuffer() -> AVAudioPCMBuffer? {
+        let sampleRate: Float = 44100.0
+        let duration: Float = 8.0 // 매우 긴 서스테인
+        let frameCount = AVAudioFrameCount(sampleRate * duration)
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: Double(sampleRate), channels: 1),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return nil }
+        
+        buffer.frameLength = frameCount
+        let channelData = buffer.floatChannelData?[0]
+        
+        for i in 0..<Int(frameCount) {
+            let t = Float(i) / sampleRate
+            // 용귀: 용귀의 바다속 웅장함이 엮인 55Hz 초저역 서브 쿵하는 동종 배음
+            let f1: Float = 55.0
+            let overtone = 110.0 * sin(2.0 * Float.pi * 110.0 * t) * exp(-t * 1.0)
+            let wave = sin(2.0 * Float.pi * f1 * t + Float(overtone) * 0.05)
+            let decay = exp(-t * 0.25)
+            channelData?[i] = Float(wave) * decay * 0.40
+        }
+        return buffer
+    }
+
     private func setupRemoteCommandCenter() {
         let cc = MPRemoteCommandCenter.shared()
         cc.playCommand.isEnabled = true

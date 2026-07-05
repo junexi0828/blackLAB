@@ -163,6 +163,12 @@ final class StudySessionStore: ObservableObject {
             userDefaults?.set(isNanomachineUnlocked, forKey: "settings.isNanomachineUnlocked")
         }
     }
+    
+    @Published var selectedBeast: String {
+        didSet {
+            userDefaults?.set(selectedBeast, forKey: "settings.selectedBeast")
+        }
+    }
 
     
     /// 개발자 테스트: 모든 강호 지역·비경 즉시 접근
@@ -240,6 +246,7 @@ final class StudySessionStore: ObservableObject {
         self.isHwasanSecretUnlocked = defaults?.bool(forKey: "settings.isHwasanSecretUnlocked") ?? false
         self.isNanomachineUnlocked = defaults?.bool(forKey: "settings.isNanomachineUnlocked") ?? false
         self.isDevAllMapsUnlocked = defaults?.bool(forKey: "settings.isDevAllMapsUnlocked") ?? false
+        self.selectedBeast = defaults?.string(forKey: "settings.selectedBeast") ?? "없음"
         
         // 날짜가 자정을 넘었으면 비무 초기화 작동
         self.checkDailyReset()
@@ -453,6 +460,7 @@ final class StudySessionStore: ObservableObject {
         userDefaults?.removeObject(forKey: "settings.isHwasanSecretUnlocked")
         userDefaults?.removeObject(forKey: "settings.isNanomachineUnlocked")
         userDefaults?.removeObject(forKey: "settings.isDevAllMapsUnlocked")
+        userDefaults?.removeObject(forKey: "settings.selectedBeast")
         
         isFocusGuardActive = true
         isMockCameraEnabledSetting = false
@@ -463,6 +471,7 @@ final class StudySessionStore: ObservableObject {
         selectedSoundscape = "없음"
         progressCycleType = "1각 (15분)"
         isBreakthroughFeedbackEnabled = true
+        selectedBeast = "없음"
         
         persist()
     }

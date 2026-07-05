@@ -870,6 +870,18 @@ struct CaveMapView: View {
     @State var sparringSuccess: Bool = false
     @State var sparringLog: String = ""
     
+    enum ParticleEffectType {
+        case jingi        // 금빛 진기 (기본 / 소림사)
+        case yinYang      // 태극 기류 (흑백 바람 기운 - 무당파)
+        case plumBlossom  // 낙화 매화 (매화 꽃잎 - 화산파)
+        case demonicMist  // 자흑색 마기 (마교 / 천마신교)
+        case fireSparks   // 불꽃 불씨 (녹림채)
+        case bambooLeaves // 대나무 잎 (개방)
+        case lightning    // 뇌전 전격 (청성파)
+        case hermitFog    // 은거 안개 (무명의 오두막)
+        case swordQi      // 날카로운 검기 (무림맹)
+    }
+
     struct JingiParticle: Identifiable {
         let id = UUID()
         var x: CGFloat
@@ -877,6 +889,10 @@ struct CaveMapView: View {
         var size: CGFloat
         var opacity: Double
         var speed: CGFloat
+        var rotation: Double = 0.0
+        var drift: CGFloat = 0.0
+        var color: Color = .yellow
+        var effectType: ParticleEffectType = .jingi
     }
     
     // 시대에 따른 비경 배경화면 매핑 (과거: 수채화 배경만 사용, 현재: 원본 컬러 일러스트 배경만 사용)
@@ -1201,14 +1217,86 @@ extension CaveMapView {
             )
             .ignoresSafeArea()
             
-            // 진기(황금빛 입자) 흐름 렌더링
+            // 각 문파 및 구역 특색에 따른 다채로운 진기/기류/원소 이팩트 엔진
             GeometryReader { geo in
+                let w = geo.size.width
+                let h = geo.size.height
+                
                 ZStack {
                     ForEach(jingiParticles) { p in
-                        Circle()
-                            .fill(CaveTheme.gold.opacity(p.opacity))
-                            .frame(width: p.size, height: p.size)
-                            .position(x: p.x * geo.size.width, y: p.y * geo.size.height)
+                        Group {
+                            switch p.effectType {
+                            case .jingi:
+                                // 소림사 / 기본: 은은하게 흐르는 황금빛 진기 입자
+                                Circle()
+                                    .fill(p.color.opacity(p.opacity))
+                                    .frame(width: p.size, height: p.size)
+                                    .blur(radius: 0.5)
+                                
+                            case .yinYang:
+                                // 무당파: 흑백 태극의 기운이 깃든 바람 안개
+                                Circle()
+                                    .fill(p.color.opacity(p.opacity))
+                                    .frame(width: p.size * 2, height: p.size * 2)
+                                    .blur(radius: p.size * 0.4)
+                                
+                            case .plumBlossom:
+                                // 화산파: 사방에 낙화하며 살랑살랑 휘날리는 매화 꽃잎
+                                Path { path in
+                                    path.move(to: CGPoint(x: p.size / 2, y: 0))
+                                    path.addQuadCurve(to: CGPoint(x: p.size, y: p.size / 2), control: CGPoint(x: p.size, y: 0))
+                                    path.addQuadCurve(to: CGPoint(x: p.size / 2, y: p.size), control: CGPoint(x: p.size, y: p.size))
+                                    path.addQuadCurve(to: CGPoint(x: 0, y: p.size / 2), control: CGPoint(x: 0, y: p.size))
+                                    path.addQuadCurve(to: CGPoint(x: p.size / 2, y: 0), control: CGPoint(x: 0, y: 0))
+                                }
+                                .fill(p.color.opacity(p.opacity))
+                                .frame(width: p.size, height: p.size)
+                                .rotationEffect(.degrees(p.rotation))
+                                
+                            case .demonicMist:
+                                // 천마신교 / 마교: 솟구쳐 오르는 암흑 자색 마기
+                                Circle()
+                                    .fill(p.color.opacity(p.opacity))
+                                    .frame(width: p.size * 1.5, height: p.size * 1.5)
+                                    .blur(radius: p.size * 0.3)
+                                
+                            case .fireSparks:
+                                // 녹림채: 거친 활화산 또는 야영지의 오렌지빛 불티 불씨
+                                Circle()
+                                    .fill(p.color.opacity(p.opacity))
+                                    .frame(width: p.size, height: p.size)
+                                    .shadow(color: p.color.opacity(0.8), radius: 2)
+                                
+                            case .bambooLeaves:
+                                // 개방: 휘날려 떨어지는 대나무 잎사귀
+                                Ellipse()
+                                    .fill(p.color.opacity(p.opacity))
+                                    .frame(width: p.size * 0.4, height: p.size * 1.8)
+                                    .rotationEffect(.degrees(p.rotation))
+                                
+                            case .lightning:
+                                // 청성파: 찌릿하고 신속하게 폭발하는 전격 뇌전 스파크
+                                Rectangle()
+                                    .fill(p.color.opacity(p.opacity))
+                                    .frame(width: p.size * 0.2, height: p.size * 1.8)
+                                    .rotationEffect(.degrees(p.rotation))
+                                
+                            case .hermitFog:
+                                // 무명의 오두막: 유유히 평화롭게 흐르는 안개 구름
+                                Circle()
+                                    .fill(p.color.opacity(p.opacity))
+                                    .frame(width: p.size * 3.5, height: p.size * 1.8)
+                                    .blur(radius: p.size * 0.6)
+                                
+                            case .swordQi:
+                                // 무림맹: 비처럼 내리꽂히는 날카로운 청색 검기 기운
+                                Capsule()
+                                    .fill(p.color.opacity(p.opacity))
+                                    .frame(width: 1.5, height: p.size * 2.8)
+                                    .shadow(color: p.color.opacity(0.6), radius: 2)
+                            }
+                        }
+                        .position(x: p.x * w, y: p.y * h)
                     }
                 }
             }
@@ -1665,6 +1753,12 @@ extension CaveMapView {
             particleTimer?.invalidate()
             particleTimer = nil
         }
+        .onChange(of: activeMapIndex) { _ in
+            setupJingiParticles()
+        }
+        .onChange(of: isPastEra) { _ in
+            setupJingiParticles()
+        }
     }
     
     // ── 비경 잠금 해제 검증 ──
@@ -1814,17 +1908,93 @@ extension CaveMapView {
         }
     }
     
+    // ── 각 구역별 특색 맞춤형 이팩트 매핑 ──
+    private func getEffectType(for regionName: String) -> ParticleEffectType {
+        switch regionName {
+        case "화산파 (華山派)", "화산파 비경 (화산귀환)":
+            return .plumBlossom
+        case "무당파 (武당파)", "무당파 (武當派)", "무당파 비경 (태극동천)":
+            return .yinYang
+        case "천마신교 (天魔神敎)", "마교 백화전 (나노마신)":
+            return .demonicMist
+        case "녹림채 (綠林寨)":
+            return .fireSparks
+        case "개방 지부 (괴력난신)":
+            return .bambooLeaves
+        case "청성파 (靑城派)":
+            return .lightning
+        case "무명의 오두막":
+            return .hermitFog
+        case "무림맹 (武림맹)", "무림맹 (武林盟)":
+            return .swordQi
+        default:
+            return .jingi
+        }
+    }
+
     // ── 진기 파티클 시뮬레이터 ──
     private func setupJingiParticles() {
+        let region = activeRegion
+        let type = getEffectType(for: region.name)
+        
         var particles: [JingiParticle] = []
-        for _ in 0..<35 {
+        let count = (type == .hermitFog) ? 15 : 35
+        
+        for _ in 0..<count {
+            var color: Color = .yellow
+            var speed: CGFloat = 0.003
+            var size: CGFloat = 4.0
+            
+            switch type {
+            case .jingi:
+                color = CaveTheme.gold
+                speed = CGFloat.random(in: 0.003...0.009)
+                size = CGFloat.random(in: 3...7)
+            case .yinYang:
+                color = Bool.random() ? .white : Color(white: 0.25)
+                speed = CGFloat.random(in: 0.002...0.005)
+                size = CGFloat.random(in: 8...15)
+            case .plumBlossom:
+                color = Color(red: 1.0, green: 0.45, blue: 0.65)
+                speed = CGFloat.random(in: 0.004...0.010)
+                size = CGFloat.random(in: 6...12)
+            case .demonicMist:
+                color = Bool.random() ? Color(red: 0.6, green: 0.1, blue: 0.8) : Color(red: 0.3, green: 0.0, blue: 0.5)
+                speed = CGFloat.random(in: 0.005...0.012)
+                size = CGFloat.random(in: 5...9)
+            case .fireSparks:
+                color = Bool.random() ? Color(red: 1.0, green: 0.4, blue: 0.1) : Color(red: 1.0, green: 0.2, blue: 0.0)
+                speed = CGFloat.random(in: 0.004...0.010)
+                size = CGFloat.random(in: 3...6)
+            case .bambooLeaves:
+                color = Color(red: 0.15, green: 0.55, blue: 0.2)
+                speed = CGFloat.random(in: 0.003...0.007)
+                size = CGFloat.random(in: 8...14)
+            case .lightning:
+                color = Color(red: 0.2, green: 0.85, blue: 1.0)
+                speed = CGFloat.random(in: 0.008...0.02)
+                size = CGFloat.random(in: 4...8)
+            case .hermitFog:
+                color = Color(white: 0.9)
+                speed = CGFloat.random(in: 0.001...0.003)
+                size = CGFloat.random(in: 40...70)
+            case .swordQi:
+                color = Bool.random() ? Color(red: 0.8, green: 0.95, blue: 1.0) : CaveTheme.gold
+                speed = CGFloat.random(in: 0.012...0.025)
+                size = CGFloat.random(in: 5...12)
+            }
+            
             particles.append(
                 JingiParticle(
                     x: CGFloat.random(in: 0...1),
-                    y: CGFloat.random(in: 0.1...0.9),
-                    size: CGFloat.random(in: 3...7),
-                    opacity: Double.random(in: 0.2...0.7),
-                    speed: CGFloat.random(in: 0.003...0.009)
+                    y: CGFloat.random(in: 0.0...1.0),
+                    size: size,
+                    opacity: Double.random(in: 0.2...0.75),
+                    speed: speed,
+                    rotation: Double.random(in: 0...360),
+                    drift: CGFloat.random(in: -0.003...0.003),
+                    color: color,
+                    effectType: type
                 )
             )
         }
@@ -1836,14 +2006,84 @@ extension CaveMapView {
             Task { @MainActor in
                 guard !isShowingWorldMap else { return }
                 for i in 0..<jingiParticles.count {
-                    // 천천히 위로 상승하는 흐름
-                    jingiParticles[i].y -= jingiParticles[i].speed
-                    jingiParticles[i].x += CGFloat.random(in: -0.005...0.005)
+                    let type = jingiParticles[i].effectType
                     
-                    // 경계 이탈 시 리셋
-                    if jingiParticles[i].y < 0 {
-                        jingiParticles[i].y = CGFloat.random(in: 0.95...1.0)
-                        jingiParticles[i].x = CGFloat.random(in: 0...1)
+                    switch type {
+                    case .jingi:
+                        jingiParticles[i].y -= jingiParticles[i].speed
+                        jingiParticles[i].x += CGFloat.random(in: -0.004...0.004)
+                        if jingiParticles[i].y < 0 {
+                            jingiParticles[i].y = CGFloat.random(in: 0.95...1.0)
+                            jingiParticles[i].x = CGFloat.random(in: 0...1)
+                        }
+                        
+                    case .yinYang:
+                        jingiParticles[i].y -= jingiParticles[i].speed
+                        jingiParticles[i].x += sin(jingiParticles[i].y * 8.0 + CGFloat(i)) * 0.005
+                        if jingiParticles[i].y < 0 {
+                            jingiParticles[i].y = CGFloat.random(in: 0.95...1.0)
+                            jingiParticles[i].x = CGFloat.random(in: 0...1)
+                        }
+                        
+                    case .plumBlossom:
+                        jingiParticles[i].y += jingiParticles[i].speed
+                        jingiParticles[i].x += cos(jingiParticles[i].y * 6.0 + CGFloat(i)) * 0.006
+                        jingiParticles[i].rotation += 1.8
+                        if jingiParticles[i].y > 1.0 {
+                            jingiParticles[i].y = CGFloat.random(in: 0.0...0.05)
+                            jingiParticles[i].x = CGFloat.random(in: 0...1)
+                        }
+                        
+                    case .demonicMist:
+                        jingiParticles[i].y -= jingiParticles[i].speed
+                        jingiParticles[i].x += CGFloat.random(in: -0.008...0.008)
+                        jingiParticles[i].opacity = Double.random(in: 0.15...0.7)
+                        if jingiParticles[i].y < 0 {
+                            jingiParticles[i].y = CGFloat.random(in: 0.95...1.0)
+                            jingiParticles[i].x = CGFloat.random(in: 0.1...0.9)
+                        }
+                        
+                    case .fireSparks:
+                        jingiParticles[i].y -= jingiParticles[i].speed * 1.2
+                        jingiParticles[i].x += jingiParticles[i].drift
+                        jingiParticles[i].opacity -= 0.008
+                        if jingiParticles[i].opacity <= 0 || jingiParticles[i].y < 0 {
+                            jingiParticles[i].y = CGFloat.random(in: 0.95...1.0)
+                            jingiParticles[i].x = CGFloat.random(in: 0...1)
+                            jingiParticles[i].opacity = Double.random(in: 0.5...0.85)
+                        }
+                        
+                    case .bambooLeaves:
+                        jingiParticles[i].y += jingiParticles[i].speed
+                        jingiParticles[i].x += sin(jingiParticles[i].y * 4.0 + CGFloat(i)) * 0.008
+                        jingiParticles[i].rotation += 1.2
+                        if jingiParticles[i].y > 1.0 {
+                            jingiParticles[i].y = CGFloat.random(in: 0.0...0.05)
+                            jingiParticles[i].x = CGFloat.random(in: 0...1)
+                        }
+                        
+                    case .lightning:
+                        jingiParticles[i].rotation += 15
+                        if Double.random(in: 0...1) > 0.85 {
+                            jingiParticles[i].x = CGFloat.random(in: 0.05...0.95)
+                            jingiParticles[i].y = CGFloat.random(in: 0.05...0.95)
+                            jingiParticles[i].opacity = Double.random(in: 0.4...0.9)
+                        }
+                        
+                    case .hermitFog:
+                        jingiParticles[i].x += jingiParticles[i].speed
+                        jingiParticles[i].y += sin(jingiParticles[i].x * 5.0 + CGFloat(i)) * 0.001
+                        if jingiParticles[i].x > 1.2 {
+                            jingiParticles[i].x = -0.2
+                            jingiParticles[i].y = CGFloat.random(in: 0.2...0.8)
+                        }
+                        
+                    case .swordQi:
+                        jingiParticles[i].y += jingiParticles[i].speed
+                        if jingiParticles[i].y > 1.0 {
+                            jingiParticles[i].y = CGFloat.random(in: 0.0...0.05)
+                            jingiParticles[i].x = CGFloat.random(in: 0...1)
+                        }
                     }
                 }
             }

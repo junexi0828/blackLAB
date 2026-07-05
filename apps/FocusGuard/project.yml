@@ -110,6 +110,12 @@ targets:
       - path: FocusGuard/past_wulin_npc_maehwagemsu.png
       - path: FocusGuard/wulin_shaolin_secret_alt.jpg
       - path: FocusGuard/past_wulin_hermit_hut_1783209600000.jpg
+      - path: FocusGuard/wulin_beast_imugi.png
+      - path: FocusGuard/wulin_beast_qilin.png
+      - path: FocusGuard/wulin_beast_daebung.png
+      - path: FocusGuard/wulin_beast_yonggui.png
+      - path: FocusGuard/wulin_beast_dragon.png
+      - path: FocusGuard/wulin_beast_white_tiger.png
     entitlements:
       path: FocusGuard/FocusGuard.entitlements
       properties:

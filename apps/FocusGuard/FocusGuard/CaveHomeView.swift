@@ -6,6 +6,20 @@ struct CaveHomeView: View {
     @State private var isPulsing = false
     @State private var rotationAngle: Double = 0.0
     @State private var isShowingTierGuide = false
+    @State private var isShowingBeastScroll = false
+    @State private var homeParticles: [HomeParticle] = []
+    @State private var homeTimer: Timer? = nil
+    
+    struct HomeParticle: Identifiable {
+        let id = UUID()
+        var x: CGFloat
+        var y: CGFloat
+        var size: CGFloat
+        var opacity: Double
+        var speed: CGFloat
+        var rotation: Double = 0.0
+        var color: Color = .yellow
+    }
 
     private var isTesting: Bool {
         NSClassFromString("XCTest") != nil
@@ -14,6 +28,39 @@ struct CaveHomeView: View {
     var body: some View {
         ZStack {
             caveBackground
+            
+            // 영물별 전용 로컬 이팩트 오버레이
+            GeometryReader { geo in
+                let w = geo.size.width
+                let h = geo.size.height
+                ZStack {
+                    ForEach(homeParticles) { p in
+                        Group {
+                            if store.selectedBeast == "imugi" {
+                                Rectangle()
+                                    .fill(p.color.opacity(p.opacity))
+                                    .frame(width: p.size * 0.2, height: p.size * 1.5)
+                            } else if store.selectedBeast == "daebung" {
+                                Capsule()
+                                    .fill(p.color.opacity(p.opacity))
+                                    .frame(width: 1.5, height: p.size * 2)
+                            } else if store.selectedBeast == "white_tiger" {
+                                Circle()
+                                    .fill(p.color.opacity(p.opacity))
+                                    .frame(width: p.size * 1.8, height: p.size * 0.9)
+                                    .blur(radius: p.size * 0.4)
+                            } else {
+                                Circle()
+                                    .fill(p.color.opacity(p.opacity))
+                                    .frame(width: p.size, height: p.size)
+                                    .blur(radius: 0.3)
+                            }
+                        }
+                        .position(x: p.x * w, y: p.y * h)
+                    }
+                }
+            }
+            .ignoresSafeArea()
 
             ScrollView {
                 VStack(spacing: 24) {
@@ -22,6 +69,8 @@ struct CaveHomeView: View {
                     if guardManager.isMockCameraEnabled {
                         focusGuardStatusBlock
                     }
+                    
+                    spiritBeastCinematicBanner
                     
                     giantBeastCanvas
                     giantTimerView
@@ -39,6 +88,25 @@ struct CaveHomeView: View {
         }
         .sheet(isPresented: $isShowingTierGuide) {
             ZenTierGuideView()
+        }
+        .sheet(isPresented: $isShowingBeastScroll) {
+            WulinBeastScrollView(store: store)
+        }
+        .onAppear {
+            setupHomeParticles()
+            startHomeParticles()
+        }
+        .onDisappear {
+            homeTimer?.invalidate()
+            homeTimer = nil
+        }
+        .onChange(of: store.selectedBeast) { _ in
+            setupHomeParticles()
+            startHomeParticles()
+        }
+        .onChange(of: store.isRunning) { _ in
+            setupHomeParticles()
+            startHomeParticles()
         }
     }
 
@@ -650,6 +718,472 @@ struct ZenTierGuideView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
+            }
+        }
+    }
+}
+
+
+// MARK: - 고대 영물 데이터 구조체 및 모델 정의
+struct WulinBeast: Identifiable {
+    let id: String
+    let name: String
+    let imageName: String
+    let description: String
+    let buffTitle: String
+    let buffDesc: String
+    let color: Color
+    let particlesType: String
+}
+
+let wulinBeasts = [
+    WulinBeast(
+        id: "imugi",
+        name: "이무기 (Imugi)",
+        imageName: "wulin_beast_imugi",
+        description: "심연에서 솟아오르는 검은 흑뢰를 품은 가장 강력하고 위압적인 영물입니다.",
+        buffTitle: "흑뢰의 기운",
+        buffDesc: "집중 성공 시 공력(진기) 획득량 20% 증가",
+        color: Color(red: 0.2, green: 0.85, blue: 1.0),
+        particlesType: "뇌전"
+    ),
+    WulinBeast(
+        id: "dragon",
+        name: "영룡 (Dragon)",
+        imageName: "wulin_beast_dragon",
+        description: "황금빛 구름 사이를 누비며 하늘을 다스리는 신성하고 고귀한 수호룡입니다.",
+        buffTitle: "천룡의 가호",
+        buffDesc: "집중 취소 시 소진되는 공력 패널티 50% 방어",
+        color: CaveTheme.gold,
+        particlesType: "황금진기"
+    ),
+    WulinBeast(
+        id: "qilin",
+        name: "화기린 (Fire Qilin)",
+        imageName: "wulin_beast_qilin",
+        description: "타오르는 불길에 휩싸인 붉은 영물로, 파괴적이면서도 영적인 화염의 힘을 상징합니다.",
+        buffTitle: "화기린의 투지",
+        buffDesc: "정진 타이머 마감 후 추가 시간(Overtime) 집중 시 공력 2배 획득",
+        color: Color(red: 1.0, green: 0.3, blue: 0.1),
+        particlesType: "불꽃"
+    ),
+    WulinBeast(
+        id: "daebung",
+        name: "대붕 (Giant Bird)",
+        imageName: "wulin_beast_daebung",
+        description: "북해의 혹한 속에서 얼음 깃털을 휘날리며 절대적인 빙결의 기운을 뿜어내는 거대 새입니다.",
+        buffTitle: "만년빙극안",
+        buffDesc: "집중 방해 감지 경고 발생 시 공력 차감 차단 1회 방어",
+        color: Color(red: 0.6, green: 0.9, blue: 1.0),
+        particlesType: "빙결"
+    ),
+    WulinBeast(
+        id: "yonggui",
+        name: "용귀 (Dragon Turtle)",
+        imageName: "wulin_beast_yonggui",
+        description: "뇌전과 파도를 다스리며 고대 룬이 새겨진 등껍질을 가진 거대 영물입니다.",
+        buffTitle: "고대 영구의 지혜",
+        buffDesc: "영물 소환 상태에서 영약 구매 시 가격 15% 영구 할인",
+        color: Color(red: 0.1, green: 0.7, blue: 0.5),
+        particlesType: "고대파도"
+    ),
+    WulinBeast(
+        id: "white_tiger",
+        name: "백호 (White Tiger)",
+        imageName: "wulin_beast_white_tiger",
+        description: "폭풍과 바람의 기운을 다스리며 푸른 안광을 띠는 하얀 호랑이 수호신입니다.",
+        buffTitle: "백호의 포효",
+        buffDesc: "비무(sparring) 진행 시 성공 확률 10% 추가 보정",
+        color: Color(red: 0.9, green: 0.9, blue: 0.95),
+        particlesType: "폭풍우"
+    )
+]
+
+// MARK: - 영물보감 (Summoning Scroll) 뷰 정의
+struct WulinBeastScrollView: View {
+    @ObservedObject var store: StudySessionStore
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            
+            LinearGradient(
+                colors: [Color(red: 0.15, green: 0.12, blue: 0.1), Color(white: 0.05)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // 헤더 영역
+                HStack {
+                    Text("靈物寶鑑 (영물보감)")
+                        .font(.system(size: 24, weight: .black, design: .serif))
+                        .foregroundStyle(CaveTheme.gold)
+                    Spacer()
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                }
+                .padding()
+                .background(Color.white.opacity(0.02))
+                
+                ScrollView {
+                    VStack(spacing: 24) {
+                        Text("수련에 동반할 전설 속의 영물을 소환하시오. 영물의 특성에 따라 진기가 공명하여 고유의 버프 혜택을 선사하리라.")
+                            .font(.system(size: 13, weight: .medium, design: .serif))
+                            .foregroundStyle(.white.opacity(0.55))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                        
+                        ForEach(wulinBeasts) { beast in
+                            VStack(spacing: 0) {
+                                // 16:9 와이드 시네마틱 프레임
+                                ZStack(alignment: .bottomLeading) {
+                                    Image(beast.imageName)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                        .frame(height: 180)
+                                        .clipped()
+                                    
+                                    LinearGradient(
+                                        colors: [.clear, .black.opacity(0.85)],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(beast.buffTitle)
+                                            .font(.system(size: 11, weight: .bold, design: .serif))
+                                            .foregroundStyle(.black)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 3)
+                                            .background(beast.color)
+                                            .clipShape(Capsule())
+                                        
+                                        Text(beast.name)
+                                            .font(.system(size: 18, weight: .black, design: .serif))
+                                            .foregroundStyle(.white)
+                                    }
+                                    .padding(14)
+                                }
+                                .frame(height: 180)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 0)
+                                        .strokeBorder(CaveTheme.gold.opacity(0.35), lineWidth: 1.5)
+                                )
+                                
+                                // 정보 및 수련 선택
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text(beast.description)
+                                        .font(.system(size: 13, weight: .medium, design: .serif))
+                                        .foregroundStyle(.white.opacity(0.75))
+                                        .lineSpacing(4)
+                                    
+                                    Divider()
+                                        .background(Color.white.opacity(0.08))
+                                    
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("진기 공명 혜택")
+                                                .font(.system(size: 11, weight: .bold, design: .serif))
+                                                .foregroundStyle(CaveTheme.gold)
+                                            Text(beast.buffDesc)
+                                                .font(.system(size: 12, weight: .bold, design: .serif))
+                                                .foregroundStyle(.white)
+                                                .fixedSize(horizontal: false, vertical: true)
+                                        }
+                                        Spacer(minLength: 16)
+                                        
+                                        let isSelected = store.selectedBeast == beast.id
+                                        
+                                        Button {
+                                            store.selectedBeast = isSelected ? "없음" : beast.id
+                                            dismiss()
+                                        } label: {
+                                            Text(isSelected ? "소환 해제" : "소환하기")
+                                                .font(.system(size: 13, weight: .bold, design: .serif))
+                                                .foregroundStyle(isSelected ? .white : .black)
+                                                .padding(.horizontal, 16)
+                                                .padding(.vertical, 8)
+                                                .background(isSelected ? Color.white.opacity(0.12) : CaveTheme.gold)
+                                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                                        .strokeBorder(isSelected ? CaveTheme.gold.opacity(0.5) : Color.clear, lineWidth: 1)
+                                                )
+                                        }
+                                    }
+                                }
+                                .padding(16)
+                                .background(CaveTheme.panel.opacity(0.9))
+                            }
+                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .strokeBorder(CaveTheme.gold.opacity(0.24), lineWidth: 1)
+                            )
+                            .shadow(color: .black.opacity(0.4), radius: 8, y: 4)
+                            .padding(.horizontal)
+                        }
+                    }
+                    .padding(.vertical)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - 영물 소환 로직 및 파티클 연동 익스텐션
+extension CaveHomeView {
+    
+    // 영물 소환 배너 및 시네마틱 카드
+    var spiritBeastCinematicBanner: some View {
+        let currentBeastId = store.selectedBeast
+        let beast = wulinBeasts.first(where: { $0.id == currentBeastId })
+        
+        return VStack(spacing: 12) {
+            if let beast = beast {
+                VStack(spacing: 0) {
+                    ZStack(alignment: .bottomLeading) {
+                        Image(beast.imageName)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(height: 180)
+                            .clipped()
+                        
+                        LinearGradient(
+                            colors: [.clear, .black.opacity(0.8)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        
+                        RadialGradient(
+                            colors: [beast.color.opacity(0.35), .clear],
+                            center: .center,
+                            startRadius: 20,
+                            endRadius: 150
+                        )
+                        .blendMode(.screen)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "sparkles")
+                                    .font(.caption)
+                                    .foregroundStyle(.black)
+                                Text("소환 완료 (召喚)")
+                                    .font(.system(size: 10, weight: .bold, design: .serif))
+                                    .foregroundStyle(.black)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(beast.color)
+                            .clipShape(Capsule())
+                            
+                            Text(beast.name)
+                                .font(.system(size: 20, weight: .black, design: .serif))
+                                .foregroundStyle(.white)
+                                .shadow(color: .black, radius: 4)
+                        }
+                        .padding(14)
+                    }
+                    .frame(height: 180)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 0)
+                            .strokeBorder(CaveTheme.gold.opacity(0.4), lineWidth: 1.5)
+                    )
+                    
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("공명 영능 버프")
+                                .font(.system(size: 11, weight: .bold, design: .serif))
+                                .foregroundStyle(CaveTheme.gold)
+                            Text(beast.buffDesc)
+                                .font(.system(size: 12, weight: .bold, design: .serif))
+                                .foregroundStyle(.white)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 12)
+                        
+                        Button {
+                            isShowingBeastScroll = true
+                        } label: {
+                            Text("영물 변경")
+                                .font(.system(size: 12, weight: .bold, design: .serif))
+                                .foregroundStyle(.black)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(CaveTheme.gold)
+                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(CaveTheme.panel.opacity(0.92))
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .strokeBorder(CaveTheme.gold.opacity(0.24), lineWidth: 1)
+                )
+                .shadow(color: beast.color.opacity(0.15), radius: 10)
+            } else {
+                Button {
+                    isShowingBeastScroll = true
+                } label: {
+                    HStack(spacing: 16) {
+                        ZStack {
+                            Circle()
+                                .fill(CaveTheme.gold.opacity(0.08))
+                                .frame(width: 50, height: 50)
+                                .overlay(
+                                    Circle()
+                                        .strokeBorder(CaveTheme.gold.opacity(0.25), lineWidth: 1)
+                                )
+                            
+                            Image(systemName: "sparkles")
+                                .font(.title3)
+                                .foregroundStyle(CaveTheme.gold)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("동반 영물 소환 (靈物召喚)")
+                                .font(.system(size: 16, weight: .bold, design: .serif))
+                                .foregroundStyle(CaveTheme.gold)
+                            
+                            Text("전설 속의 수호 영물을 수련에 동반시키시오.")
+                                .font(.system(size: 12, weight: .medium, design: .serif))
+                                .foregroundStyle(.white.opacity(0.5))
+                        }
+                        
+                        Spacer()
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(CaveTheme.gold.opacity(0.7))
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(CaveTheme.panel.opacity(0.85))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .strokeBorder(CaveTheme.gold.opacity(0.24), lineWidth: 1)
+                    )
+                }
+            }
+        }
+    }
+    
+    // 영물별 전용 로컬 이팩트 오버레이 초기화
+    func setupHomeParticles() {
+        let beastId = store.selectedBeast
+        guard beastId != "없음" else {
+            homeParticles = []
+            return
+        }
+        
+        var particles: [HomeParticle] = []
+        let color: Color
+        let speedRange: ClosedRange<CGFloat>
+        let sizeRange: ClosedRange<CGFloat>
+        
+        switch beastId {
+        case "imugi":
+            color = Color(red: 0.2, green: 0.85, blue: 1.0)
+            speedRange = 0.008...0.02
+            sizeRange = 3...7
+        case "qilin":
+            color = Bool.random() ? Color(red: 1.0, green: 0.4, blue: 0.1) : Color(red: 1.0, green: 0.2, blue: 0.0)
+            speedRange = 0.004...0.010
+            sizeRange = 4...8
+        case "daebung":
+            color = Color(red: 0.8, green: 0.95, blue: 1.0)
+            speedRange = 0.006...0.012
+            sizeRange = 3...6
+        case "dragon":
+            color = CaveTheme.gold
+            speedRange = 0.002...0.006
+            sizeRange = 8...15
+        case "white_tiger":
+            color = Color(white: 0.85)
+            speedRange = 0.003...0.007
+            sizeRange = 25...45
+        case "yonggui":
+            color = Color(red: 0.15, green: 0.65, blue: 0.45)
+            speedRange = 0.005...0.011
+            sizeRange = 5...9
+        default:
+            color = CaveTheme.gold
+            speedRange = 0.003...0.009
+            sizeRange = 3...7
+        }
+        
+        for _ in 0..<30 {
+            particles.append(
+                HomeParticle(
+                    x: CGFloat.random(in: 0...1),
+                    y: CGFloat.random(in: 0.0...1.0),
+                    size: CGFloat.random(in: sizeRange),
+                    opacity: Double.random(in: 0.25...0.75),
+                    speed: CGFloat.random(in: speedRange),
+                    rotation: Double.random(in: 0...360),
+                    color: color
+                )
+            )
+        }
+        homeParticles = particles
+    }
+    
+    // 영물별 전용 로컬 이팩트 오버레이 애니메이션 가동
+    func startHomeParticles() {
+        homeTimer?.invalidate()
+        homeTimer = Timer.scheduledTimer(withTimeInterval: 0.04, repeats: true) { _ in
+            Task { @MainActor in
+                guard store.isRunning && store.selectedBeast != "없음" else { return }
+                let beastId = store.selectedBeast
+                
+                for i in 0..<homeParticles.count {
+                    if i < homeParticles.count {
+                        switch beastId {
+                        case "daebung":
+                            homeParticles[i].y += homeParticles[i].speed
+                            homeParticles[i].x += sin(homeParticles[i].y * 4.0) * 0.003
+                            homeParticles[i].rotation += 1.0
+                            if homeParticles[i].y > 1.0 {
+                                homeParticles[i].y = 0.0
+                                homeParticles[i].x = CGFloat.random(in: 0...1)
+                            }
+                        case "imugi":
+                            if Double.random(in: 0...1) > 0.88 {
+                                homeParticles[i].x = CGFloat.random(in: 0.05...0.95)
+                                homeParticles[i].y = CGFloat.random(in: 0.05...0.95)
+                                homeParticles[i].opacity = Double.random(in: 0.3...0.85)
+                            }
+                        case "white_tiger":
+                            homeParticles[i].x += homeParticles[i].speed * 1.5
+                            homeParticles[i].y += sin(homeParticles[i].x * 6.0) * 0.001
+                            if homeParticles[i].x > 1.2 {
+                                homeParticles[i].x = -0.2
+                                homeParticles[i].y = CGFloat.random(in: 0.1...0.9)
+                            }
+                        default:
+                            homeParticles[i].y -= homeParticles[i].speed
+                            homeParticles[i].x += CGFloat.random(in: -0.004...0.004)
+                            if homeParticles[i].y < 0 {
+                                homeParticles[i].y = 1.0
+                                homeParticles[i].x = CGFloat.random(in: 0...1)
+                            }
+                        }
+                    }
+                }
             }
         }
     }

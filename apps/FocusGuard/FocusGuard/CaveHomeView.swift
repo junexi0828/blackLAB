@@ -36,92 +36,82 @@ struct CaveHomeView: View {
             
             // ── 영물 전체 화면 몰입형 시네마틱 세로 꽉 찬 화면 (Immersive Beast Full Portrait Mode) ──
             if isImmersiveActive, let beast = activeBeast {
-                ZStack {
-                    // 영물 풀 세로 이미지 꽉 차게 렌더링
-                    WulinImageView(filename: "\(beast.imageName).png", contentMode: .fill)
-                        .scaleEffect(1.05)
-                        .ignoresSafeArea()
-                        .transition(.opacity)
+                GeometryReader { geo in
+                    let screenHeight = geo.size.height
+                    let screenWidth = geo.size.width
                     
-                    // 시네마틱 어두운 비네팅 틴트
-                    Color.black.opacity(0.4)
-                        .ignoresSafeArea()
-                    
-                    LinearGradient(
-                        colors: [.black.opacity(0.7), .clear, .black.opacity(0.85)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .ignoresSafeArea()
-                    
-                    // 동양적 진기 광원 오버레이
-                    RadialGradient(
-                        colors: [beast.color.opacity(0.4), .clear],
-                        center: .center,
-                        startRadius: 10,
-                        endRadius: 280
-                    )
-                    .ignoresSafeArea()
-                    .blendMode(.screen)
-                    
-                    // 세로 꽉 찬 화면 전용 UI 요소들 (오직 대형 타이머와 영물의 위엄 서린 훈계 한마디만 노출!)
-                    VStack(spacing: 24) {
-                        Spacer()
-                        
-                        // 1. 대형 영물 공명 뱃지
-                        HStack(spacing: 6) {
-                            Image(systemName: "scroll.fill")
-                                .font(.system(size: 14))
-                                .foregroundStyle(.black)
-                            Text(beast.name)
-                                .font(.system(size: 13, weight: .bold, design: .serif))
-                                .foregroundStyle(.black)
+                    ZStack {
+                        // 가로 16:9 영물이 세로 모드 화면에서 잘리지 않도록, 월드맵처럼 가로/세로 스크롤(드래그) 지원!
+                        ScrollView([.horizontal, .vertical], showsIndicators: false) {
+                            WulinImageView(filename: "\(beast.imageName).png", contentMode: .fit)
+                                .frame(height: screenHeight) // 세로 길이를 화면 높이에 맞춤
+                                .frame(minWidth: screenWidth) // 가로가 좁아도 최소 화면 폭 이상 보장
                         }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 6)
-                        .background(beast.color)
-                        .clipShape(Capsule())
-                        .shadow(color: beast.color.opacity(0.5), radius: 8)
+                        .ignoresSafeArea()
                         
-                        Spacer()
+                        // 시네마틱 어두운 비네팅 틴트
+                        Color.black.opacity(0.35)
+                            .ignoresSafeArea()
                         
-                        // 2. 초대형 타이머 렌더링
-                        Text(store.currentSessionText)
-                            .font(.system(size: 96, weight: .black, design: .rounded))
-                            .monospacedDigit()
-                            .foregroundStyle(.white)
-                            .shadow(color: beast.color.opacity(0.9), radius: 25)
-                            .padding(.vertical, 10)
+                        LinearGradient(
+                            colors: [.black.opacity(0.65), .clear, .black.opacity(0.85)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .ignoresSafeArea()
                         
-                        Spacer()
+                        // 동양적 진기 광원 오버레이
+                        RadialGradient(
+                            colors: [beast.color.opacity(0.35), .clear],
+                            center: .center,
+                            startRadius: 10,
+                            endRadius: 280
+                        )
+                        .ignoresSafeArea()
+                        .blendMode(.screen)
                         
-                        // 3. 영물이 공부를 강제하는 위엄 넘치는 전통 훈계 문장 한마디
-                        VStack(spacing: 12) {
-                            Image(systemName: "laurel.leading")
-                                .font(.title3)
-                                .foregroundStyle(CaveTheme.gold)
+                        // UI 요소: 복잡한 이름 태그나 설명은 완전히 배제하여 깔끔함과 고풍스러움을 극대화
+                        VStack(spacing: 24) {
+                            Spacer()
                             
-                            Text(getBeastStudyEnforceQuote(beastId: beast.id))
-                                .font(.system(size: 18, weight: .bold, design: .serif))
+                            // 1. 초대형 타이머 렌더링
+                            Text(store.currentSessionText)
+                                .font(.system(size: 96, weight: .black, design: .rounded))
+                                .monospacedDigit()
                                 .foregroundStyle(.white)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 24)
-                                .shadow(color: .black, radius: 8)
-                                .lineSpacing(6)
+                                .shadow(color: beast.color.opacity(0.9), radius: 25)
+                                .padding(.vertical, 10)
                             
-                            Image(systemName: "laurel.trailing")
-                                .font(.title3)
-                                .foregroundStyle(CaveTheme.gold)
+                            Spacer()
+                            
+                            // 2. 영물이 공부를 강제하는 위엄 넘치는 전통 훈계 문장 한마디
+                            VStack(spacing: 12) {
+                                Image(systemName: "laurel.leading")
+                                    .font(.title3)
+                                    .foregroundStyle(CaveTheme.gold)
+                                
+                                Text(getBeastStudyEnforceQuote(beastId: beast.id))
+                                    .font(.system(size: 18, weight: .bold, design: .serif))
+                                    .foregroundStyle(.white)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 24)
+                                    .shadow(color: .black, radius: 8)
+                                    .lineSpacing(6)
+                                
+                                Image(systemName: "laurel.trailing")
+                                    .font(.title3)
+                                    .foregroundStyle(CaveTheme.gold)
+                            }
+                            
+                            Spacer()
+                            
+                            Text("화면을 터치하면 단전을 닫고 수련 관리 영역으로 복귀합니다")
+                                .font(.system(size: 11, weight: .medium, design: .serif))
+                                .foregroundStyle(.white.opacity(0.4))
+                                .padding(.bottom, 24)
                         }
-                        
-                        Spacer()
-                        
-                        Text("화면을 터치하면 단전을 닫고 수련 관리 영역으로 복귀합니다")
-                            .font(.system(size: 11, weight: .medium, design: .serif))
-                            .foregroundStyle(.white.opacity(0.4))
-                            .padding(.bottom, 24)
+                        .padding(24)
                     }
-                    .padding(24)
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
@@ -131,7 +121,7 @@ struct CaveHomeView: View {
                 }
                 .transition(.opacity)
                 .ignoresSafeArea()
-                .zIndex(100) // 최상단 오버레이 (하단 탭 바, 수련실 지도 등 싹 다 덮어버림!)
+                .zIndex(100) // 최상단 오버레이 (하단 탭 바, 설정 등 싹 다 가림)
             }
             
             // 영물별 전용 로컬 이팩트 오버레이

@@ -160,26 +160,18 @@ struct CaveHomeView: View {
             .ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(spacing: 24) {
                     titleBlock
                     
                     if guardManager.isMockCameraEnabled {
                         focusGuardStatusBlock
                     }
                     
-                    if store.selectedBeast != "없음" {
-                        // 영물이 소환된 동안에는 거대 원형 캔버스와 기본 설명란을 완전히 숨기고,
-                        // 시네마틱 16:9 와이드 카드와 타이머를 조화롭게 배치하여 극적인 영물 뷰를 연출합니다.
-                        spiritBeastCinematicBanner
-                        
-                        giantTimerView
-                            .padding(.top, -10)
-                    } else {
-                        // 영물이 소환되지 않았을 때의 원래 기본 원형 레이아웃
-                        spiritBeastCinematicBanner
-                        
-                        giantBeastCanvas
-                        giantTimerView
+                    // 수련실 중앙의 원형 타이머 캔버스를 원래대로 상시 노출시킴 (건들지 않음!)
+                    giantBeastCanvas
+                    giantTimerView
+                    
+                    if store.selectedBeast == "없음" {
                         descriptionCard
                     }
                     
@@ -190,12 +182,12 @@ struct CaveHomeView: View {
                             }
                         } label: {
                             HStack {
-                                Image(systemName: "sparkles")
-                                Text("몰입형 영물 전체화면으로 복귀")
+                                Image(systemName: "scroll.fill")
+                                Text("靈物共鳴 幻影入境 (영물 전체 가로화면 복귀)")
                             }
                             .font(.system(size: 13, weight: .bold, design: .serif))
                             .foregroundStyle(.black)
-                            .padding(.vertical, 10)
+                            .padding(.vertical, 12)
                             .frame(maxWidth: .infinity)
                             .background(activeBeast?.color ?? CaveTheme.gold)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -205,6 +197,10 @@ struct CaveHomeView: View {
                     }
                     
                     controlBlock
+                    
+                    // 동반 영물 소환 비급 버튼을 수련 제어 패널(controlBlock) 아래로 재배치!
+                    spiritBeastCinematicBanner
+                    
                     statsRowBlock
                     recentLogBlock
                     
@@ -215,7 +211,7 @@ struct CaveHomeView: View {
                 .padding(20)
             }
         }
-        .sheet(isPresented: $isShowingTierGuide) {
+.sheet(isPresented: $isShowingTierGuide) {
             ZenTierGuideView()
         }
         .sheet(isPresented: $isShowingBeastScroll) {
@@ -269,97 +265,62 @@ struct CaveHomeView: View {
 
     private var titleBlock: some View {
         HStack(alignment: .center) {
-            VStack(spacing: 8) {
-                // 한자 현판 가로 테두리 디자인 (무협 감성 위엄 보강)
-                HStack(spacing: 8) {
-                    Image(systemName: "laurel.leading")
-                        .font(.title3)
-                        .foregroundStyle(CaveTheme.gold)
-                    
-                    Text("閉關修練")
-                        .font(.system(size: 18, weight: .bold, design: .serif))
-                        .foregroundStyle(CaveTheme.gold)
-                        .tracking(4)
-                    
-                    Image(systemName: "laurel.trailing")
-                        .font(.title3)
-                        .foregroundStyle(CaveTheme.gold)
-                }
-                
-                Text("폐관수련")
-                    .font(.system(size: 28, weight: .black, design: .serif))
+            VStack(alignment: .leading, spacing: 6) {
+                Text("폐관수련 (閉關修練)")
+                    .font(.system(size: 26, weight: .black, design: .serif))
                     .foregroundStyle(.white)
-                    .tracking(2)
-                    .shadow(color: CaveTheme.gold.opacity(0.35), radius: 6)
-                
-                // 실시간 수련 공력 (세션 가동 시에만 고풍스럽게 노출)
-                if store.isRunning || store.isPaused {
-                    Text("현재 수련 내공 : \(store.currentSessionOrientalText)")
-                        .font(.system(size: 13, weight: .black, design: .serif))
-                        .foregroundStyle(CaveTheme.ember)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(CaveTheme.ember.opacity(0.12))
-                                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(CaveTheme.ember.opacity(0.35), lineWidth: 1))
-                        )
-                }
                 
                 // 실시간 기류 흐름 나레이션
                 Text(OrientalTimeFormatter.getOrientalTimeNarrative())
-                    .font(.system(size: 11, weight: .medium, design: .serif))
-                    .foregroundStyle(.white.opacity(0.55))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 12)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .padding(.horizontal, 20)
-            .background(
-                ZStack {
-                    // 고풍스러운 흑색 현판 배경 질감
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(LinearGradient(
-                            colors: [Color(white: 0.12), Color(white: 0.05)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ))
-                    
-                    // 이중 황금 테두리
-                    RoundedRectangle(cornerRadius: 16)
-                        .strokeBorder(CaveTheme.gold.opacity(0.4), lineWidth: 1.5)
-                        .padding(3)
-                    RoundedRectangle(cornerRadius: 16)
-                        .strokeBorder(CaveTheme.gold.opacity(0.15), lineWidth: 1)
-                        .padding(6)
+                    .font(.system(size: 11, weight: .bold, design: .serif))
+                    .foregroundStyle(CaveTheme.gold.opacity(0.85))
+                    .lineLimit(2)
+                
+                // 실시간 수련 공력 (세션 가동 시에만 고풍스럽게 노출)
+                if store.isRunning || store.isPaused {
+                    Text("수련 공력 : \(store.currentSessionOrientalText)")
+                        .font(.system(size: 13, weight: .black, design: .serif))
+                        .foregroundStyle(CaveTheme.ember)
+                        .padding(.top, 2)
+                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
                 }
-            )
-            .shadow(color: .black.opacity(0.5), radius: 8, y: 4)
+            }
+            Spacer()
             
-            // 경지 뱃지는 우측 끝에 플로팅식 배치
+            // Dynamic Tier Badge (버튼식 팝업 호출)
             Button {
                 isShowingTierGuide = true
             } label: {
                 VStack(spacing: 4) {
                     Image(systemName: "flame.fill")
-                        .font(.system(size: 15))
+                        .font(.system(size: 16))
                         .foregroundStyle(CaveTheme.ember)
                     Text(store.userTierKoreanOnly)
-                        .font(.system(size: 10, weight: .bold, design: .serif))
+                        .font(.system(size: 11, weight: .bold, design: .serif))
                         .foregroundStyle(.white)
-                        .padding(.horizontal, 8)
+                        .padding(.horizontal, 10)
                         .padding(.vertical, 4)
                         .background(
                             Capsule()
-                                .fill(CaveTheme.gold.opacity(0.12))
-                                .overlay(Capsule().strokeBorder(CaveTheme.gold.opacity(0.25), lineWidth: 1))
+                                .fill(CaveTheme.gold.opacity(0.15))
+                                .overlay(
+                                    Capsule()
+                                        .strokeBorder(CaveTheme.gold.opacity(0.35), lineWidth: 1)
+                                )
                         )
                 }
             }
-            .padding(.leading, 8)
         }
-        .padding(.horizontal, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(CaveTheme.panel.opacity(0.88))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(CaveTheme.gold.opacity(0.24), lineWidth: 1)
+        )
     }
     
     private var giantBeastCanvas: some View {

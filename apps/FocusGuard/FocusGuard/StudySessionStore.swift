@@ -289,6 +289,11 @@ final class StudySessionStore: ObservableObject {
                     self.scheduleTicker()
                     // 포그라운드 복귀 시 수련이 진행 상태이면 자연스럽게 명상 음원 재생 재개
                     CaveSoundManager.shared.start(soundscape: self.selectedSoundscape)
+                    
+                    // 포그라운드 복귀 시점에 즉각 잠금화면 Live Activity 싱크 갱신
+                    if #available(iOS 16.1, *) {
+                        await self.updateLiveActivity()
+                    }
                 }
             }
         }
@@ -508,12 +513,14 @@ final class StudySessionStore: ObservableObject {
         // Subtract duration from cumulative totals to maintain database consistency
         totalStudySeconds = max(totalStudySeconds - entry.duration, 0)
         
-        let calendar = Calendar.current
-        if calendar.isDateInToday(entry.date) {
-            todayStudySeconds = max(todayStudySeconds - entry.duration, 0)
-        }
-        
         sessionLog.remove(at: index)
+        
+        // 오늘 날짜에 수련한 세션들의 합계를 정확하게 실시간 재계산하여 오늘 수련 시간 갱신
+        let calendar = Calendar.current
+        todayStudySeconds = sessionLog
+            .filter { calendar.isDateInToday($0.date) }
+            .reduce(0.0) { $0 + $1.duration }
+            
         persist()
     }
 
@@ -595,6 +602,13 @@ final class StudySessionStore: ObservableObject {
         
         // 수련 재개 시 남은 수련 시간에 맞춰 푸시 알림 재예약
         scheduleLocalNotification()
+        
+        // 수련 재개 즉시 잠금화면 Live Activity 오프셋 싱크 조절 갱신
+        if #available(iOS 16.1, *) {
+            Task { @MainActor in
+                await self.updateLiveActivity()
+            }
+        }
     }
 
     func stopSession() {
@@ -770,7 +784,7 @@ final class StudySessionStore: ObservableObject {
             return
         }
         
-        let startedAt = sessionStartedAt ?? Date()
+        let startedAt = (sessionStartedAt ?? Date()) - accumulatedTime
         let attributes = FocusStudyAttributes(title: FocusStudyLiveActivity.activityTitle)
         let state = FocusStudyAttributes.ContentState(
             sessionStartedAt: startedAt,
@@ -804,7 +818,7 @@ final class StudySessionStore: ObservableObject {
         let beastName = beastImages[index]
         
         let state = FocusStudyAttributes.ContentState(
-            sessionStartedAt: sessionStartedAt ?? Date(),
+            sessionStartedAt: (sessionStartedAt ?? Date()) - accumulatedTime,
             totalStudySeconds: tickingTotalSeconds,
             todayStudySeconds: tickingTodaySeconds,
             currentSessionSeconds: currentSessionSeconds,
@@ -892,6 +906,7 @@ final class StudySessionStore: ObservableObject {
         
         if lastClearedDateString != todayStr {
             clearedMapsToday = []
+            todayStudySeconds = 0 // 날짜 변경 시 오늘 수련 시간 깔끔히 0으로 리셋
             lastClearedDateString = todayStr
             persist()
         }
